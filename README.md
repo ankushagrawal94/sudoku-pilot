@@ -1,5 +1,7 @@
 # Sudoku Pilot
 
+[![License: PolyForm Noncommercial 1.0.0](.github/badges/polyform-noncommercial.svg)](LICENSE)
+
 **Practice logic, not repetition.**
 
 [Open Sudoku Pilot](https://sudokupilot.com)
