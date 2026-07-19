@@ -257,6 +257,18 @@ test("number pad grays out a digit after all nine are placed", async ({ page }) 
   await expect(three).toHaveCSS("color", "rgb(154, 164, 175)");
 });
 
+test("note mode allows mistaken pencil notes", async ({ page }) => {
+  await page.goto("/");
+  await importGrid(page);
+
+  await page.getByTestId("cell-2").click();
+  await page.getByRole("switch", { name: "Notes", exact: true }).click();
+  await page.locator("[data-digit='5']").click();
+
+  await expect(page.getByTestId("cell-2").locator(".value")).toHaveCount(0);
+  await expect(page.getByTestId("cell-2").locator(".notes .on")).toContainText("5");
+});
+
 test("notes switch changes number entry between notes and values", async ({ page }) => {
   await page.goto("/");
   await importGrid(page);

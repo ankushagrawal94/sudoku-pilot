@@ -1008,7 +1008,7 @@ function enterDigit(digit) {
     if (state.puzzle.values[state.selected]) return;
     const notes = state.puzzle.notes[state.selected];
     if (notes.has(digit)) notes.delete(digit);
-    else if (legalCandidates(state.puzzle.values, state.selected).has(digit)) notes.add(digit);
+    else notes.add(digit);
   } else {
     state.puzzle.values[state.selected] = digit;
     state.puzzle.notes[state.selected].clear();
