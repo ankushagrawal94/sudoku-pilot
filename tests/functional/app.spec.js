@@ -3,6 +3,7 @@ import { ratePuzzle } from "../../src/difficulty.js";
 import { TECHNIQUE_LEVELS } from "../../src/puzzles.js";
 
 const KNOWN_GRID = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+const NEARLY_SOLVED_GRID = "534678912672195348198342567859761423426853791713924856961537284287419635345286170";
 
 async function importGrid(page, grid = KNOWN_GRID) {
   await openMore(page);
@@ -99,6 +100,29 @@ test("new puzzle generates a different board", async ({ page }) => {
   expect(after).not.toEqual(before);
 });
 
+test("finishing a puzzle opens a whimsical celebration with durable stats", async ({ page }) => {
+  await page.goto("/");
+  await importGrid(page, NEARLY_SOLVED_GRID);
+
+  await page.getByTestId("cell-80").click();
+  await page.locator("[data-digit='9']").click();
+
+  const celebration = page.getByTestId("completion-celebration");
+  await expect(celebration).toBeVisible();
+  await expect(celebration.getByRole("heading", { name: "Puzzle complete!" })).toBeVisible();
+  await expect(celebration.getByTestId("completion-time")).toContainText(/\d+:\d{2}/);
+  await expect(celebration.getByTestId("completion-moves")).toContainText("1");
+  await expect(celebration.getByTestId("completion-total")).toContainText("1");
+  await expect(celebration.getByTestId("completion-analysis")).toContainText("without a hint");
+  await expect(celebration.locator(".celebration-spark")).toHaveCount(12);
+
+  await celebration.getByRole("button", { name: "Keep admiring" }).click();
+  await expect(celebration).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId("completion-celebration")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("sudoku-pilot-player-stats-v1")).completed)).toBe(1);
+});
+
 test("difficulty tabs start a new puzzle immediately", async ({ page }) => {
   await page.goto("/");
 
@@ -141,6 +165,9 @@ test("techniques can be run directly or as a selected set", async ({ page }) => 
 
   await page.locator("[data-run-technique='Naked Single']").click();
   await expect(page.getByTestId("run-message")).toContainText("Naked Single");
+  if (await page.getByTestId("completion-celebration").count()) {
+    await page.getByRole("button", { name: "Keep admiring" }).click();
+  }
 
   page.once("dialog", (dialog) => dialog.accept());
   await importGrid(page);

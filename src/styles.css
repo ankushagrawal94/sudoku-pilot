@@ -1281,6 +1281,174 @@ button:hover,
   flex: 1 1 180px;
 }
 
+.celebration-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 20px;
+  background: rgba(20, 31, 48, 0.66);
+  backdrop-filter: blur(7px);
+  animation: celebration-fade-in 280ms ease-out both;
+}
+
+.celebration-card {
+  position: relative;
+  width: min(520px, 100%);
+  overflow: hidden;
+  border: 2px solid #f1c75b;
+  border-radius: 28px;
+  padding: 42px 34px 30px;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(255, 225, 122, 0.58), transparent 42%),
+    linear-gradient(145deg, #fffdf5, #edf6ff 72%);
+  box-shadow: 0 28px 90px rgba(5, 15, 30, 0.38);
+  text-align: center;
+  animation: celebration-card-arrive 620ms cubic-bezier(0.2, 0.9, 0.2, 1.15) both;
+}
+
+.celebration-card::before {
+  content: "✦";
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: #173b68;
+  color: #ffe17a;
+  font-size: 36px;
+  box-shadow: 0 0 0 9px rgba(63, 124, 196, 0.12);
+  animation: celebration-star 1.4s ease-in-out infinite alternate;
+}
+
+.celebration-kicker {
+  margin: 18px 0 6px;
+  color: #34618f;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.celebration-card h2 {
+  margin: 0;
+  color: #173b68;
+  font-size: clamp(34px, 8vw, 50px);
+  line-height: 1.05;
+}
+
+.celebration-copy {
+  max-width: 390px;
+  margin: 12px auto 22px;
+  color: #526477;
+  line-height: 1.5;
+}
+
+.completion-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.completion-stats div {
+  border: 1px solid #d6e1ed;
+  border-radius: 14px;
+  padding: 13px 8px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.completion-stats dt {
+  color: #718092;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.completion-stats dd {
+  margin: 5px 0 0;
+  color: #173b68;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.completion-analysis {
+  margin: 16px 0 20px;
+  border-radius: 12px;
+  padding: 11px 13px;
+  background: #eef8ef;
+  color: #28623c;
+  font-weight: 750;
+}
+
+.celebration-actions {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+}
+
+.celebration-actions button {
+  padding: 0 17px;
+}
+
+.celebration-spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--spark-color, #f1c75b);
+  transform: translate(-50%, -50%) rotate(var(--spark-angle));
+  animation: celebration-spark 1.2s ease-out both;
+}
+
+.celebration-spark:nth-child(3n + 2) { --spark-color: #4f8bd1; }
+.celebration-spark:nth-child(3n) { --spark-color: #61b779; }
+.celebration-spark:nth-child(1) { --spark-angle: 0deg; }
+.celebration-spark:nth-child(2) { --spark-angle: 30deg; }
+.celebration-spark:nth-child(3) { --spark-angle: 60deg; }
+.celebration-spark:nth-child(4) { --spark-angle: 90deg; }
+.celebration-spark:nth-child(5) { --spark-angle: 120deg; }
+.celebration-spark:nth-child(6) { --spark-angle: 150deg; }
+.celebration-spark:nth-child(7) { --spark-angle: 180deg; }
+.celebration-spark:nth-child(8) { --spark-angle: 210deg; }
+.celebration-spark:nth-child(9) { --spark-angle: 240deg; }
+.celebration-spark:nth-child(10) { --spark-angle: 270deg; }
+.celebration-spark:nth-child(11) { --spark-angle: 300deg; }
+.celebration-spark:nth-child(12) { --spark-angle: 330deg; }
+
+@keyframes celebration-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes celebration-card-arrive {
+  from { opacity: 0; transform: translateY(28px) scale(0.88) rotate(-2deg); }
+  to { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+}
+
+@keyframes celebration-star {
+  to { transform: rotate(12deg) scale(1.08); box-shadow: 0 0 0 13px rgba(63, 124, 196, 0.08); }
+}
+
+@keyframes celebration-spark {
+  from { opacity: 1; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(0) scale(0.5); }
+  to { opacity: 0; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(-290px) scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebration-backdrop,
+  .celebration-card,
+  .celebration-card::before,
+  .celebration-spark {
+    animation: none;
+  }
+}
+
 @media (max-width: 980px) {
   body {
     background: #fff;

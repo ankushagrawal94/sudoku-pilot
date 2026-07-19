@@ -34,6 +34,7 @@ inject();
 const STORAGE_KEY = "sudoku-pilot-state-v1";
 const LEGACY_STORAGE_KEY = "sudoku-method-state-v1";
 const PLAYED_PUZZLES_KEY = "sudoku-pilot-played-canonical-v1";
+const PLAYER_STATS_KEY = "sudoku-pilot-player-stats-v1";
 const TECHNIQUE_DEFAULTS_VERSION = 2;
 const playedCanonicalIds = loadPlayedCanonicalIds();
 const MAX_HISTORY = 40;
@@ -67,6 +68,7 @@ function render() {
     const targetIndex = state.moves.findIndex((move) => sameMoveAction(move, state.practiceSession.targetMove));
     if (targetIndex > 0) state.moves.unshift(...state.moves.splice(targetIndex, 1));
   }
+  recordPuzzleCompletion();
   state.hintIndex = Math.min(state.hintIndex, Math.max(0, state.moves.length - 1));
   const check = checkBoard({ revealSolutionMistakes: state.showMistakes });
 
@@ -101,12 +103,57 @@ function render() {
           </section>
         </section>
       `}
+      ${state.completionSummary ? renderCompletionCelebration() : ""}
     </section>
   `;
 
   bindEvents();
   saveState();
   focusRequestedHint();
+}
+
+function renderCompletionCelebration() {
+  const summary = state.completionSummary;
+  return `
+    <section class="celebration-backdrop" data-testid="completion-celebration" role="dialog" aria-modal="true" aria-labelledby="completion-title">
+      <div class="celebration-card">
+        <div class="celebration-sparks" aria-hidden="true">
+          ${Array.from({ length: 12 }, (_, index) => `<i class="celebration-spark spark-${index + 1}"></i>`).join("")}
+        </div>
+        <p class="celebration-kicker">Flight complete</p>
+        <h2 id="completion-title">Puzzle complete!</h2>
+        <p class="celebration-copy">The grid is glowing and your pencil has earned a tiny parade.</p>
+        <dl class="completion-stats">
+          <div><dt>Time</dt><dd data-testid="completion-time">${formatElapsed(summary.elapsed)}</dd></div>
+          <div><dt>Moves</dt><dd data-testid="completion-moves">${summary.moves}</dd></div>
+          <div><dt>Completed</dt><dd data-testid="completion-total">${summary.completed}</dd></div>
+        </dl>
+        <p class="completion-analysis" data-testid="completion-analysis">${summary.analysis}</p>
+        <div class="celebration-actions">
+          <button data-action="dismiss-celebration">Keep admiring</button>
+          <button class="primary" data-action="new-puzzle">Fly another puzzle</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function recordPuzzleCompletion() {
+  if (!isSolved(state.puzzle.values) || state.completionRecorded) return;
+  state.completionRecorded = true;
+  state.playerStats.completed += 1;
+  const elapsed = elapsedSeconds();
+  state.elapsedBeforeStart = elapsed;
+  state.startedAt = Date.now();
+  state.completionSummary = {
+    elapsed,
+    moves: state.puzzleMoveCount,
+    completed: state.playerStats.completed,
+    analysis: state.hintCount
+      ? `You finished with ${state.hintCount} coach assist${state.hintCount === 1 ? "" : "s"}. Every assist is another pattern in your toolkit.`
+      : "You solved this one without a hint. Crisp, clean flying."
+  };
+  savePlayerStats();
 }
 
 function renderLessonBrowser() {
@@ -959,6 +1006,7 @@ function handleAction(action) {
   if (action === "cancel-ocr") cancelOcr();
   if (action === "restore-previous") restorePreviousPuzzle();
   if (action === "clear-local-data") clearLocalData();
+  if (action === "dismiss-celebration") state.completionSummary = null;
   render();
 }
 
@@ -1003,6 +1051,7 @@ function enterDigit(digit) {
     if (notes.has(digit)) notes.delete(digit);
     else if (legalCandidates(state.puzzle.values, state.selected).has(digit)) notes.add(digit);
   } else {
+    if (state.puzzle.values[state.selected] !== digit) state.puzzleMoveCount += 1;
     state.puzzle.values[state.selected] = digit;
     state.puzzle.notes[state.selected].clear();
     for (let index = 0; index < 81; index += 1) {
@@ -1098,6 +1147,7 @@ function undo() {
   const history = state.puzzle.history;
   state.puzzle = last;
   state.puzzle.history = history;
+  state.completionSummary = null;
   syncPracticeProgress();
   state.runMessage = "Undid last change.";
   closeHintDetails();
@@ -1134,6 +1184,7 @@ function startPuzzle(difficulty = state.difficulty) {
   state.moreOpen = false;
   state.importOpen = false;
   state.runMessage = `Started a new ${difficulty} puzzle.`;
+  resetPuzzleStats();
   resetTimer();
   closeHintDetails();
 }
@@ -1176,6 +1227,7 @@ function startCertifiedPractice(index = 0) {
     state.moreOpen = false;
     state.importOpen = false;
     state.runMessage = `${session.technique} practice example ready.`;
+    resetPuzzleStats();
     resetTimer();
     closeHintDetails();
   } catch (error) {
@@ -1285,6 +1337,8 @@ function applyCurrentHint() {
   const move = state.moves[state.hintIndex];
   if (move) {
     applyMove(state.puzzle, move);
+    state.puzzleMoveCount += (move.fills || []).length;
+    state.hintCount += 1;
     if (state.practiceSession && sameMoveAction(move, state.practiceSession.targetMove)) state.practiceSession.targetApplied = true;
     state.runMessage = `Applied ${move.technique}: ${move.title}.`;
   }
@@ -1322,6 +1376,8 @@ function runSelectedTechniques() {
     state.runMessage = "No selected techniques can move this board forward.";
     return;
   }
+  state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
+  state.hintCount += 1;
   const counts = groupMoves(applied).map(([technique, count]) => `${count} ${technique}`).join(", ");
   state.runMessage = `Applied ${applied.length} move${applied.length === 1 ? "" : "s"}: ${counts}.`;
   closeHintDetails();
@@ -1334,6 +1390,10 @@ function runOneTechnique(technique) {
     return;
   }
   const applied = applySelectedTechniques(state.puzzle, [technique]);
+  if (applied.length) {
+    state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
+    state.hintCount += 1;
+  }
   state.runMessage = applied.length ? `Applied ${applied.length} ${technique} move${applied.length === 1 ? "" : "s"}.` : `${technique} cannot move this board right now.`;
   closeHintDetails();
 }
@@ -1355,6 +1415,8 @@ function applyImport() {
   state.moreOpen = false;
   state.importStatus = "";
   state.runMessage = "Imported puzzle.";
+  resetPuzzleStats();
+  resetTimer();
   closeHintDetails();
 }
 
@@ -1396,11 +1458,20 @@ function clearLocalData() {
     window.localStorage.removeItem(STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
+    window.localStorage.removeItem(PLAYER_STATS_KEY);
     playedCanonicalIds.clear();
+    state.playerStats = { completed: 0 };
     state.runMessage = "Cleared locally saved puzzle data.";
   } catch {
     state.runMessage = "Could not clear local data. Your browser blocked storage access.";
   }
+}
+
+function resetPuzzleStats() {
+  state.puzzleMoveCount = 0;
+  state.hintCount = 0;
+  state.completionRecorded = false;
+  state.completionSummary = null;
 }
 
 function checkBoard({ revealSolutionMistakes = true } = {}) {
@@ -1560,6 +1631,11 @@ function createInitialState() {
     selectedDigit: null,
     startedAt: Date.now(),
     elapsedBeforeStart: 0,
+    puzzleMoveCount: 0,
+    hintCount: 0,
+    completionRecorded: false,
+    completionSummary: null,
+    playerStats: loadPlayerStats(),
     focusHint: false,
     importOpen: false,
     aboutOpen: false,
@@ -1600,6 +1676,9 @@ function createInitialState() {
       entryMethod: saved.entryMethod === "digit-first" ? "digit-first" : "cell-first",
       startedAt: Number(saved.startedAt) || Date.now(),
       elapsedBeforeStart: Number(saved.elapsedBeforeStart) || 0,
+      puzzleMoveCount: Math.max(0, Number(saved.puzzleMoveCount) || 0),
+      hintCount: Math.max(0, Number(saved.hintCount) || 0),
+      completionRecorded: Boolean(saved.completionRecorded),
       runMessage: saved.runMessage || "",
       importCells: Array.isArray(saved.importCells) && saved.importCells.length === 81 ? saved.importCells : fallback.importCells
     };
@@ -1625,6 +1704,9 @@ function saveState() {
       entryMethod: state.entryMethod,
       startedAt: state.startedAt,
       elapsedBeforeStart: state.elapsedBeforeStart,
+      puzzleMoveCount: state.puzzleMoveCount,
+      hintCount: state.hintCount,
+      completionRecorded: state.completionRecorded,
       runMessage: state.runMessage,
       importCells: state.importCells
     };
@@ -1632,6 +1714,23 @@ function saveState() {
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
     state.runMessage = "Progress could not be saved locally. Your browser storage is unavailable.";
+  }
+}
+
+function loadPlayerStats() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(PLAYER_STATS_KEY) || "null");
+    return { completed: Math.max(0, Number(saved?.completed) || 0) };
+  } catch {
+    return { completed: 0 };
+  }
+}
+
+function savePlayerStats() {
+  try {
+    window.localStorage.setItem(PLAYER_STATS_KEY, JSON.stringify(state.playerStats));
+  } catch {
+    // Puzzle progress still saves through the primary state store when available.
   }
 }
 
