@@ -155,6 +155,7 @@ function renderCompletionCelebration() {
 function recordPuzzleCompletion() {
   const solved = isSolved(state.puzzle.values);
   if (!solved) {
+    if (state.wasSolved) state.startedAt = Date.now();
     state.wasSolved = false;
     return;
   }
@@ -165,7 +166,7 @@ function recordPuzzleCompletion() {
     state.playerStats.completed += 1;
     savePlayerStats();
   }
-  const elapsed = elapsedSeconds();
+  const elapsed = runningElapsedSeconds();
   state.elapsedBeforeStart = elapsed;
   state.startedAt = Date.now();
   state.completionSummary = {
@@ -1815,6 +1816,11 @@ function savePlayerStats() {
 }
 
 function elapsedSeconds() {
+  if (isSolved(state.puzzle.values)) return state.elapsedBeforeStart;
+  return runningElapsedSeconds();
+}
+
+function runningElapsedSeconds() {
   return state.elapsedBeforeStart + Math.max(0, Math.floor((Date.now() - state.startedAt) / 1000));
 }
 

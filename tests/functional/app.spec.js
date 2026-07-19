@@ -147,6 +147,40 @@ test("finishing a puzzle opens a whimsical celebration with durable stats", asyn
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("sudoku-pilot-player-stats-v1")).completed)).toBe(1);
 });
 
+test("completion freezes the timer through dismissal and reload", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByTestId("preferences-panel").getByText("Show timer").click();
+  await importGrid(page, NEARLY_SOLVED_GRID);
+  await page.getByTestId("cell-80").click();
+  await page.locator("[data-digit='9']").click();
+
+  const completedAt = await page.getByTestId("completion-time").textContent();
+  await page.waitForTimeout(2200);
+  await page.getByRole("button", { name: "Keep admiring" }).click();
+
+  await expect(page.getByTestId("timer")).toHaveText(completedAt);
+  await page.reload();
+  await expect(page.getByTestId("timer")).toHaveText(completedAt);
+});
+
+test("undo resumes the timer from the frozen completion time", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByTestId("preferences-panel").getByText("Show timer").click();
+  await importGrid(page, NEARLY_SOLVED_GRID);
+  await page.getByTestId("cell-80").click();
+  await page.locator("[data-digit='9']").click();
+
+  const completedAt = await page.getByTestId("completion-time").textContent();
+  await page.waitForTimeout(2200);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+
+  await expect(page.getByTestId("timer")).toHaveText(completedAt);
+  await expect.poll(() => page.getByTestId("timer").textContent(), { timeout: 2500 }).not.toBe(completedAt);
+});
+
 test("importing an already solved grid does not record a completion", async ({ page }) => {
   await page.goto("/");
   await importGrid(page, SOLVED_GRID);
