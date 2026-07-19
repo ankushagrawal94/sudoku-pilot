@@ -388,6 +388,11 @@ button:hover,
   font-weight: 500;
 }
 
+.digits button.completed {
+  background: #edf0f2;
+  color: #9aa4af;
+}
+
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
