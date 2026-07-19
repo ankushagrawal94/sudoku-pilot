@@ -1,0 +1,51 @@
+{
+  "path": "sudoku-input-settings",
+  "title": "Change Sudoku Input and Highlight Settings",
+  "description": "Configure input order, peer highlighting, matching-digit highlighting, candidate cleanup, line counts, and timer visibility.",
+  "published": "2026-07-12",
+  "updated": "2026-07-12",
+  "eyebrow": "Configurable controls",
+  "intro": "Open Preferences to change how numbers are entered and what the board highlights. Each setting is saved in your browser.",
+  "related": [
+    "sudoku-candidate-notes",
+    "sudoku-without-mistake-penalties",
+    "sudoku-coach"
+  ],
+  "sections": [
+    {
+      "heading": "Choose how you enter numbers",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Cell-first mode starts with a square. Digit-first mode keeps one number selected while you tap several squares."
+        },
+        {
+          "type": "paragraph",
+          "text": "Digit-first mode is useful when scanning the whole board for one number. Cell-first mode is useful when working through every candidate in one square."
+        }
+      ]
+    },
+    {
+      "heading": "Turn board highlights on or off",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "One setting shades the selected cell's row, column, and box. Another highlights matching digits and candidate notes."
+        },
+        {
+          "type": "paragraph",
+          "text": "Line counts are available from the board controls. They show how many times the selected digit can still appear in each row and column."
+        }
+      ]
+    },
+    {
+      "heading": "Choose whether placed digits clean up notes",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Auto-remove notes deletes a placed digit from candidate notes in the same row, column, and box. You can turn it off when you want to manage every candidate yourself."
+        }
+      ]
+    }
+  ]
+}

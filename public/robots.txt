@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://sudokupilot.com/sitemap.xml

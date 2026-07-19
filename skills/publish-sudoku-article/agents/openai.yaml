@@ -1,0 +1,4 @@
+interface:
+  display_name: "Publish Sudoku Article"
+  short_description: "Create, verify, and publish Sudoku Pilot articles"
+  default_prompt: "Use $publish-sudoku-article to create and publish a Sudoku Pilot article."

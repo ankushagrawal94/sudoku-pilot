@@ -1,0 +1,86 @@
+{
+  "path": "sudoku-screenshot-import",
+  "title": "Import a Sudoku Puzzle From a Screenshot",
+  "description": "Use local browser OCR to read filled digits from a Sudoku screenshot, review the grid, and continue solving with step-by-step coaching.",
+  "published": "2026-07-12",
+  "updated": "2026-07-18",
+  "eyebrow": "Screenshot import",
+  "intro": "Upload a screenshot of one Sudoku grid. Sudoku Pilot reads the large digits and puts them in an editable review screen. Check the grid, fix any OCR errors, and start solving.",
+  "image": "/images/sudoku-pilot-import-review-grid-v3.png",
+  "imageAlt": "Sudoku Pilot screenshot import screen with file selection, OCR guidance, all 81 review cells, and import controls",
+  "imageCaption": "Review all nine rows, fix any incorrect digits, and apply the imported puzzle.",
+  "related": [
+    "sudoku-coach",
+    "sudoku-hints-that-explain",
+    "offline-sudoku-app"
+  ],
+  "sections": [
+    {
+      "heading": "Use a close, straight screenshot",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Choose a PNG, JPEG, WebP, GIF, or BMP. Crop the image close to one complete 9 by 9 grid and keep the outside border visible."
+        },
+        {
+          "type": "paragraph",
+          "text": "Straight screenshots work better than angled photos. Glare, shadows, and decorative fonts can lower recognition accuracy."
+        }
+      ]
+    },
+    {
+      "heading": "Fix the OCR result before starting",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Tap any cell in the review grid to add, replace, or remove a digit. Check all 81 cells, including the empty ones."
+        },
+        {
+          "type": "paragraph",
+          "text": "The app uses the reviewed grid as its starting point. An OCR mistake left here becomes part of the puzzle."
+        }
+      ]
+    },
+    {
+      "heading": "What the importer can read today",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The importer is tuned for large, centered digits. It does not import pencil notes. Add those from the solving board after the puzzle opens."
+        },
+        {
+          "type": "paragraph",
+          "text": "Handwriting is hit or miss. Treat every handwritten result as a draft and check it carefully."
+        }
+      ]
+    },
+    {
+      "heading": "The screenshot stays in your browser",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Recognition runs locally. The first scan may download OCR files from Sudoku Pilot, but the selected image is not uploaded to an OCR service."
+        },
+        {
+          "type": "paragraph",
+          "text": "After review, the imported puzzle gets the same notes, hints, and technique tools as a generated puzzle."
+        }
+      ]
+    },
+    {
+      "heading": "Tips for a cleaner scan",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "Crop close to the outside edge of the Sudoku grid.",
+            "Use a straight-on image with even lighting.",
+            "Keep the full border visible.",
+            "Review all 81 cells before starting.",
+            "Enter pencil notes after the import is complete."
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+artifacts/
+experiments/
+output/
+resources/
+test-results/
+tests/
+dist/
+.hermes/

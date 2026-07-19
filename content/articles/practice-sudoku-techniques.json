@@ -1,0 +1,88 @@
+{
+  "path": "practice-sudoku-techniques",
+  "title": "Skip the Boring Part of Sudoku Practice",
+  "description": "Let Sudoku Pilot run techniques you have mastered, then practice the harder part of the puzzle with coaching when you need it.",
+  "published": "2026-07-12",
+  "updated": "2026-07-12",
+  "eyebrow": "Technique practice",
+  "intro": "Select the Sudoku techniques you already know and run them automatically. You can spend more of the puzzle looking for techniques you are still learning, without asking the app to reveal which one comes next.",
+  "related": [
+    "sudoku-coach",
+    "sudoku-hints-that-explain",
+    "why-we-built-this"
+  ],
+  "sections": [
+    {
+      "heading": "Run the techniques you already know",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Select the techniques you can already find reliably. Run selected techniques repeats those methods until none of them can move the puzzle forward."
+        },
+        {
+          "type": "paragraph",
+          "text": "For example, run Last Digit, Naked Single, and Hidden Single before you start looking for pairs or fish."
+        }
+      ]
+    },
+    {
+      "heading": "Leave the next technique unnamed",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Select a set of familiar techniques instead of naming the harder technique you hope to find. The remaining board may contain a pair, fish, wing, or another supported pattern. You still have to decide what to look for."
+        },
+        {
+          "type": "paragraph",
+          "text": "This setup leaves the next technique unnamed. You still have to recognize the pattern on the board."
+        }
+      ]
+    },
+    {
+      "heading": "Ask the coach when you need it",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Search the board for as long as the search feels productive. Open Hint when you want help. The first steps check the board and give a clue before the exact move is shown."
+        },
+        {
+          "type": "paragraph",
+          "text": "The full explanation marks the evidence, candidate eliminations, and placements. You can compare the proof with what you saw, then continue solving."
+        }
+      ]
+    },
+    {
+      "heading": "Use focused Practice mode when you want repetition",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Practice selected technique serves a different kind of session. Choose one technique or a small group, and the app searches generated puzzles for a board where one of those methods is available."
+        },
+        {
+          "type": "paragraph",
+          "text": "Use that mode to repeat a pattern across several boards. Use Run selected techniques when you want a normal puzzle with the familiar work cleared away."
+        }
+      ]
+    },
+    {
+      "heading": "Set up a skip-the-boring-part session",
+      "blocks": [
+        {
+          "type": "ordered-list",
+          "items": [
+            "Open More, then open Techniques.",
+            "Select the methods you can already recognize reliably.",
+            "Open Run techniques and choose Run selected techniques.",
+            "Study the remaining board without selecting the technique you expect to find.",
+            "Open Hint when you want a clue or a complete explanation."
+          ]
+        },
+        {
+          "type": "link",
+          "label": "Open Sudoku Pilot and choose your technique set",
+          "href": "/"
+        }
+      ]
+    }
+  ]
+}

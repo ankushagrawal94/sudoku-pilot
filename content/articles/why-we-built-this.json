@@ -1,0 +1,107 @@
+{
+  "path": "why-we-built-this",
+  "title": "Why We Built Sudoku Pilot",
+  "description": "I built Sudoku Pilot because reading Sudoku technique guides was not helping me spot those techniques in real puzzles.",
+  "published": "2026-07-12",
+  "updated": "2026-07-12",
+  "eyebrow": "Why we built this",
+  "intro": "I kept reading about techniques such as X-Wings and Skyscrapers. Then I would open a puzzle and fail to see them. I built Sudoku Pilot to get more practice with that part.",
+  "related": [
+    "sudoku-without-guessing",
+    "sudoku-coach",
+    "practice-sudoku-techniques"
+  ],
+  "sections": [
+    {
+      "heading": "Knowing the rule did not help me spot it",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A guide can explain an X-Wing in a few lines. On a full board, its four useful cells are mixed in with dozens of other candidates. I needed examples inside real solves."
+        },
+        {
+          "type": "paragraph",
+          "text": "Sudoku Pilot scans the board and lists the moves it can prove. Each result names the technique and marks the cells that make it work."
+        }
+      ]
+    },
+    {
+      "heading": "A hint should start small",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Most of the time, I do not want the next digit. I want a small push in the right direction."
+        },
+        {
+          "type": "paragraph",
+          "text": "The first hint names the technique. If that is not enough, the next screen marks the relevant cells and explains the deduction. The board changes only when you press Apply."
+        }
+      ]
+    },
+    {
+      "heading": "Waiting for one technique is poor practice",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "I could finish several puzzles without seeing the technique I was trying to learn. Even when it appeared, I might miss it and solve around it."
+        },
+        {
+          "type": "paragraph",
+          "text": "Practice mode lets me choose a technique and finds a board where it is available. I can look for the pattern, open the explanation, and try another example."
+        }
+      ]
+    },
+    {
+      "heading": "I also got tired of the routine steps",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Entering every candidate is useful when I want to check my notes. It is tedious when I only want to study an advanced pattern. The same is true for deductions I already know well."
+        },
+        {
+          "type": "paragraph",
+          "text": "Sudoku Pilot can fill the legal candidates or run the techniques I select. I use those controls to reach the part of the puzzle I actually want to work on."
+        }
+      ]
+    },
+    {
+      "heading": "The puzzle may be in another app",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Some of my puzzles start as screenshots. Retyping 25 or 30 given digits is slow and easy to get wrong."
+        },
+        {
+          "type": "paragraph",
+          "text": "The importer reads the large digits and puts them in an editable grid. I still check the grid before starting because OCR makes mistakes. The screenshot stays in the browser."
+        }
+      ]
+    },
+    {
+      "heading": "How I decide what to add",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A feature has to help with one of three things: seeing the board clearly, practicing a technique, or getting through work I already know how to do."
+        },
+        {
+          "type": "paragraph",
+          "text": "Hints therefore show their evidence and wait for permission before changing the puzzle. Practice tools either find an example or clear work I chose to skip."
+        }
+      ]
+    },
+    {
+      "heading": "I want to know that guessing is unnecessary",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Before a generated puzzle appears in the app, a solver checks that it has one solution. It then solves the full grid with the same techniques available in the coach."
+        },
+        {
+          "type": "paragraph",
+          "text": "If I get stuck on one of these puzzles, I know there is a logical move to find. I can keep looking or ask the coach to show me the technique."
+        }
+      ]
+    }
+  ]
+}

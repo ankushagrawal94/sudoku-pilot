@@ -1,0 +1,11 @@
+.vercel
+.hermes/
+
+.DS_Store
+node_modules/
+dist/
+output/*
+!output/catalog-audit.json
+test-results/
+playwright-report/
+.catalog-build/

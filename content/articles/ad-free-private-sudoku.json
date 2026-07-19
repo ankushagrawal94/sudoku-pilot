@@ -1,0 +1,69 @@
+{
+  "path": "ad-free-private-sudoku",
+  "title": "Play Sudoku Without Ads or an Account",
+  "description": "Sudoku Pilot is free and has no ads, paid tier, account requirement, token system, or other monetization layer.",
+  "published": "2026-07-12",
+  "updated": "2026-07-12",
+  "eyebrow": "Quiet, local play",
+  "intro": "Sudoku Pilot is free. There are no ads, subscriptions, paid hints, lives, token packs, or account prompts. The current app has no monetization layer.",
+  "related": [
+    "offline-sudoku-app",
+    "sudoku-screenshot-import",
+    "sudoku-without-mistake-penalties"
+  ],
+  "sections": [
+    {
+      "heading": "The coach is part of the free app",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Puzzle generation, candidate tools, every hint level, technique automation, and focused practice are available without a payment or an ad view."
+        },
+        {
+          "type": "paragraph",
+          "text": "There is no token balance, daily hint limit, premium technique list, or mistake counter that ends a game."
+        }
+      ]
+    },
+    {
+      "heading": "Hints open without an ad break",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The technique clue and its full explanation are next to each other. You can move between them without waiting for a video or closing a promotion."
+        },
+        {
+          "type": "paragraph",
+          "text": "There are no reward videos, streaks, or lives. Close the app when you are done and return to the saved board later."
+        }
+      ]
+    },
+    {
+      "heading": "No account is required",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The current grid, pencil notes, preferences, and undo history live in local browser storage. Closing the tab keeps your progress on that device."
+        },
+        {
+          "type": "paragraph",
+          "text": "There is no account backend or cross-device sync. Clear local data in the More panel removes the saved puzzle and preferences from the current browser."
+        }
+      ]
+    },
+    {
+      "heading": "Screenshot recognition stays on your device",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Screenshot import runs in the browser. The selected image is not sent to an OCR service."
+        },
+        {
+          "type": "link",
+          "label": "Open the free Sudoku coach",
+          "href": "/"
+        }
+      ]
+    }
+  ]
+}

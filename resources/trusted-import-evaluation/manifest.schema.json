@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sudokupilot.com/schemas/trusted-import-corpus-v1.json",
+  "title": "Sudoku Pilot trusted import corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "corpus_id", "status", "created_at", "targets", "cases"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "corpus_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "status": { "enum": ["collecting", "frozen"] },
+    "created_at": { "type": "string", "format": "date" },
+    "targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_apps", "cases_per_source", "development_per_source", "validation_per_source", "test_per_source", "candidate_layout", "input_kind"],
+      "properties": {
+        "source_apps": { "type": "integer", "minimum": 1 },
+        "cases_per_source": { "type": "integer", "minimum": 1 },
+        "development_per_source": { "type": "integer", "minimum": 1 },
+        "validation_per_source": { "type": "integer", "minimum": 1 },
+        "test_per_source": { "type": "integer", "minimum": 1 },
+        "candidate_layout": { "const": "position-encoded-3x3" },
+        "input_kind": { "const": "digital-screenshot" }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "split", "source", "consent", "image", "alignment", "ground_truth", "labels"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "split": { "enum": ["development", "validation", "test"] },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["app_id", "app_name", "app_version", "platform", "device_class", "theme", "screenshot_scope"],
+          "properties": {
+            "app_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+            "app_name": { "type": "string", "minLength": 1 },
+            "app_version": { "type": "string", "minLength": 1 },
+            "platform": { "enum": ["ios", "android", "web", "desktop"] },
+            "device_class": { "enum": ["phone", "tablet", "desktop"] },
+            "theme": { "enum": ["light", "dark", "other"] },
+            "screenshot_scope": { "enum": ["full-screen", "cropped-grid", "cropped-app"] }
+          }
+        },
+        "consent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["permission", "contributor_id", "record"],
+          "properties": {
+            "permission": { "const": "first-party-consented" },
+            "contributor_id": { "type": "string", "minLength": 1 },
+            "record": { "type": "string", "minLength": 1 }
+          }
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "width", "height", "sanitized"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "width": { "type": "integer", "minimum": 81 },
+            "height": { "type": "integer", "minimum": 81 },
+            "sanitized": { "const": true }
+          }
+        },
+        "alignment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "grid_corners"],
+          "properties": {
+            "method": { "const": "human-confirmed" },
+            "grid_corners": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["x", "y"],
+                "properties": {
+                  "x": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "y": { "type": "number", "minimum": 0, "maximum": 1 }
+                }
+              }
+            }
+          }
+        },
+        "ground_truth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["values", "candidates", "value_roles"],
+          "properties": {
+            "values": { "type": "string", "pattern": "^[0-9]{81}$" },
+            "candidates": {
+              "type": "array",
+              "minItems": 81,
+              "maxItems": 81,
+              "items": { "type": "string", "pattern": "^[1-9]*$" }
+            },
+            "value_roles": { "type": "string", "pattern": "^[GPU.]{81}$" },
+            "solution": { "type": "string", "pattern": "^[1-9]{81}$" }
+          }
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["verified_by", "verified_at", "second_review"],
+          "properties": {
+            "verified_by": { "type": "string", "minLength": 1 },
+            "verified_at": { "type": "string", "format": "date" },
+            "second_review": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

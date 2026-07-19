@@ -1,0 +1,55 @@
+{
+  "path": "sudoku-candidate-notes",
+  "title": "Enter Sudoku Candidate Notes Faster",
+  "description": "Use cell-first or digit-first entry, multi-cell notes, optional auto-removal, and one-tap candidate filling in Sudoku Pilot.",
+  "published": "2026-07-12",
+  "updated": "2026-07-12",
+  "eyebrow": "Candidate entry",
+  "intro": "Sudoku Pilot can fill every legal candidate, add one candidate to several cells, or leave all note entry to you. Choose the amount of help you want for the current puzzle.",
+  "related": [
+    "sudoku-input-settings",
+    "practice-sudoku-techniques",
+    "sudoku-hints-that-explain"
+  ],
+  "sections": [
+    {
+      "heading": "Choose a cell first or a digit first",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "In cell-first mode, tap a square and then enter its candidates. In digit-first mode, choose a number and tap each square where you want to add it."
+        },
+        {
+          "type": "paragraph",
+          "text": "You can switch modes in Preferences. The setting is saved in your browser."
+        }
+      ]
+    },
+    {
+      "heading": "Edit several cells at once",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Turn on Multi, select several cells, and tap a number once. Sudoku Pilot adds or removes that candidate in every selected cell."
+        },
+        {
+          "type": "paragraph",
+          "text": "Undo reverses the whole edit if you selected the wrong group."
+        }
+      ]
+    },
+    {
+      "heading": "Fill all legal candidates in one tap",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Fill all notes calculates the legal candidates for every empty cell. It is useful before looking for pairs, fish, or wings."
+        },
+        {
+          "type": "paragraph",
+          "text": "Auto-remove notes is a separate setting. When it is on, placing a digit removes that candidate from cells in the same row, column, and box."
+        }
+      ]
+    }
+  ]
+}

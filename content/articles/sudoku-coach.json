@@ -1,0 +1,84 @@
+{
+  "path": "sudoku-coach",
+  "title": "Get Help With the Next Sudoku Move",
+  "description": "Sudoku Pilot finds the logical moves available on your board, explains the technique behind each one, and lets you decide what to apply.",
+  "published": "2026-07-12",
+  "updated": "2026-07-18",
+  "eyebrow": "Sudoku coach",
+  "intro": "Open the coach when you get stuck. Sudoku Pilot finds the logical moves available on the current board and shows the evidence for each one.",
+  "image": "/images/sudoku-pilot-naked-single-exact-move-v3.png",
+  "imageAlt": "Sudoku Pilot showing a Naked Single explanation, 6 placed in row 2 column 3, and the complete board",
+  "imageCaption": "The exact-move clue identifies a Naked Single, places 6 in r2c3, and keeps the full board visible.",
+  "related": [
+    "sudoku-without-guessing",
+    "sudoku-hints-that-explain",
+    "practice-sudoku-techniques"
+  ],
+  "sections": [
+    {
+      "heading": "See every move the coach found",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A board often has more than one useful move. The coach lists all the moves it can prove with your enabled techniques."
+        },
+        {
+          "type": "paragraph",
+          "text": "Choose any result to see its technique and affected cells. The explanation uses different colors for evidence, removed candidates, and placed digits."
+        }
+      ]
+    },
+    {
+      "heading": "Ask for only as much help as you need",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The hint starts by checking the board and pencil notes. It will point out a contradiction or incomplete notes before looking for a technique."
+        },
+        {
+          "type": "paragraph",
+          "text": "The four clues reveal the technique, one candidate, the search area, and the exact move. Press Apply when you want the deduction added to your board."
+        }
+      ]
+    },
+    {
+      "heading": "Limit hints to techniques you know",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The Techniques panel controls what the coach may suggest. Turn off any method you have not learned yet."
+        },
+        {
+          "type": "paragraph",
+          "text": "For example, you can leave singles and X-Wing enabled while hiding Swordfish and the wing techniques. The coach will stay within that list."
+        }
+      ]
+    },
+    {
+      "heading": "Run the steps you no longer need to practice",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Select one or more familiar techniques and run them automatically. Sudoku Pilot repeats them until none of the selected methods can move the board forward."
+        },
+        {
+          "type": "paragraph",
+          "text": "I use this to clear singles before practicing a harder pattern. You can review the board after each run."
+        }
+      ]
+    },
+    {
+      "heading": "Techniques the coach currently knows",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Sudoku Pilot currently detects Last Digit, Naked Single, Hidden Single, Pointing Candidates, Claiming Candidates, Hidden Pair, Hidden Triple, Naked Pair, Naked Triple, Naked Quadruple, X-Wing, Swordfish, Skyscraper, 2-String Kite, XY-Wing, XYZ-Wing, and W-Wing."
+        },
+        {
+          "type": "paragraph",
+          "text": "The same list powers hints, practice mode, and automatic runs."
+        }
+      ]
+    }
+  ]
+}

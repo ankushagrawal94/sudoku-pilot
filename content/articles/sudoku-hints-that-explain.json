@@ -1,0 +1,103 @@
+{
+  "path": "sudoku-hints-that-explain",
+  "title": "Sudoku Hints That Explain the Reasoning",
+  "description": "Get Sudoku hints in stages, from the technique name to the exact move and the evidence behind it.",
+  "published": "2026-07-12",
+  "updated": "2026-07-18",
+  "eyebrow": "Step-by-step hints",
+  "intro": "Sudoku Pilot checks your board and notes, then gives the hint in four clues: the technique, a candidate, the search area, and the exact move. Stop as soon as you have enough information to continue.",
+  "image": "/images/sudoku-pilot-naked-single-first-clue-v3.png",
+  "imageAlt": "Sudoku Pilot naming a Naked Single in the first clue before revealing the exact move",
+  "imageCaption": "The first clue names the technique and gives the player room to find the move.",
+  "related": [
+    "sudoku-coach",
+    "practice-sudoku-techniques",
+    "sudoku-screenshot-import"
+  ],
+  "sections": [
+    {
+      "heading": "First, check the board and pencil notes",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A missing candidate can hide a pattern. An extra candidate can make a false one appear. The hint checks for both before suggesting a move."
+        },
+        {
+          "type": "paragraph",
+          "text": "If the notes are incomplete, you can fill them in one tap or close the hint and fix them yourself. A contradiction must be corrected before the coach can continue."
+        }
+      ]
+    },
+    {
+      "heading": "Next, reveal the technique name",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A clue such as Hidden Single tells you where to focus without giving away the cell. Try the board again before moving forward."
+        },
+        {
+          "type": "paragraph",
+          "text": "A short definition appears under the name. This is handy when you remember the term but have forgotten the rule."
+        }
+      ]
+    },
+    {
+      "heading": "Then narrow the search",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The second clue names a candidate to track. The third highlights the row, column, or block where the pattern appears."
+        },
+        {
+          "type": "paragraph",
+          "text": "Return to the board after either clue if you can finish the deduction yourself."
+        }
+      ]
+    },
+    {
+      "heading": "Finally, inspect the exact move",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The full explanation identifies the cells, candidates, and row, column, or box used in the deduction."
+        },
+        {
+          "type": "paragraph",
+          "text": "The small board marks evidence in green and eliminations in red. Use Back and Forward to compare the clue with the proof."
+        }
+      ]
+    },
+    {
+      "heading": "Apply the move when it makes sense",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Press Apply to copy the deduction to your puzzle. Close the hint if you want to make the move yourself."
+        },
+        {
+          "type": "paragraph",
+          "text": "I often close the explanation and find the cells again on the main board. That extra pass helps the pattern stick."
+        }
+      ]
+    },
+    {
+      "heading": "A simple way to practice with hints",
+      "blocks": [
+        {
+          "type": "ordered-list",
+          "items": [
+            "Study the board and decide which technique might work.",
+            "Open Hint and reveal the technique name.",
+            "Use the candidate and search-area clues only if you still need help.",
+            "Look for the move again before opening the exact explanation.",
+            "Check the marked evidence and return to the puzzle."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Repeat this on a few puzzles. The useful practice is finding the pattern before the final screen shows it."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "path": "offline-sudoku-app",
+  "title": "Use Sudoku Pilot Offline",
+  "description": "Install Sudoku Pilot as a Progressive Web App on iPhone, iPad, Android, or desktop and keep solving offline.",
+  "published": "2026-07-12",
+  "updated": "2026-07-12",
+  "eyebrow": "Offline Sudoku",
+  "intro": "Sudoku Pilot is a Progressive Web App. Open it once with a connection, then install it from your browser for an app-like icon and offline access.",
+  "related": [
+    "sudoku-screenshot-import",
+    "sudoku-coach",
+    "why-we-built-this"
+  ],
+  "sections": [
+    {
+      "heading": "Install on iPhone or iPad",
+      "blocks": [
+        {
+          "type": "ordered-list",
+          "items": [
+            "Open sudokupilot.com in Safari.",
+            "Tap the Share button.",
+            "Scroll down and tap Add to Home Screen.",
+            "Tap Add. Open Sudoku Pilot from the new Home Screen icon."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Apple places the install command in Safari's Share menu. The exact icon position can vary by iOS or iPadOS version."
+        }
+      ]
+    },
+    {
+      "heading": "Install on Android",
+      "blocks": [
+        {
+          "type": "ordered-list",
+          "items": [
+            "Open sudokupilot.com in Chrome.",
+            "Open the browser menu.",
+            "Tap Install app or Add to Home screen.",
+            "Confirm the installation, then open Sudoku Pilot from its icon."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Chrome may also show an install prompt in the address bar or on the page. The label varies by browser version and device."
+        }
+      ]
+    },
+    {
+      "heading": "Install on a computer",
+      "blocks": [
+        {
+          "type": "ordered-list",
+          "items": [
+            "Open sudokupilot.com in Chrome or another browser that supports PWA installation.",
+            "Choose the install icon in the address bar, or open the browser menu and choose Install Sudoku Pilot.",
+            "Confirm the installation. Sudoku Pilot will open in its own window."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "You can keep using the site in a normal browser tab if installation is unavailable. Offline access comes from the saved app files, while installation adds a convenient launcher and standalone window."
+        }
+      ]
+    },
+    {
+      "heading": "What works offline",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The app saves its board, coach, and puzzle generator for offline use. Generated puzzles, manual entry, pencil notes, hints, and technique controls can run from those saved files."
+        },
+        {
+          "type": "paragraph",
+          "text": "Sudoku Pilot also stores the current grid, notes, undo history, difficulty, and enabled techniques in the browser. Each browser and device keeps its own copy."
+        },
+        {
+          "type": "paragraph",
+          "text": "Screenshot recognition requires an internet connection to start. Manual puzzle entry remains available offline."
+        }
+      ]
+    },
+    {
+      "heading": "Test it before a trip",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Open Sudoku Pilot with a reliable connection and wait for the page to finish loading. Start a puzzle, then switch the device to airplane mode. Close and reopen the installed app."
+        },
+        {
+          "type": "paragraph",
+          "text": "The board should return with your progress. Clear local data, clearing browser storage, or uninstalling the app can remove saved state and may require another connected visit."
+        },
+        {
+          "type": "link",
+          "label": "Open Sudoku Pilot before you go offline",
+          "href": "/"
+        }
+      ]
+    }
+  ]
+}

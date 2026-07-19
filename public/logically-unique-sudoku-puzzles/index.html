@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Sudoku Pilot identifies puzzles that only change digits or rearrange the grid, then keeps one logically distinct version in its certified catalog." />
+    <link rel="canonical" href="https://sudokupilot.com/logically-unique-sudoku-puzzles" />
+    <link rel="stylesheet" href="/content.css" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="How Sudoku Pilot Finds Genuinely Different Puzzles" />
+    <meta property="og:description" content="Sudoku Pilot identifies puzzles that only change digits or rearrange the grid, then keeps one logically distinct version in its certified catalog." />
+    <meta property="og:url" content="https://sudokupilot.com/logically-unique-sudoku-puzzles" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How Sudoku Pilot Finds Genuinely Different Puzzles","description":"Sudoku Pilot identifies puzzles that only change digits or rearrange the grid, then keeps one logically distinct version in its certified catalog.","datePublished":"2026-07-12","dateModified":"2026-07-18","author":{"@type":"Organization","name":"Sudoku Pilot Admin"},"publisher":{"@type":"Organization","name":"Sudoku Pilot"},"mainEntityOfPage":"https://sudokupilot.com/logically-unique-sudoku-puzzles"}</script>
+    <title>How Sudoku Pilot Finds Genuinely Different Puzzles | Sudoku Pilot</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="wordmark" href="/">sudoku pilot</a>
+      <nav aria-label="Main navigation">
+        <a href="/sudoku-coach/">Coach</a>
+        <a href="/practice-sudoku-techniques/">Practice</a>
+        <a href="/sudoku-without-guessing/">Logic guarantee</a>
+        <a href="/sudoku-screenshot-import/">Screenshot import</a>
+        <a href="/about/">About</a>
+      </nav>
+      <a class="app-link" href="/">Open the app</a>
+    </header>
+    <main>
+      <article>
+        <header class="article-header">
+          <h1>How Sudoku Pilot Finds Genuinely Different Puzzles</h1>
+          <p class="dek">Sudoku Pilot treats digit swaps, row and column rearrangements, rotations, reflections, and transpositions as versions of the same puzzle. The catalog keeps one canonical identity for that whole family.</p>
+          <p class="byline">By Admin · Updated July 18, 2026</p>
+        </header>
+        <div class="article-body">
+      <section>
+        <h2>Changed digits can hide the same puzzle</h2>
+        <p>Replace every 1 with a 7 and every 7 with a 1. Swap two rows inside a band. Rotate the finished grid. The board looks different, while the same clue pattern and deductions remain underneath.</p>
+<p>Repeated structures become familiar. You may remember where the important cells sit even when every visible digit has changed. That reduces the value of starting a new puzzle.</p>
+      </section>
+
+      <section>
+        <h2>One canonical ID covers every equivalent version</h2>
+        <p>Sudoku Pilot converts each candidate into a canonical form. Digit relabeling, valid row and column permutations, band and stack swaps, rotations, reflections, and transposition all resolve to the same canonical ID.</p>
+<p>The catalog rejects a candidate when that ID already exists. A transformed copy cannot increase the count of logically distinct puzzles.</p>
+      </section>
+
+      <section>
+        <h2>Every catalog puzzle passes the solver checks</h2>
+        <ul><li>The givens have exactly one solution.</li><li>Sudoku Pilot can complete one full path with its supported logical techniques.</li><li>The deterministic rating matches the catalog difficulty.</li><li>Technique requirements describe methods the solver genuinely needs under its model.</li><li>The canonical ID does not appear elsewhere in the catalog.</li></ul>
+<p>These guarantees apply to generated catalog puzzles. An imported puzzle is checked from the board you provide and does not come from this catalog.</p>
+      </section>
+
+      <section>
+        <h2>Visual variety comes after puzzle selection</h2>
+        <p>The app first selects a canonical puzzle you have not played on that device. It can then change the presentation without pretending the transformed board is another logical puzzle.</p>
+<p>Played canonical IDs are stored on the device. The selection logic prefers an unseen identity before returning to one you have already solved.</p>
+      </section>
+
+      <section>
+        <h2>Start a puzzle you have not already seen</h2>
+        <p>Choose a difficulty and start a generated puzzle. The board comes from the certified catalog for that level, with its logical identity tracked separately from its appearance.</p>
+<p><a href="/">Open Sudoku Pilot and start a new puzzle</a></p>
+      </section></div>
+        <aside class="try-card">
+          <h2>Try it on a puzzle</h2>
+          <p>Open Sudoku Pilot and use the same feature on a generated or imported board.</p>
+          <a class="primary-link" href="/">Open Sudoku Pilot</a>
+        </aside>
+        <aside class="related">
+          <h2>Keep reading</h2>
+          <ul><li><a href="/sudoku-without-guessing/">Every Generated Puzzle Can Be Solved Without Guessing</a></li><li><a href="/practice-sudoku-techniques/">Skip the Boring Part of Sudoku Practice</a></li><li><a href="/sudoku-coach/">Get Help With the Next Sudoku Move</a></li></ul>
+        </aside>
+      </article>
+    </main>
+    <footer>
+      <span>Sudoku Pilot</span>
+      <a href="/about/">About</a>
+      <a href="/contact/">Contact</a>
+      <a href="/privacy/">Privacy</a>
+    </footer>
+  </body>
+</html>

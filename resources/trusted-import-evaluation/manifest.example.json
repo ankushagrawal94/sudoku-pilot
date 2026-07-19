@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "corpus_id": "trusted-import-example-not-evidence",
+  "status": "collecting",
+  "created_at": "2026-07-14",
+  "targets": {
+    "source_apps": 3,
+    "cases_per_source": 20,
+    "development_per_source": 10,
+    "validation_per_source": 5,
+    "test_per_source": 5,
+    "candidate_layout": "position-encoded-3x3",
+    "input_kind": "digital-screenshot"
+  },
+  "cases": [
+    {
+      "id": "replace-with-real-case-id",
+      "split": "development",
+      "source": {
+        "app_id": "replace-with-source-app",
+        "app_name": "Replace with source app",
+        "app_version": "unknown",
+        "platform": "ios",
+        "device_class": "phone",
+        "theme": "light",
+        "screenshot_scope": "cropped-app"
+      },
+      "consent": {
+        "permission": "first-party-consented",
+        "contributor_id": "replace-with-pseudonym",
+        "record": "Replace with dated consent record"
+      },
+      "image": {
+        "path": "resources/trusted-import-evaluation/images/replace-with-real-case.png",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "width": 1179,
+        "height": 1500,
+        "sanitized": true
+      },
+      "alignment": {
+        "method": "human-confirmed",
+        "grid_corners": [
+          { "x": 0.08, "y": 0.16 },
+          { "x": 0.92, "y": 0.16 },
+          { "x": 0.92, "y": 0.82 },
+          { "x": 0.08, "y": 0.82 }
+        ]
+      },
+      "ground_truth": {
+        "values": "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        "candidates": [
+          "", "", "124", "26", "", "2468", "14", "1249", "",
+          "", "", "", "", "", "", "", "", "",
+          "", "", "", "", "", "", "", "", "",
+          "", "", "", "", "", "", "", "", "",
+          "", "", "", "", "", "", "", "", "",
+          "", "", "", "", "", "", "", "", "",
+          "", "", "", "", "", "", "", "", "",
+          "", "", "", "", "", "", "", "", "",
+          "", "", "", "", "", "", "", "", ""
+        ],
+        "value_roles": "UU..U....U..UUU....UU....U.U...U...UU..U.U..UU...U...U.U....UU....UUU..U....U..UU"
+      },
+      "labels": {
+        "verified_by": "replace-with-reviewer",
+        "verified_at": "2026-07-14",
+        "second_review": false
+      }
+    }
+  ]
+}

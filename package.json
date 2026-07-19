@@ -1,0 +1,39 @@
+{
+  "name": "sudoku-pilot",
+  "version": "0.1.0",
+  "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "node scripts/build-content.mjs && vite build && node scripts/build-sw.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node tests/solver.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && playwright test",
+    "test:solver": "node tests/solver.test.js",
+    "test:coaching": "node tests/coaching.test.js",
+    "test:learning-practice": "node tests/learning-practice.test.js",
+    "test:trusted-import-corpus": "node tests/trusted-import-corpus.test.js",
+    "test:content": "node tests/content.test.js",
+    "test:functional": "playwright test",
+    "review:coaching": "npm run build && node scripts/capture-coaching-review.mjs",
+    "review:learning-practice": "npm run build && node scripts/capture-learning-practice-review.mjs",
+    "capture:article-images": "node scripts/capture-article-images.mjs",
+    "measure:learning-practice": "npm run build && node scripts/measure-learning-practice.mjs",
+    "trusted-import:verify": "node scripts/validate-trusted-import-corpus.mjs",
+    "audit:puzzles": "node scripts/audit-puzzles.mjs",
+    "catalog:build": "node --no-warnings scripts/catalog/build-catalog.mjs",
+    "catalog:rebuild": "node --no-warnings scripts/catalog/build-catalog.mjs --reset",
+    "catalog:audit": "node --no-warnings scripts/catalog/audit-shipped-catalog.mjs",
+    "catalog:verify": "node --no-warnings scripts/catalog/verify-catalog.mjs"
+  },
+  "dependencies": {
+    "@tesseract.js-data/eng": "1.0.0",
+    "@vercel/analytics": "^2.0.1",
+    "sudoku-gen": "^1.0.2",
+    "tesseract.js": "5.1.1",
+    "vite": "8.1.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}

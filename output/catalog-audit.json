@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 2,
+  "scope": "shipped-catalog",
+  "generatedAt": "2026-07-19T07:01:53.966Z",
+  "commands": {
+    "rebuild": "npm run catalog:rebuild",
+    "audit": "npm run catalog:audit",
+    "verify": "npm run catalog:verify"
+  },
+  "catalog": {
+    "targetPerLevel": 100,
+    "total": 500,
+    "counts": {
+      "easy": 100,
+      "medium": 100,
+      "hard": 100,
+      "expert": 100,
+      "extreme": 100
+    },
+    "techniques": {
+      "easy": {
+        "Last Digit": 100,
+        "Naked Single": 100,
+        "Hidden Single": 1
+      },
+      "medium": {
+        "Last Digit": 100,
+        "Naked Single": 100,
+        "Hidden Single": 42
+      },
+      "hard": {
+        "Last Digit": 100,
+        "Naked Single": 100,
+        "Hidden Single": 100,
+        "Pointing Candidates": 100,
+        "Claiming Candidates": 50
+      },
+      "expert": {
+        "Last Digit": 100,
+        "Naked Single": 100,
+        "Hidden Single": 100,
+        "Pointing Candidates": 100,
+        "Claiming Candidates": 91,
+        "Hidden Pair": 99,
+        "Hidden Triple": 17,
+        "Hidden Quadruple": 14
+      },
+      "extreme": {
+        "Last Digit": 100,
+        "Naked Single": 100,
+        "Hidden Single": 100,
+        "Pointing Candidates": 9,
+        "Hidden Pair": 9,
+        "Hidden Triple": 2,
+        "Hidden Quadruple": 1,
+        "X-Wing": 20,
+        "Swordfish": 1,
+        "Skyscraper": 4,
+        "XY-Wing": 25,
+        "XYZ-Wing": 20,
+        "W-Wing": 20,
+        "Jellyfish": 3,
+        "Crane": 15,
+        "Simple Colouring": 7
+      }
+    },
+    "requiredTechniques": {
+      "easy": {
+        "Hidden Single": 1
+      },
+      "medium": {
+        "Hidden Single": 42
+      },
+      "hard": {
+        "Naked Single": 58,
+        "Claiming Candidates": 50,
+        "Hidden Single": 71
+      },
+      "expert": {
+        "Pointing Candidates": 16
+      },
+      "extreme": {
+        "W-Wing": 15,
+        "XY-Wing": 12,
+        "Simple Colouring": 7,
+        "Jellyfish": 3
+      }
+    },
+    "hardLockedCoverage": {
+      "pointingOnly": 50,
+      "claimingOnly": 0,
+      "mixed": 50
+    },
+    "sizes": {
+      "easy": {
+        "bytes": 39429,
+        "gzipBytes": 5672
+      },
+      "medium": {
+        "bytes": 40913,
+        "gzipBytes": 5458
+      },
+      "hard": {
+        "bytes": 47372,
+        "gzipBytes": 5125
+      },
+      "expert": {
+        "bytes": 47673,
+        "gzipBytes": 5668
+      },
+      "extreme": {
+        "bytes": 42847,
+        "gzipBytes": 5743
+      }
+    },
+    "totalBytes": 218234,
+    "totalGzipBytes": 27666
+  },
+  "metadata": [
+    {
+      "id": "local:sudoku-pilot-augmentation@1",
+      "producer": "Sudoku Pilot clue augmentation",
+      "version": "1"
+    },
+    {
+      "id": "local:sudoku-pilot-extreme@1",
+      "producer": "Sudoku Pilot Extreme clue augmentation",
+      "version": "1"
+    },
+    {
+      "id": "npm:sudoku-gen@1.0.2",
+      "producer": "sudoku-gen",
+      "version": "1.0.2"
+    }
+  ],
+  "knownCoverageGaps": [
+    {
+      "level": "expert",
+      "technique": "Naked Pair",
+      "target": 1,
+      "actual": 0,
+      "shortage": 1
+    },
+    {
+      "level": "expert",
+      "technique": "Naked Triple",
+      "target": 1,
+      "actual": 0,
+      "shortage": 1
+    },
+    {
+      "level": "expert",
+      "technique": "Naked Quadruple",
+      "target": 1,
+      "actual": 0,
+      "shortage": 1
+    },
+    {
+      "level": "extreme",
+      "technique": "2-String Kite",
+      "target": 1,
+      "actual": 0,
+      "shortage": 1
+    },
+    {
+      "level": "extreme",
+      "technique": "Empty Rectangle",
+      "target": 1,
+      "actual": 0,
+      "shortage": 1
+    },
+    {
+      "level": "hard",
+      "technique": "Claiming Candidates without Pointing Candidates",
+      "target": 1,
+      "actual": 0,
+      "shortage": 1
+    }
+  ]
+}

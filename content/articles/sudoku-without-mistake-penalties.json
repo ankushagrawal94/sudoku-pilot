@@ -1,0 +1,51 @@
+{
+  "path": "sudoku-without-mistake-penalties",
+  "title": "Turn Sudoku Mistake Warnings On or Off",
+  "description": "Choose whether Sudoku Pilot reveals mistakes immediately and whether a solve displays a timer.",
+  "published": "2026-07-12",
+  "updated": "2026-07-12",
+  "eyebrow": "Player-controlled feedback",
+  "intro": "Sudoku Pilot starts with live mistake warnings turned off. You can test an idea, catch your own error, and continue without losing a life. Turn warnings on in Preferences if you want immediate feedback.",
+  "related": [
+    "sudoku-hints-that-explain",
+    "sudoku-input-settings",
+    "offline-sudoku-app"
+  ],
+  "sections": [
+    {
+      "heading": "Mistakes do not end the puzzle",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A wrong digit can remain on the grid while you keep working. Sudoku Pilot has no lives or mistake limit."
+        },
+        {
+          "type": "paragraph",
+          "text": "Enable Show mistakes as I play to mark a digit as soon as it disagrees with the solution."
+        }
+      ]
+    },
+    {
+      "heading": "The coach checks for contradictions",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "When you open a hint, the coach checks for repeated digits and cells with no legal candidate. It will ask you to fix those problems before suggesting a move."
+        },
+        {
+          "type": "paragraph",
+          "text": "This check happens when you ask for coaching. Regular entry remains quiet when live warnings are off."
+        }
+      ]
+    },
+    {
+      "heading": "Hide the timer too",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Show timer controls whether elapsed time appears on the board. Hiding it does not change the puzzle or your saved progress."
+        }
+      ]
+    }
+  ]
+}
