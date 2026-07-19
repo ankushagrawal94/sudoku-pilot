@@ -39,6 +39,7 @@ button,
   min-height: 44px;
   border-radius: 8px;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 button:hover,

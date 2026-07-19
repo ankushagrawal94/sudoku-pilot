@@ -72,6 +72,14 @@ test("renders starting digits black and player-entered digits blue", async ({ pa
   await expect(emptyCell.locator(".value")).toHaveCSS("color", "rgb(63, 124, 196)");
 });
 
+test("tap controls disable double-tap zoom while preserving page zoom", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByTestId("cell-0")).toHaveCSS("touch-action", "manipulation");
+  await expect(page.locator("[data-digit='1']")).toHaveCSS("touch-action", "manipulation");
+  await expect(page.locator("html")).not.toHaveCSS("touch-action", "none");
+});
+
 test("hint starts as coaching and suggests notes before showing exact moves", async ({ page }) => {
   await page.goto("/");
 
