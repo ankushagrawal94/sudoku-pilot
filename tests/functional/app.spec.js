@@ -3,6 +3,7 @@ import { ratePuzzle } from "../../src/difficulty.js";
 import { TECHNIQUE_LEVELS } from "../../src/puzzles.js";
 
 const KNOWN_GRID = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+const GRID_WITH_ONE_THREE_LEFT = "504678912672195348198342567859761423426853791713924856961537284287419635345286179";
 
 async function importGrid(page, grid = KNOWN_GRID) {
   await openMore(page);
@@ -239,6 +240,21 @@ test("note mode toggles pencil notes without filling a value", async ({ page }) 
 
   await expect(page.getByTestId("cell-2").locator(".value")).toHaveCount(0);
   await expect(page.getByTestId("cell-2").locator(".notes .on")).toContainText("4");
+});
+
+test("number pad grays out a digit after all nine are placed", async ({ page }) => {
+  await page.goto("/");
+  await importGrid(page, GRID_WITH_ONE_THREE_LEFT);
+
+  const three = page.locator("[data-digit='3']");
+  await expect(three).not.toHaveClass(/completed/);
+
+  await page.getByTestId("cell-1").click();
+  await three.click();
+
+  await expect(three).toHaveClass(/completed/);
+  await expect(three).toHaveAttribute("aria-label", "3, completed");
+  await expect(three).toHaveCSS("color", "rgb(154, 164, 175)");
 });
 
 test("notes switch changes number entry between notes and values", async ({ page }) => {

@@ -309,10 +309,17 @@ function renderBoard() {
 }
 
 function renderKeypad() {
+  const completedDigits = new Set(
+    [1,2,3,4,5,6,7,8,9].filter((digit) => state.puzzle.values.filter((value) => value === digit).length >= 9)
+  );
   return `
     <section class="mobile-controls" aria-label="Puzzle controls">
       <div class="digits" aria-label="Number pad">
-        ${[1,2,3,4,5,6,7,8,9].map((digit) => `<button class="${state.entryMethod === "digit-first" && state.selectedDigit === digit ? "active" : ""}" data-digit="${digit}">${digit}</button>`).join("")}
+        ${[1,2,3,4,5,6,7,8,9].map((digit) => {
+          const completed = completedDigits.has(digit);
+          const active = state.entryMethod === "digit-first" && state.selectedDigit === digit;
+          return `<button class="${active ? "active " : ""}${completed ? "completed" : ""}" data-digit="${digit}"${completed ? ` aria-label="${digit}, completed"` : ""}>${digit}</button>`;
+        }).join("")}
       </div>
       <div class="tool-grid">
         <button class="tool-button ${state.multiSelectMode ? "active" : ""}" data-action="toggle-multi" data-testid="multi-select"><span>Multi</span></button>
