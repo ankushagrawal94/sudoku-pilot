@@ -8,6 +8,12 @@ import { buildCoachingMove } from "./coaching.js";
 import { getTechniqueLesson } from "./learning.js";
 import { createPracticeState, PRACTICE_MODES } from "./practice.js";
 import {
+  clearInstallPromotionStatus,
+  installPlatform,
+  installPromotionStatus,
+  saveInstallPromotionStatus
+} from "./install.js";
+import {
   ADVANCED_TECHNIQUES,
   ALL_TECHNIQUES,
   BASIC_TECHNIQUES,
@@ -57,6 +63,7 @@ const OCR_GRID_MARGIN_RATIO = 0.071;
 const OCR_CELL_RATIO = 0.095;
 let timerInterval = null;
 const viewedLessons = new Set();
+let deferredInstallPrompt = null;
 
 const state = createInitialState();
 const puzzleJourney = createPuzzleJourney((event, properties) => productAnalytics.capture(event, properties));
@@ -74,6 +81,7 @@ if (hasSavedProgress) {
   });
 }
 
+registerInstallEvents();
 registerServiceWorker();
 render();
 startTimer();
@@ -120,6 +128,7 @@ function render() {
         </section>
       `}
       ${state.completionSummary ? renderCompletionCelebration() : ""}
+      ${state.installPromptOpen ? renderInstallPrompt() : ""}
     </section>
   `;
 
@@ -127,6 +136,7 @@ function render() {
   saveState();
   focusRequestedHint();
   activateCompletionDialog();
+  activateInstallDialog();
 }
 
 function activateCompletionDialog() {
@@ -136,7 +146,15 @@ function activateCompletionDialog() {
   dialog.querySelector("[data-action='new-puzzle-after-completion']")?.focus();
 }
 
+function activateInstallDialog() {
+  const dialog = app.querySelector("[data-testid='install-prompt']");
+  if (!dialog) return;
+  [...dialog.parentElement.children].filter((child) => child !== dialog).forEach((child) => { child.inert = true; });
+  dialog.querySelector("[data-action='install-app'], [data-action='dismiss-install-prompt']")?.focus();
+}
+
 function dismissCompletionCelebration() {
+  if (shouldPromoteInstall()) saveInstallPromotionStatus("offered");
   state.completionSummary = null;
   render();
   if (state.selected !== null) app.querySelector(`[data-cell='${state.selected}']`)?.focus();
@@ -144,6 +162,7 @@ function dismissCompletionCelebration() {
 
 function renderCompletionCelebration() {
   const summary = state.completionSummary;
+  const promoteInstall = shouldPromoteInstall();
   return `
     <section class="celebration-backdrop" data-testid="completion-celebration" role="dialog" aria-modal="true" aria-labelledby="completion-title">
       <div class="celebration-card">
@@ -159,6 +178,13 @@ function renderCompletionCelebration() {
           <div><dt>Completed</dt><dd data-testid="completion-total">${summary.completed}</dd></div>
         </dl>
         <p class="completion-analysis" data-testid="completion-analysis">${summary.analysis}</p>
+        ${promoteInstall ? `
+          <button class="completion-install-promo" data-action="open-install-prompt" data-testid="completion-install-promo">
+            <img src="/icons/icon-192.png" alt="" />
+            <span><strong>Keep Sudoku Pilot one tap away</strong><small>Add it to your Home Screen for full-screen, offline play.</small></span>
+            <span aria-hidden="true">›</span>
+          </button>
+        ` : ""}
         <div class="celebration-actions">
           <button data-action="dismiss-celebration">Keep admiring</button>
           <button class="primary" data-action="new-puzzle-after-completion">Fly another puzzle</button>
@@ -166,6 +192,83 @@ function renderCompletionCelebration() {
       </div>
     </section>
   `;
+}
+
+function renderInstallPrompt() {
+  const platform = installPlatform();
+  const androidInstall = platform.android && deferredInstallPrompt;
+  return `
+    <section class="install-backdrop" data-testid="install-prompt" role="dialog" aria-modal="true" aria-labelledby="install-title">
+      <div class="install-card">
+        <button class="install-close" data-action="dismiss-install-prompt" aria-label="Close install instructions">×</button>
+        <img class="install-app-icon" src="/icons/icon-192.png" alt="" />
+        <p class="install-kicker">Ready for takeoff</p>
+        <h2 id="install-title">Play offline from your Home Screen</h2>
+        <p class="install-benefit">It opens full screen, loads with no connection, and stays one tap away—without an App Store download.</p>
+        ${androidInstall ? `
+          <ol class="install-steps">
+            <li><span class="install-step-number">1</span><span>Tap <strong>Install now</strong> below.</span></li>
+            <li><span class="install-step-number">2</span><span>Confirm <strong>Install</strong> in Chrome.</span></li>
+            <li><span class="install-step-number">3</span><span>Open Sudoku Pilot from its new Home Screen icon.</span></li>
+          </ol>
+          <div class="install-actions">
+            <button data-action="dismiss-install-prompt">Not now</button>
+            <button class="primary" data-action="install-app">Install now</button>
+          </div>
+        ` : `
+          <ol class="install-steps">
+            <li><span class="install-step-icon" aria-hidden="true">${shareIcon()}</span><span>Tap the browser’s <strong>Share</strong> button. If you see a More button first, tap it, then Share.</span></li>
+            <li><span class="install-step-icon install-plus" aria-hidden="true">＋</span><span>Scroll down and tap <strong>Add to Home Screen</strong>.</span></li>
+            <li><span class="install-step-number">3</span><span>Turn on <strong>Open as Web App</strong>, then tap <strong>Add</strong>.</span></li>
+          </ol>
+          <div class="install-actions">
+            <a href="/offline-sudoku-app/">Full offline guide</a>
+            <button class="primary" data-action="dismiss-install-prompt">Got it</button>
+          </div>
+        `}
+      </div>
+    </section>
+  `;
+}
+
+function shareIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7.5 7.5M12 3l4.5 4.5M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8" /></svg>`;
+}
+
+function shouldPromoteInstall() {
+  const platform = installPlatform();
+  if (platform.standalone || !platform.mobile || installPromotionStatus() !== "new") return false;
+  return platform.ios || Boolean(platform.android && deferredInstallPrompt);
+}
+
+function canOpenInstallPrompt() {
+  const platform = installPlatform();
+  return !platform.standalone && (platform.ios || Boolean(platform.android && deferredInstallPrompt));
+}
+
+function openInstallPrompt() {
+  saveInstallPromotionStatus("offered");
+  state.completionSummary = null;
+  state.installPromptOpen = true;
+  render();
+}
+
+function dismissInstallPrompt() {
+  saveInstallPromotionStatus("dismissed");
+  state.installPromptOpen = false;
+  render();
+  if (state.selected !== null) app.querySelector(`[data-cell='${state.selected}']`)?.focus();
+}
+
+async function installApp() {
+  if (!deferredInstallPrompt) return;
+  const prompt = deferredInstallPrompt;
+  deferredInstallPrompt = null;
+  await prompt.prompt();
+  const choice = await prompt.userChoice;
+  saveInstallPromotionStatus(choice?.outcome === "accepted" ? "installed" : "dismissed");
+  state.installPromptOpen = false;
+  render();
 }
 
 function recordPuzzleCompletion() {
@@ -558,6 +661,7 @@ function renderAutomationPanel() {
 }
 
 function renderInfoPanel() {
+  const installAvailable = canOpenInstallPrompt();
   return `
     <section class="sub-panel info-panel">
       <div class="panel-title">
@@ -568,11 +672,17 @@ function renderInfoPanel() {
         <a class="button-link" href="${feedbackHref()}">Send feedback</a>
       </div>
       <p class="caption">Feedback opens your email app with puzzle context in the subject.</p>
+      <div class="offline-install-box">
+        <img src="/icons/icon-192.png" alt="" />
+        <div><strong>Play offline</strong><p>Add Sudoku Pilot to your Home Screen for full-screen play without a connection.</p></div>
+        ${installAvailable ? `<button data-action="open-install-prompt">How to install</button>` : `<a class="button-link" href="/offline-sudoku-app/">Setup guide</a>`}
+      </div>
       <div class="content-links" aria-label="Learn about Sudoku Pilot">
         <a class="button-link" href="/sudoku-coach/">How the coach works</a>
         <a class="button-link" href="/practice-sudoku-techniques/">Technique practice</a>
         <a class="button-link" href="/sudoku-without-guessing/">Our puzzle guarantee</a>
         <a class="button-link" href="/why-we-built-this/">Why we built this</a>
+        <a class="button-link" href="/offline-sudoku-app/">Offline setup guide</a>
         <a class="button-link" href="/contact/">Contact</a>
         <a class="button-link" href="/privacy/">Privacy</a>
       </div>
@@ -1022,7 +1132,10 @@ function handleAction(action) {
   if (action === "fill-notes") fillNotesWithHistory();
   if (action === "clear-notes") clearNotesWithHistory();
   if (action === "new-puzzle") startPuzzle();
-  if (action === "new-puzzle-after-completion") startPuzzle(state.difficulty, { skipConfirm: true });
+  if (action === "new-puzzle-after-completion") {
+    if (shouldPromoteInstall()) saveInstallPromotionStatus("offered");
+    startPuzzle(state.difficulty, { skipConfirm: true });
+  }
   if (action === "practice") openPracticeBrowser();
   if (action === "practice-from-lesson") openPracticeFromLesson();
   if (action === "start-certified-practice" || action === "practice-retry") startCertifiedPractice(state.practiceFixtureIndex);
@@ -1072,6 +1185,18 @@ function handleAction(action) {
   if (action === "cancel-ocr") cancelOcr();
   if (action === "restore-previous") restorePreviousPuzzle();
   if (action === "clear-local-data") clearLocalData();
+  if (action === "open-install-prompt") {
+    openInstallPrompt();
+    return;
+  }
+  if (action === "dismiss-install-prompt") {
+    dismissInstallPrompt();
+    return;
+  }
+  if (action === "install-app") {
+    installApp();
+    return;
+  }
   if (action === "dismiss-celebration") {
     dismissCompletionCelebration();
     return;
@@ -1080,6 +1205,21 @@ function handleAction(action) {
 }
 
 function handleKeydown(event) {
+  if (state.installPromptOpen) {
+    if (event.key === "Escape") {
+      dismissInstallPrompt();
+      return;
+    }
+    if (event.key === "Tab") {
+      const actions = [...app.querySelectorAll("[data-testid='install-prompt'] button, [data-testid='install-prompt'] a")];
+      if (!actions.length) return;
+      event.preventDefault();
+      const current = actions.indexOf(document.activeElement);
+      const offset = event.shiftKey ? -1 : 1;
+      actions[(current + offset + actions.length) % actions.length].focus();
+    }
+    return;
+  }
   if (state.completionSummary) {
     if (event.key === "Escape") {
       dismissCompletionCelebration();
@@ -1619,6 +1759,7 @@ function clearLocalData() {
     window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
     window.localStorage.removeItem(PLAYER_STATS_KEY);
     productAnalytics.reset();
+    clearInstallPromotionStatus();
     playedCanonicalIds.clear();
     const freshState = createInitialState();
     window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
@@ -1828,6 +1969,7 @@ function createInitialState() {
     puzzlePracticeMode: null,
     completionRecorded: false,
     completionSummary: null,
+    installPromptOpen: false,
     wasSolved: false,
     playerStats: loadPlayerStats(),
     focusHint: false,
@@ -2014,6 +2156,20 @@ function registerServiceWorker() {
     navigator.serviceWorker.register("/sw.js").catch(() => {
       // Offline support is additive; failed registration should not block solving.
     });
+  });
+}
+
+function registerInstallEvents() {
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if (state.completionSummary || state.moreOpen) render();
+  });
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    saveInstallPromotionStatus("installed");
+    state.installPromptOpen = false;
+    render();
   });
 }
 

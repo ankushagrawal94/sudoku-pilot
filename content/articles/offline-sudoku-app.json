@@ -3,7 +3,7 @@
   "title": "Use Sudoku Pilot Offline",
   "description": "Install Sudoku Pilot as a Progressive Web App on iPhone, iPad, Android, or desktop and keep solving offline.",
   "published": "2026-07-12",
-  "updated": "2026-07-12",
+  "updated": "2026-07-20",
   "eyebrow": "Offline Sudoku",
   "intro": "Sudoku Pilot is a Progressive Web App. Open it once with a connection, then install it from your browser for an app-like icon and offline access.",
   "related": [
@@ -19,9 +19,9 @@
           "type": "ordered-list",
           "items": [
             "Open sudokupilot.com in Safari.",
-            "Tap the Share button.",
+            "Tap the Share button. If Safari shows a More button instead, tap it and then tap Share.",
             "Scroll down and tap Add to Home Screen.",
-            "Tap Add. Open Sudoku Pilot from the new Home Screen icon."
+            "Turn on Open as Web App, then tap Add. Open Sudoku Pilot from the new Home Screen icon."
           ]
         },
         {
