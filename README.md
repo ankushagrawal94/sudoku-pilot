@@ -18,8 +18,15 @@ When you get stuck, the coach shows the logical moves available from the techniq
 ## Top features
 
 - **Progressive coaching catalog.** Learn and practice 17 fully coached techniques: Last Digit; Naked and Hidden Singles; Pointing and Claiming Candidates; Hidden Pairs and Triples; Naked Pairs, Triples, and Quads; X-Wing; Swordfish; Skyscraper; 2-String Kite; XY-Wing; XYZ-Wing; and W-Wing. Hidden Quadruple, Jellyfish, Crane, Simple Colouring, and Empty Rectangle are also available as clearly labeled provisional detectors.
-- **Import a puzzle for review.** Start from a screenshot, correct the recognized digits in an editable grid, and then solve or ask the coach to review the board. OCR runs in your browser, and the image is not sent to an OCR service. It reads large filled digits; pencil notes still need to be entered manually.
+- **No guessing required.** Every generated puzzle has a unique solution and a verified logical path from start to finish. You will never need trial and error—sometimes called Bowman's Bingo—to complete one.
+- **Every available next move.** Instead of choosing one hint for you, the coach lets you compare all the logical moves currently available from your selected techniques.
+- **Hints that do not spoil the solve.** Reveal help gradually, from the technique and where to look through the exact move. Stop as soon as you have enough to continue on your own.
+- **Practice for a specific technique.** Choose the pattern you want to learn instead of waiting for it to appear in a random puzzle. Practice finding it, using it in a complete solve, and distinguishing it from near misses.
+- **Technique-based difficulty.** Puzzle ratings reflect the logical techniques and effort in Sudoku Pilot's verified solve path, not simply the number of given digits.
+- **Automation for familiar techniques.** Let Sudoku Pilot handle deductions you already know until the puzzle reaches a move worth your attention, or run one named technique at a time.
+- **Import a puzzle for review.** Start from a screenshot, correct the recognized digits in an editable grid, and then solve or ask the coach to review the board. OCR reads large filled digits; pencil notes still need to be entered manually.
 - **Input that works the way you solve.** Choose cell-first or digit-first entry, use the on-screen number pad or keyboard, and add a note to several cells at once. Fill or clear all pencil notes, undo moves, and configure peer highlights, matching-digit highlights, the timer, and live mistake feedback.
+- **Private and offline-friendly.** Your puzzle progress stays in your browser. The installable app works offline after loading, and imported screenshots are not uploaded to an OCR service.
 
 Technique detection never repairs an imported puzzle or overwrites a player's decisions. The solver tracks logical candidates separately from player-entered notes, so partial notes cannot create false deductions.
 
