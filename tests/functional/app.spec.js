@@ -528,6 +528,8 @@ test("all possible moves stay hidden until requested", async ({ page }) => {
   await page.goto("/");
   await page.locator("[data-action='fill-notes']").click();
 
+  await expect(page.getByTestId("hint-panel")).toHaveCount(0);
+  await page.getByTestId("hint-button").click();
   await expect(page.getByTestId("hint-panel")).not.toContainText("All possible moves");
   await page.getByRole("button", { name: "All moves", exact: true }).click();
 
