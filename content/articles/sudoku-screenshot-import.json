@@ -60,7 +60,7 @@
         },
         {
           "type": "paragraph",
-          "text": "Sudoku Pilot does not charge you directly for a scan. Recognition can be unavailable when the site's provider quota is exhausted or the service is down. You can enter the puzzle manually when that happens."
+          "text": "Each online scan uses a metered service that Sudoku Pilot pays for. You are not charged for a scan. Recognition can be unavailable when the site's shared provider quota is exhausted or the service is down, and you can always enter the puzzle manually instead."
         },
         {
           "type": "paragraph",

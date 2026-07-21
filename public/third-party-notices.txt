@@ -4,14 +4,6 @@ Sudoku Pilot is licensed under PolyForm Noncommercial License 1.0.0.
 
 DEPLOYED APPLICATION
 
-Tesseract.js 5.1.1 and tesseract.js-core 5.1.1
-Browser OCR software in /ocr/. Copyright their respective contributors.
-License: Apache License 2.0. See /licenses/Apache-2.0.txt.
-
-English Tesseract trained data
-Redistributed from @tesseract.js-data/eng and the upstream naptha/tessdata project. Copyright their respective contributors.
-License: Apache License 2.0. See /licenses/Apache-2.0.txt.
-
 sudoku-gen 1.0.2
 Copyright Pete Williams.
 License: MIT License.

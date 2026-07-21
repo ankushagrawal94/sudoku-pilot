@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { Readable } from "node:stream";
+import sudokuOcrHandler from "../api/sudoku-ocr.js";
 import { normalizeSudokuOcrResponse, scanSudokuImage } from "../server/sudoku-ocr-client.js";
 
 const providerRows = Array.from({ length: 9 }, (_, row) => ({
@@ -53,4 +55,75 @@ assert.equal(usageLogs[0].provider_calls, 1);
 assert.equal(usageLogs[0].retry, false);
 assert.equal(JSON.stringify(logLines).includes("test-key-never-logged"), false, "logs must never contain the API key");
 
+const failedLogLines = [];
+await assert.rejects(
+  scanSudokuImage({
+    bytes: new Uint8Array([1, 2, 3]),
+    contentType: "image/png",
+    filename: "fixture.png",
+    apiKey: "test-key-never-logged",
+    requestId: "failed-test-request",
+    logger: {
+      info(line) { failedLogLines.push(JSON.parse(line)); },
+      error(line) { failedLogLines.push(JSON.parse(line)); }
+    },
+    fetchImpl: async () => new Response("provider body with puzzle data", { status: 422 })
+  }),
+  (error) => error.message === "Sudoku OCR returned HTTP 422"
+);
+assert.equal(JSON.stringify(failedLogLines).includes("provider body with puzzle data"), false, "logs must never contain provider response bodies");
+assert.equal(failedLogLines.filter((line) => line.event === "sudoku_ocr_provider_call").length, 1);
+
+const originalApiKey = process.env.RAPIDAPI_KEY;
+const originalOcrEnabled = process.env.SUDOKU_OCR_ENABLED;
+process.env.RAPIDAPI_KEY = "route-test-key";
+process.env.SUDOKU_OCR_ENABLED = "true";
+const invalidImageRequest = Readable.from([Buffer.from("not a png")]);
+invalidImageRequest.method = "POST";
+invalidImageRequest.headers = {
+  "content-type": "image/png",
+  "content-length": "9"
+};
+const routeResult = await invokeRoute(invalidImageRequest);
+assert.equal(routeResult.status, 400);
+assert.deepEqual(routeResult.body, { error: "Image contents do not match the selected file type" });
+
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async () => new Response("quota exhausted", {
+  status: 429,
+  headers: {
+    "x-ratelimit-requests-limit": "30",
+    "x-ratelimit-requests-remaining": "0"
+  }
+});
+const validPngRequest = Readable.from([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])]);
+validPngRequest.method = "POST";
+validPngRequest.headers = {
+  "content-type": "image/png",
+  "content-length": "8",
+  "x-vercel-id": "quota-route-test"
+};
+const quotaResult = await invokeRoute(validPngRequest);
+assert.equal(quotaResult.status, 429);
+assert.match(quotaResult.body.error, /usage limit/);
+globalThis.fetch = originalFetch;
+if (originalApiKey === undefined) delete process.env.RAPIDAPI_KEY;
+else process.env.RAPIDAPI_KEY = originalApiKey;
+if (originalOcrEnabled === undefined) delete process.env.SUDOKU_OCR_ENABLED;
+else process.env.SUDOKU_OCR_ENABLED = originalOcrEnabled;
+
 console.log("Sudoku OCR API contract tests passed without a live provider call");
+
+function invokeRoute(request) {
+  return new Promise((resolve) => {
+    const headers = {};
+    const response = {
+      setHeader(name, value) { headers[name.toLowerCase()] = value; },
+      status(code) { this.statusCode = code; return this; },
+      end(body) {
+        resolve({ status: this.statusCode, headers, body: JSON.parse(body) });
+      }
+    };
+    sudokuOcrHandler(request, response);
+  });
+}

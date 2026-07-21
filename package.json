@@ -30,11 +30,9 @@
     "catalog:verify": "node --no-warnings scripts/catalog/verify-catalog.mjs"
   },
   "dependencies": {
-    "@tesseract.js-data/eng": "1.0.0",
     "@vercel/analytics": "^2.0.1",
     "posthog-js": "^1.280.1",
     "sudoku-gen": "^1.0.2",
-    "tesseract.js": "5.1.1",
     "vite": "8.1.4"
   },
   "devDependencies": {

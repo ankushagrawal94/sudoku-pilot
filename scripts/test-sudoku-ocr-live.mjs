@@ -9,6 +9,7 @@ if (!process.argv.includes("--confirm-live-call")) {
 
 const imagePath = process.argv.find((argument) => argument.startsWith("--image="))?.slice("--image=".length)
   || "resources/sudoku-ocr-api/notes-fixture.png";
+const isCheckedFixture = imagePath === "resources/sudoku-ocr-api/notes-fixture.png";
 const bytes = await readFile(imagePath);
 const contentType = imagePath.endsWith(".webp") ? "image/webp" : imagePath.match(/\.jpe?g$/i) ? "image/jpeg" : "image/png";
 
@@ -23,7 +24,9 @@ const result = await scanSudokuImage({
 
 const values = result.puzzle.cells.flat().filter((cell) => cell.kind === "value").length;
 const noteCells = result.puzzle.cells.flat().filter((cell) => cell.kind === "notes" && cell.notes.length > 0).length;
-const expected = JSON.parse(await readFile("resources/sudoku-ocr-api/notes-fixture.expected.json", "utf8"));
+const expected = isCheckedFixture
+  ? JSON.parse(await readFile("resources/sudoku-ocr-api/notes-fixture.expected.json", "utf8"))
+  : { value_cells: {}, note_cells: {} };
 const cellAt = (name) => {
   const match = /^r([1-9])c([1-9])$/.exec(name);
   return result.puzzle.cells[Number(match[1]) - 1][Number(match[2]) - 1];
@@ -38,8 +41,9 @@ const noteChecks = Object.entries(expected.note_cells).map(([name, notes]) => ({
   actual: cellAt(name).kind === "notes" ? cellAt(name).notes : null,
   exact: cellAt(name).kind === "notes" && JSON.stringify(cellAt(name).notes) === JSON.stringify(notes)
 }));
+const evaluationPassed = !isCheckedFixture || (valueChecks.every((check) => check.exact) && noteChecks.every((check) => check.exact));
 console.log(JSON.stringify({
-  live_test: "passed",
+  live_test: evaluationPassed ? "passed" : "completed_with_mismatches",
   provider_calls: 1,
   image: imagePath,
   recognized_values: values,
@@ -51,3 +55,4 @@ console.log(JSON.stringify({
   note_mismatches: noteChecks.filter((check) => !check.exact),
   quota: result.quota
 }, null, 2));
+if (!evaluationPassed) process.exitCode = 1;

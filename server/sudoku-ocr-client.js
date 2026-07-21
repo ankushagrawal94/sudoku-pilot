@@ -2,6 +2,16 @@ const PROVIDER_HOST = "sudoku-ocr.p.rapidapi.com";
 const PROVIDER_URL = `https://${PROVIDER_HOST}/scan-puzzle`;
 const PROVIDER_TIMEOUT_MS = 25_000;
 
+export class SudokuOcrProviderError extends Error {
+  constructor(message, { providerStatus = null, quota = null, code = "PROVIDER_ERROR" } = {}) {
+    super(message);
+    this.name = "SudokuOcrProviderError";
+    this.providerStatus = providerStatus;
+    this.quota = quota;
+    this.code = code;
+  }
+}
+
 function logEvent(logger, level, fields) {
   const method = level === "error" ? "error" : "info";
   logger[method](JSON.stringify({
@@ -116,15 +126,20 @@ export async function scanSudokuImage({
     });
 
     if (!response.ok) {
-      const providerMessage = (await response.text()).slice(0, 500);
-      throw new Error(`Sudoku OCR returned ${response.status}${providerMessage ? `: ${providerMessage}` : ""}`);
+      // Consume the body so the connection can be reused, but never retain or
+      // surface provider response content in errors or application logs.
+      await response.text();
+      throw new SudokuOcrProviderError(
+        `Sudoku OCR returned HTTP ${response.status}`,
+        { providerStatus: response.status, quota }
+      );
     }
 
     const payload = await response.json();
     return { puzzle: normalizeSudokuOcrResponse(payload), quota };
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error(`Sudoku OCR timed out after ${timeoutMs} ms`);
+      throw new SudokuOcrProviderError(`Sudoku OCR timed out after ${timeoutMs} ms`, { code: "TIMEOUT" });
     }
     throw error;
   } finally {

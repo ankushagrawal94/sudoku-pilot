@@ -63,7 +63,7 @@ assert.doesNotMatch(sudokuOcrClient, /VITE_RAPIDAPI_KEY/, "The RapidAPI key must
 assert.match(sudokuOcrClient, /event: "sudoku_ocr_provider_call"/, "Every provider call must emit a countable usage event.");
 assert.match(sudokuOcrClient, /retry: false/, "The OCR provider client must not silently spend quota on retries.");
 assert.match(sudokuOcrRoute, /hasExpectedImageSignature/, "The OCR proxy must validate image signatures before spending provider quota.");
-assert.match(sudokuOcrRoute, /SUDOKU_OCR_ENABLED/, "The OCR proxy must have an operator kill switch.");
+assert.match(sudokuOcrRoute, /SUDOKU_OCR_ENABLED/, "The OCR proxy must have a fail-closed deployment switch.");
 assert.match(sudokuOcrRoute, /takeClientQuota/, "The OCR proxy must throttle repeated calls before spending provider quota.");
 assert.doesNotMatch(sudokuOcrClient, /providerMessage/, "Provider response bodies must not be retained in OCR errors.");
 assert.doesNotMatch(sudokuOcrRoute, /error:\s*error(?:\?\.message|\.message)/, "OCR request logs must not include exception messages.");

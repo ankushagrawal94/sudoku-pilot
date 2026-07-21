@@ -310,7 +310,7 @@ function renderPrivacyPage() {
           <h2>Screenshot OCR uses an online provider</h2>
           <p>Screenshot OCR is optional. When you start recognition, the selected image is sent to a Sudoku Pilot serverless function hosted by Vercel. That function forwards the image to Sudoku OCR through RapidAPI and returns the recognized grid for review.</p>
           <p>Sudoku Pilot does not save the image in browser storage or an application database. Vercel, RapidAPI, and the Sudoku OCR provider process the request. The OCR provider's image handling and retention policy is not publicly detailed. Avoid uploading screenshots that contain personal or sensitive information.</p>
-          <p>Sudoku Pilot does not charge users directly for OCR scans. Recognition can be unavailable when the site's provider quota is exhausted or the service is down. Generated puzzles, manual entry, and ordinary gameplay remain local-first and do not require an image upload.</p>
+          <p>Each online scan uses a metered service that Sudoku Pilot pays for. Users are not charged for scans. Recognition can be unavailable when the site's shared provider quota is exhausted or the service is down. Generated puzzles, manual entry, and ordinary gameplay remain local-first and do not require an image upload.</p>
         </section>
         <section>
           <h2>Hosting and analytics</h2>

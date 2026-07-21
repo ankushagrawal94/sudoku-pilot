@@ -38,7 +38,7 @@ Generated puzzles, manual entry, solving, notes, hints, and practice stay availa
 
 ## Optional online screenshot OCR
 
-Starting screenshot recognition sends the selected image to Sudoku Pilot's `/api/sudoku-ocr` serverless function. The function forwards that image to Sudoku OCR through RapidAPI and returns the recognized grid for review. The RapidAPI credential stays on the server. Users are not charged directly for scans, and no payment information is requested. Availability depends on the quota and status of the site's RapidAPI subscription.
+Starting screenshot recognition sends the selected image to Sudoku Pilot's `/api/sudoku-ocr` serverless function. The function forwards that image to Sudoku OCR through RapidAPI and returns the recognized grid for review. Each scan consumes a metered service paid for by Sudoku Pilot; users are not charged, and no payment information is requested. The RapidAPI credential stays on the server, and availability depends on the quota and status of the site's subscription.
 
 The OCR provider's image handling and retention policy is not publicly detailed. Avoid uploading screenshots that contain personal or sensitive information. Ordinary gameplay remains local-first and does not require an image upload.
 
@@ -47,12 +47,15 @@ For local endpoint development, copy the example environment file and add a Rapi
 ```sh
 cp .env.example .env.local
 # Edit .env.local and set RAPIDAPI_KEY to the server-side RapidAPI credential.
+# Set SUDOKU_OCR_ENABLED=true only when this environment may spend OCR quota.
 npx vercel dev
 ```
 
 `npm run dev` still runs the Vite app for ordinary gameplay work. Use `vercel dev` when the browser must call the local serverless OCR endpoint. Never prefix the provider key with `VITE_`, which would expose it to browser code.
 
-For a Vercel deployment, add `RAPIDAPI_KEY` in the project's Environment Variables settings for each environment that should support OCR, then redeploy. Keep the value out of source control and client-visible configuration.
+For a Vercel deployment, add `RAPIDAPI_KEY` as a Sensitive environment variable and set `SUDOKU_OCR_ENABLED=true` for each environment that should support OCR, then redeploy. Keep the key out of source control and client-visible configuration. Preview environments should stay disabled unless they intentionally share the quota.
+
+`SUDOKU_OCR_MAX_CALLS_PER_IP_PER_HOUR` is a best-effort per-instance abuse brake; it is not a durable billing limit in a serverless deployment. The current provider plan's hard request cap is the billing control. Do not move to a plan with paid overages until the endpoint has durable cross-instance rate limiting or authenticated entitlements. `SUDOKU_OCR_ENABLED=false` is a fail-closed, deployment-time switch; for an emergency cutoff before a redeploy completes, disable the RapidAPI subscription or credential.
 
 The normal test suite uses a mocked provider and does not spend OCR quota. A separate live check makes exactly one provider request and must be confirmed explicitly:
 
@@ -136,7 +139,7 @@ Each article lives in `content/articles/<slug>.json`. The file contains its copy
 
 Use the Codex skill in `skills/publish-sudoku-article` to create, verify, and publish an article. It is installed locally at `~/.codex/skills/publish-sudoku-article`. Run `npm run build` and `npm run test:content` after every content change.
 
-The product rationale and original requirements are documented in [resources/PRD.md](resources/PRD.md). The review-first screenshot and mistake-diagnosis milestone is specified in [resources/trusted-import-v0.1.md](resources/trusted-import-v0.1.md), with its first-party corpus contract in [resources/trusted-import-evaluation/README.md](resources/trusted-import-evaluation/README.md). Reference material lives in `resources/`. Generated reviews and measurements are written to the ignored `output/` directory; the certified catalog audit is the only tracked output artifact.
+The product rationale and original requirements are documented in [resources/PRD.md](resources/PRD.md). The current online, note-aware OCR decision is specified in [resources/trusted-import-v0.2.md](resources/trusted-import-v0.2.md); [v0.1](resources/trusted-import-v0.1.md) is preserved as the earlier browser-local research decision. The first-party corpus contract remains in [resources/trusted-import-evaluation/README.md](resources/trusted-import-evaluation/README.md). Reference material lives in `resources/`. Generated reviews and measurements are written to the ignored `output/` directory; the certified catalog audit is the only tracked output artifact.
 
 ## License
 
