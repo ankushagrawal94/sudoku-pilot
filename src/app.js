@@ -217,9 +217,6 @@ function renderInstallPrompt() {
           </div>
         ` : `
           ${renderIosInstallVisuals()}
-          <ol class="install-steps">
-            <li><span class="install-step-number">3</span><span>Turn on <strong>Open as Web App</strong>, then tap <strong>Add</strong>.</span></li>
-          </ol>
           <div class="install-actions">
             <a href="/offline-sudoku-app/">Full offline guide</a>
             <button class="primary" data-action="dismiss-install-prompt">Got it</button>
@@ -231,31 +228,25 @@ function renderInstallPrompt() {
 }
 
 function renderIosInstallVisuals() {
+  const steps = [
+    ["/images/ios-install-1-open-share.webp", "Open Safari's menu", "Tap Share.", "Safari menu with the Share action at the top"],
+    ["/images/ios-install-2-share-sheet.webp", "Expand the Share Sheet", "Tap View More.", "iOS Share Sheet with the View More action"],
+    ["/images/ios-install-3-add-to-home-screen.webp", "Choose Add to Home Screen", "Scroll down and tap Add to Home Screen.", "Expanded iOS Share Sheet with the Add to Home Screen action"],
+    ["/images/ios-install-4-confirm.webp", "Confirm the web app", "Keep Open as Web App on, then tap Add.", "Add to Home Screen confirmation with Open as Web App enabled"]
+  ];
   return `
-    <div class="ios-install-visuals" aria-label="Visual guide to the iPhone Share menu">
-      <figure class="ios-visual-card">
-        <figcaption><span>1</span><strong>Tap Share</strong></figcaption>
-        <div class="ios-safari-preview" aria-hidden="true">
-          <div class="ios-page-mini"><img src="/icons/icon-192.png" alt="" /><span>sudokupilot.com</span></div>
-          <div class="ios-toolbar-mini">
-            <span>‹</span><span>›</span><span class="ios-share-highlight">${shareIcon()}</span><span>▢</span><span>☷</span>
-          </div>
-        </div>
-      </figure>
-      <figure class="ios-visual-card">
-        <figcaption><span>2</span><strong>Choose this row</strong></figcaption>
-        <div class="ios-share-sheet-preview" aria-hidden="true">
-          <i></i>
-          <div class="ios-share-site"><img src="/icons/icon-192.png" alt="" /><span>Sudoku Pilot<small>sudokupilot.com</small></span></div>
-          <div class="ios-share-row"><span class="ios-home-icon">＋</span><strong>Add to Home Screen</strong><span>›</span></div>
-        </div>
-      </figure>
+    <p class="ios-install-swipe-hint">Swipe through all 4 steps</p>
+    <div class="ios-install-walkthrough" aria-label="Four-step visual guide to installing on iPhone">
+      ${steps.map(([src, title, instruction, alt], index) => `
+        <figure class="ios-install-step">
+          <a href="${src}" target="_blank" aria-label="Open step ${index + 1} screenshot full size">
+            <img src="${src}" alt="${alt}" width="852" height="${index === 1 || index === 2 ? 1846 : 1853}" loading="lazy" />
+          </a>
+          <figcaption><span>${index + 1}</span><strong>${title}</strong><small>${instruction}</small></figcaption>
+        </figure>
+      `).join("")}
     </div>
   `;
-}
-
-function shareIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7.5 7.5M12 3l4.5 4.5M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8" /></svg>`;
 }
 
 function shouldPromoteInstall() {

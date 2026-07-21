@@ -38,13 +38,25 @@ for (const page of pages) {
     assert.ok(intrinsicWidth >= displayWidth * 2, `${article.image} must provide at least 2x desktop density`);
     assert.match(html, new RegExp(`<img src="${imageSource}`));
   } else {
-    assert.doesNotMatch(html, /<figure>/);
+    assert.doesNotMatch(html, /<figure style="--article-image-width:/);
     assert.doesNotMatch(html, /property="og:image"/);
   }
   assert.match(html, new RegExp(`datePublished[^<]+${articles.find((article) => article.path === page).published}`));
   assert.doesNotMatch(html, /sudoku method|sudoku-method|sudoku-app-wine\.vercel\.app/i);
   assert.doesNotMatch(html, /\bnot (?:just )?[^.!?]{0,80}\bbut\b/i);
   assert.doesNotMatch(html, /—/);
+}
+
+const offlineGuide = await readFile("public/offline-sudoku-app/index.html", "utf8");
+assert.match(offlineGuide, /class="install-gallery"/);
+for (const image of [
+  "ios-install-1-open-share.webp",
+  "ios-install-2-share-sheet.webp",
+  "ios-install-3-add-to-home-screen.webp",
+  "ios-install-4-confirm.webp"
+]) {
+  assert.match(offlineGuide, new RegExp(`src="/images/${image}`));
+  await access(`public/images/${image}`);
 }
 
 for (const image of [

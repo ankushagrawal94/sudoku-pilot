@@ -25,6 +25,32 @@
           ]
         },
         {
+          "type": "image-gallery",
+          "label": "Four screenshots showing how to install Sudoku Pilot on iPhone",
+          "items": [
+            {
+              "src": "/images/ios-install-1-open-share.webp",
+              "alt": "Safari menu with the Share action at the top",
+              "caption": "Open Safari's menu and tap Share."
+            },
+            {
+              "src": "/images/ios-install-2-share-sheet.webp",
+              "alt": "iOS Share Sheet with the View More action",
+              "caption": "Tap View More to expand the Share Sheet."
+            },
+            {
+              "src": "/images/ios-install-3-add-to-home-screen.webp",
+              "alt": "Expanded iOS Share Sheet with the Add to Home Screen action",
+              "caption": "Scroll down and tap Add to Home Screen."
+            },
+            {
+              "src": "/images/ios-install-4-confirm.webp",
+              "alt": "Add to Home Screen confirmation with Open as Web App enabled",
+              "caption": "Keep Open as Web App on, then tap Add."
+            }
+          ]
+        },
+        {
           "type": "paragraph",
           "text": "Apple places the install command in Safari's Share menu. The exact icon position can vary by iOS or iPadOS version."
         }

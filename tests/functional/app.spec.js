@@ -216,7 +216,9 @@ test("offers iPhone Home Screen instructions after a first completion", async ({
   await expect(prompt).toContainText("Share");
   await expect(prompt).toContainText("Add to Home Screen");
   await expect(prompt).toContainText("Open as Web App");
-  await expect(prompt.locator(".ios-visual-card")).toHaveCount(2);
+  await expect(prompt.locator(".ios-install-step")).toHaveCount(4);
+  await expect(prompt.locator(".ios-install-step img")).toHaveCount(4);
+  await expect(prompt).toContainText("View More");
   await expect(prompt).not.toContainText("App Store");
   await expect(prompt).not.toContainText("—");
   await prompt.getByRole("button", { name: "Got it" }).click();

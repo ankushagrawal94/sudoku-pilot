@@ -1516,171 +1516,82 @@ button:hover,
   line-height: 1.5;
 }
 
-.ios-install-visuals {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
+.ios-install-swipe-hint {
+  margin: 0 0 8px;
+  color: #60748a;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.ios-visual-card {
+.ios-install-walkthrough {
+  display: grid;
+  grid-auto-columns: minmax(205px, 62%);
+  grid-auto-flow: column;
+  gap: 12px;
+  margin: 0 -4px;
+  padding: 2px 4px 14px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: thin;
+}
+
+.ios-install-step {
+  scroll-snap-align: start;
   min-width: 0;
   margin: 0;
-  border: 1px solid #dbe5ef;
+  overflow: hidden;
+  border: 1px solid #d7e2ed;
   border-radius: 16px;
-  padding: 10px;
   background: #f4f7fa;
 }
 
-.ios-visual-card figcaption {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 9px;
-  color: #284d76;
-  font-size: 12px;
+.ios-install-step a {
+  display: block;
+  aspect-ratio: 852 / 1849;
+  overflow: hidden;
+  background: #e8edf2;
 }
 
-.ios-visual-card figcaption span {
+.ios-install-step img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ios-install-step figcaption {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 2px 8px;
+  padding: 11px;
+  color: #284d76;
+  font-size: 13px;
+}
+
+.ios-install-step figcaption span {
+  grid-row: 1 / 3;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #286bb1;
   color: #fff;
   font-weight: 900;
 }
 
-.ios-safari-preview {
-  display: grid;
-  align-content: space-between;
-  height: 142px;
-  overflow: hidden;
-  border: 1px solid #d4dde7;
-  border-radius: 13px;
-  background: linear-gradient(#eaf3fc, #fff 56%);
+.ios-install-step figcaption strong,
+.ios-install-step figcaption small {
+  min-width: 0;
 }
 
-.ios-page-mini {
-  display: grid;
-  place-items: center;
-  gap: 4px;
-  padding-top: 17px;
-  color: #597086;
-  font-size: 9px;
-}
-
-.ios-page-mini img {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  box-shadow: 0 3px 10px rgba(23, 59, 104, 0.16);
-}
-
-.ios-toolbar-mini {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  align-items: center;
-  min-height: 43px;
-  border-top: 1px solid #dce4ec;
-  background: rgba(255, 255, 255, 0.94);
-  color: #2870b9;
-  font-size: 20px;
-  text-align: center;
-}
-
-.ios-toolbar-mini svg {
-  width: 19px;
-  height: 19px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.ios-share-highlight {
-  display: grid;
-  place-items: center;
-  width: 35px;
-  height: 35px;
-  margin: 0 auto;
-  border-radius: 10px;
-  background: #dcebfa;
-  box-shadow: 0 0 0 2px #4d8fce;
-}
-
-.ios-share-sheet-preview {
-  height: 142px;
-  overflow: hidden;
-  border: 1px solid #d3dae3;
-  border-radius: 13px;
-  padding: 6px 7px;
-  background: #eef1f5;
-}
-
-.ios-share-sheet-preview > i {
-  display: block;
-  width: 28px;
-  height: 4px;
-  margin: 0 auto 6px;
-  border-radius: 999px;
-  background: #aeb7c1;
-}
-
-.ios-share-site {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 7px;
-  padding: 6px;
-  border-radius: 9px;
-  background: #fff;
-  color: #202934;
-  font-size: 10px;
-  font-weight: 750;
-}
-
-.ios-share-site img {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-}
-
-.ios-share-site small {
-  display: block;
-  overflow: hidden;
-  color: #6f7d8b;
-  font-size: 8px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-}
-
-.ios-share-row {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px;
-  min-height: 47px;
-  border: 2px solid #4b8dce;
-  border-radius: 10px;
-  padding: 5px 7px;
-  background: #fff;
-  color: #17202a;
-  font-size: 9px;
-}
-
-.ios-home-icon {
-  display: grid;
-  place-items: center;
-  width: 27px;
-  height: 27px;
-  border: 1px solid #718091;
-  border-radius: 6px;
-  font-size: 18px;
-  font-weight: 400;
+.ios-install-step figcaption small {
+  color: #60748a;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .install-steps {

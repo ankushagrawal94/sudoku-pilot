@@ -15,7 +15,11 @@ const blockedPublicIdentifiers = (process.env.PUBLIC_CONTENT_BLOCKLIST || "")
 const imageDimensions = {
   "/images/sudoku-pilot-naked-single-exact-move-v3.png": [1320, 1914, 660],
   "/images/sudoku-pilot-naked-single-first-clue-v3.png": [1320, 474, 660],
-  "/images/sudoku-pilot-import-review-grid-v3.png": [1480, 1962, 740]
+  "/images/sudoku-pilot-import-review-grid-v3.png": [1480, 1962, 740],
+  "/images/ios-install-1-open-share.webp": [852, 1853],
+  "/images/ios-install-2-share-sheet.webp": [852, 1846],
+  "/images/ios-install-3-add-to-home-screen.webp": [852, 1846],
+  "/images/ios-install-4-confirm.webp": [852, 1853]
 };
 
 const pages = await loadArticles();
@@ -354,6 +358,12 @@ function renderBlock(block) {
     const tag = block.type === "ordered-list" ? "ol" : "ul";
     return `<${tag}>${block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</${tag}>`;
   }
+  if (block.type === "image-gallery") {
+    return `<div class="install-gallery" aria-label="${escapeAttribute(block.label)}">${block.items.map((item, index) => {
+      const [width, height] = imageDimensions[item.src];
+      return `<figure><a href="${escapeAttribute(item.src)}"><img src="${escapeAttribute(item.src)}" alt="${escapeAttribute(item.alt)}" width="${width}" height="${height}" loading="lazy" /></a><figcaption><span>${index + 1}</span><strong>${escapeHtml(item.caption)}</strong></figcaption></figure>`;
+    }).join("")}</div>`;
+  }
   throw new Error(`Unsupported article block type: ${block.type}`);
 }
 
@@ -371,6 +381,12 @@ async function loadArticles() {
     const article = JSON.parse(await readFile(resolve(articlesRoot, file), "utf8"));
     validateArticle(article, file);
     if (article.image) await access(resolve(outputRoot, article.image.replace(/^\//, "")));
+    for (const section of article.sections) {
+      for (const block of section.blocks) {
+        if (block.type !== "image-gallery") continue;
+        for (const item of block.items) await access(resolve(outputRoot, item.src.replace(/^\//, "")));
+      }
+    }
     return article;
   }));
   const paths = new Set(articles.map((article) => article.path));
@@ -414,5 +430,10 @@ function validateBlock(block, file) {
   if (block.type === "paragraph" && typeof block.text === "string" && block.text.trim()) return;
   if ((block.type === "list" || block.type === "ordered-list") && Array.isArray(block.items) && block.items.length && block.items.every((item) => typeof item === "string" && item.trim())) return;
   if (block.type === "link" && typeof block.label === "string" && block.label.trim() && typeof block.href === "string" && /^(?:\/|https:\/\/)/.test(block.href)) return;
+  if (block.type === "image-gallery" && typeof block.label === "string" && block.label.trim() && Array.isArray(block.items) && block.items.length && block.items.every((item) => (
+    typeof item.src === "string" && item.src.startsWith("/images/") && imageDimensions[item.src]
+    && typeof item.alt === "string" && item.alt.trim()
+    && typeof item.caption === "string" && item.caption.trim()
+  ))) return;
   throw new Error(`${file}: invalid ${block.type || "unknown"} block`);
 }
