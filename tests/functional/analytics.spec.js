@@ -186,18 +186,13 @@ test("tracks near-miss practice without counting it as a puzzle", async ({ page 
   expect(events.map(({ event }) => event)).not.toContain("puzzle_started");
 });
 
-test("tracks each viewed lesson once per app session", async ({ page }, testInfo) => {
+test("tracks each viewed lesson once per app session", async ({ page }) => {
   await installAnalyticsClient(page);
   await page.goto("/");
   await page.locator("[data-view='learn']").click();
-  if (testInfo.project.name === "mobile") {
-    const select = page.locator("[data-lesson-select]");
-    await select.selectOption({ index: 1 });
-    await select.dispatchEvent("change");
-  } else {
-    await page.locator("[data-lesson-technique]").nth(1).click();
-    await page.locator("[data-lesson-technique]").nth(1).click();
-  }
+  const select = page.locator("[data-lesson-select]");
+  await select.selectOption({ index: 1 });
+  await select.dispatchEvent("change");
 
   await expect.poll(async () => (await capturedEvents(page)).filter(({ event }) => event === "lesson_viewed").length).toBe(2);
   const lessons = (await capturedEvents(page)).filter(({ event }) => event === "lesson_viewed");

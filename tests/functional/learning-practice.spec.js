@@ -9,6 +9,7 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     await page.locator("[data-lesson-select]").selectOption(technique);
     const lesson = page.getByTestId("lesson-browser").locator(".lesson-content");
     await expect(lesson).toHaveAttribute("data-technique", technique);
+    await expect(lesson.getByTestId("lesson-visual").getByRole("img")).toHaveAttribute("aria-label", `Exact ${technique} explanation board`);
     for (const section of ["what-it-is", "how-to-recognize", "why-it-works", "worked-example", "common-mistakes", "try-it"]) {
       await expect(lesson.locator(`[data-lesson-section='${section}']`)).toBeVisible();
     }
@@ -20,7 +21,7 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
 
     const before = await lesson.getByTestId("lesson-stage-message").textContent();
     for (let stage = 2; stage <= 4; stage += 1) await lesson.getByRole("button", { name: "Next stage", exact: true }).click();
-    await expect(lesson.locator("[data-visual-stage='4']")).toBeVisible();
+    await expect(lesson.locator(".worked-example [data-visual-stage='4']")).toBeVisible();
     await expect(lesson.locator("[data-visual-role='evidence']")).not.toHaveCount(0);
     await expect(lesson.locator(".text-equivalent")).toBeVisible();
     await expect(lesson.locator(".actions-list")).toBeVisible();
@@ -33,6 +34,23 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     await expect(page.getByTestId("practice-session")).not.toContainText(/solution-safe|committed-technique|certified|provisional/i);
   });
 }
+
+test("learn opens on Hidden Pair with tier labels only in the selector and pagination at the bottom", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Learn", exact: true }).click();
+
+  await expect(page.locator("[data-lesson-select]")).toHaveValue("Hidden Pair");
+  await expect(page.getByTestId("lesson-browser")).not.toContainText(/Tier [12] lesson|Tier [12] ·/);
+  await expect(page.locator("[data-lesson-select] optgroup")).toHaveCount(2);
+  await expect(page.locator("[data-lesson-select] optgroup").nth(0)).toHaveAttribute("label", "Tier 1 · Foundations");
+  await expect(page.locator("[data-lesson-select] optgroup").nth(1)).toHaveAttribute("label", "Tier 2 · Advanced");
+
+  const lesson = page.locator(".lesson-content");
+  const pagination = lesson.locator(".lesson-pagination");
+  await expect(pagination).toHaveCount(1);
+  await expect(pagination).toContainText("7 of 17");
+  expect(await pagination.evaluate((element) => element.previousElementSibling?.dataset.lessonSection)).toBe("try-it");
+});
 
 for (const technique of COMMITTED_COACHING_TECHNIQUES) {
   test(`${technique} supports find, complete, and near-miss practice`, async ({ page }, testInfo) => {

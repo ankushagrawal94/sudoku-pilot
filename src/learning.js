@@ -32,7 +32,7 @@ const LESSON_DETAILS = {
     "Every row, column, and block must contain the digits 1 through 9 exactly once. With one empty cell, the one missing digit has only one place to go.",
     "The unit is a permutation of 1 through 9; the sole absent value is forced into the sole absent position.",
     "Place one digit",
-    "Know how rows, columns, and 3×3 blocks are arranged.",
+    "Rows, columns, and 3×3 blocks must each contain the digits 1 through 9 once.",
     "Two empty cells are not a Last Digit, even if one of them looks easy. This technique requires exactly one empty cell in the chosen row, column, or block.",
     ["Starting before confirming that exactly one cell is empty.", "Forgetting to check the empty cell's other row, column, or block."]
   ),
@@ -43,7 +43,7 @@ const LESSON_DETAILS = {
     "Every other digit would repeat a digit in the same row, column, or block. The one remaining candidate is therefore forced.",
     "The legal-candidate set for the cell has cardinality one.",
     "Place one digit",
-    "Know how candidate pencil marks show the digits that can still fit in a cell.",
+    "Candidate pencil marks show every digit that can still legally fit in an empty cell.",
     "A cell with two legal candidates is not a Naked Single, even if one candidate feels more likely. Both possibilities must remain until logic removes one.",
     ["Trusting an incomplete pencil-note list as proof.", "Checking the row but forgetting the column or block."],
     ["candidate"]
@@ -55,7 +55,7 @@ const LESSON_DETAILS = {
     "The target cell may have several candidates, but the chosen digit has no other possible home in that row, column, or block.",
     "For a missing digit d, the set of legal cells in the unit contains exactly one member.",
     "Place one digit",
-    "Know how to scan one row, column, or block for a chosen candidate.",
+    "Be able to check every possible cell for one missing digit within a single row, column, or block.",
     "Two legal positions for the digit are a near miss. Neither can be chosen until another deduction removes one position.",
     ["Looking only for cells with one note instead of tracking one digit's possible cells.", "Treating incomplete player notes as a complete list of possibilities."],
     ["candidate"]
@@ -67,7 +67,7 @@ const LESSON_DETAILS = {
     "The block must contain the digit in one of its marked cells. Because those cells share a row or column, the digit cannot appear again on that row or column outside the block.",
     "The block candidates imply the disjunction of their cells; every cell in that disjunction belongs to the same line, so the line excludes the digit elsewhere.",
     "Remove impossible candidates",
-    "Know how to scan a block for every possible cell of one candidate.",
+    "Be able to find every cell where one missing digit could go inside a 3×3 block.",
     "If even one possible cell inside the block sits off the shared row or column, the pattern is invalid and nothing can be removed outside the block.",
     ["Removing candidates inside the chosen block instead of beyond it.", "Using only the pencil marks that happen to be written instead of all legal possibilities."],
     ["candidate"]
@@ -79,7 +79,7 @@ const LESSON_DETAILS = {
     "The row or column must contain the digit in the shared block. The block cannot contain another copy, so the digit can be removed from the rest of that block.",
     "The line candidates imply a placement within one block, so the block excludes the digit from its cells outside that line.",
     "Remove impossible candidates",
-    "Know how to scan a row or column for every possible cell of one candidate.",
+    "Be able to find every cell where one missing digit could go along a row or column.",
     "If the digit has even one possible cell on the chosen row or column outside the block, the pattern is invalid and nothing can be removed from the block.",
     ["Starting from a block; Claiming starts from a row or column.", "Removing candidates from the chosen row or column instead of the rest of the block."],
     ["candidate"]
@@ -98,7 +98,7 @@ const LESSON_DETAILS = {
     "The two lined-up cells cannot both contain the digit. If the first one is false, its unaligned partner is true. If it is true, the other lined-up cell is false, making its partner true. At least one unaligned cell is always true.",
     "The two strong-link disjunctions share a cover position, forcing at least one far endpoint true.",
     "Remove impossible candidates",
-    "Be comfortable scanning one digit. The terms below explain candidate, sees, and strong link.",
+    "Know how to follow one digit and spot a row or column where it has exactly two possible cells.",
     "A row or column with three possible cells is not a strong link. A candidate that sees only one unaligned cell cannot be removed.",
     ["Using two possible cells that are not the only possibilities on their row or column.", "Removing the digit from a cell that sees only one unaligned end."],
     ["candidate", "sees", "strong-link"]
@@ -110,7 +110,7 @@ const LESSON_DETAILS = {
     "The shared block cannot contain the digit twice. Whichever inside cell is not the digit makes its partner outside the block true. At least one outside cell must contain the digit, so a cell seeing both cannot.",
     "Two conjugate pairs joined by a block weak link force the disjunction of the remote endpoints.",
     "Remove impossible candidates",
-    "Be comfortable scanning one digit across rows, columns, and blocks. The terms below explain candidate, sees, and strong link.",
+    "Know how to follow one digit and spot rows, columns, or blocks where it has exactly two possible cells.",
     "If one cell from each pair does not share a block, the two links are not connected and no removal follows.",
     ["Using a row or column where the digit has three possible cells.", "Checking a cell that sees the two inside cells instead of the two outside cells."],
     ["candidate", "sees", "strong-link"]
@@ -122,7 +122,7 @@ const LESSON_DETAILS = {
     "Whichever candidate fills the pivot forces the shared wing candidate into one of the two wings. Because one wing must contain that digit, a cell that sees both wings cannot contain it.",
     "The pivot's exhaustive binary choice implies Z in at least one wing.",
     "Remove impossible candidates",
-    "Be comfortable with two-candidate cells. The terms below explain candidate, sees, pivot, and wing.",
+    "Know how to find cells with exactly two candidates and tell when two cells share a row, column, or block.",
     "If either wing does not see the pivot, or the wings do not share the same extra candidate, the pattern is invalid.",
     ["Requiring the two wings to see each other; only the pivot must see both.", "Using a pivot with three candidates."],
     ["candidate", "sees", "pivot", "wing"]
@@ -134,7 +134,7 @@ const LESSON_DETAILS = {
     "If the pivot takes the shared candidate, that digit is already present. If it takes either other candidate, one wing is forced to take the shared candidate. One of the three pattern cells must always contain it.",
     "The pivot's three exhaustive values imply Z in the pivot or one corresponding wing.",
     "Remove impossible candidates",
-    "Understand XY-Wing first. The terms below explain candidate, sees, pivot, and wing.",
+    "Learn XY-Wing first, including how its center cell connects to two outer cells.",
     "A candidate cell that sees the two wings but not the pivot is a near miss. Unlike XY-Wing, the cell must see all three pattern cells.",
     ["Using a pivot with only two candidates.", "Forgetting that the candidate to remove must also see the pivot."],
     ["candidate", "sees", "pivot", "wing"]
@@ -146,7 +146,7 @@ const LESSON_DETAILS = {
     "One end of the strong link must contain its digit. That forces at least one matching cell to take the other shared candidate, so a cell seeing both matching cells cannot contain that candidate.",
     "A conjugate pair transfers a binary implication between two equal bivalue cells.",
     "Remove impossible candidates",
-    "Be comfortable with two-candidate cells. The terms below explain candidate, sees, and strong link.",
+    "Know how to find two-candidate cells and a row, column, or block where one digit has exactly two possible cells.",
     "If the connecting row, column, or block has three possible cells for the linking digit, it is not a strong link and the pattern is invalid.",
     ["Using two outer cells with different candidate pairs.", "Using a connection where the linking digit has more than two possible cells."],
     ["candidate", "sees", "strong-link"]
@@ -223,7 +223,7 @@ function nakedGroupLesson(numberWord, size, title, plain, nearMiss) {
     plain,
     `A set of ${size} cells with a candidate union of size ${size} must take all ${size} digits by the one-of-each unit rule.`,
     "Remove impossible candidates",
-    `Know how candidate pencil marks work. For a Naked ${title}, count the cells and the different digits across them.`,
+    `Candidate notes must show every legal digit. For a Naked ${title}, compare ${numberWord} cells and count the different digits across them.`,
     nearMiss,
     [`Expecting every chosen cell to show every chosen digit; the combined list is what matters.`, `Combining cells from different rows, columns, or blocks.`],
     ["candidate"]
@@ -238,7 +238,7 @@ function hiddenGroupLesson(numberWord, size, title, plain, nearMiss) {
     plain,
     `${size} digits restricted to ${size} positions form a bijection, so no outside digit can occupy those positions.`,
     "Remove impossible candidates",
-    `Know how candidate pencil marks work. For a Hidden ${title}, track the chosen digits instead of looking for matching cell lists.`,
+    `Candidate notes must show every legal digit. For a Hidden ${title}, follow ${numberWord} chosen digits and mark every cell where each could go.`,
     nearMiss,
     ["Looking for matching candidate lists instead of tracking where the chosen digits can go.", "Missing an extra possible cell for one chosen digit elsewhere in the row, column, or block."],
     ["candidate"]
@@ -254,7 +254,7 @@ function fishLesson(numberWord, size, name, plain, nearMiss) {
     plain,
     `The ${size} base lines must place the digit once each within ${size} cover lines, consuming the digit's one allowed occurrence in every cover line.`,
     "Remove impossible candidates",
-    `Know how to scan one candidate across rows and columns. ${name} builds on Pointing and Claiming Candidates.`,
+    `Learn Pointing and Claiming Candidates first, then practice following one digit across several rows and columns.`,
     nearMiss,
     [`Starting with rows for part of the pattern and columns for the rest.`, `Ignoring an extra possible cell outside the required ${numberWord} crossing columns.`],
     ["candidate"]

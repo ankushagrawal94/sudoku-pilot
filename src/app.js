@@ -346,20 +346,15 @@ function renderLessonBrowser() {
         <select id="lesson-technique-select" data-lesson-select>
           ${renderTechniqueOptions(lesson.technique)}
         </select>
-        ${renderLessonTier("Tier 1 · Foundations", COACHING_TIER_1, lesson.technique)}
-        ${renderLessonTier("Tier 2 · Advanced", COACHING_TIER_2, lesson.technique)}
       </aside>
       <article class="lesson-content panel" data-technique="${lesson.technique}">
         <header class="lesson-heading">
-          <div><p class="eyebrow">Tier ${lesson.tier} lesson</p><h2>${lesson.technique}</h2></div>
-          <div class="lesson-pagination" aria-label="Lesson navigation">
-            <button data-action="previous-lesson" ${techniqueIndex === 0 ? "disabled" : ""}>Previous</button>
-            <span>${techniqueIndex + 1} of ${COMMITTED_COACHING_TECHNIQUES.length}</span>
-            <button data-action="next-lesson" ${techniqueIndex === COMMITTED_COACHING_TECHNIQUES.length - 1 ? "disabled" : ""}>Next</button>
-          </div>
+          <h2>${lesson.technique}</h2>
         </header>
 
-        <section data-lesson-section="what-it-is"><h3>What it is</h3><p>${lesson.whatItIs.definition}</p><dl><div><dt>What you will do</dt><dd>${lesson.whatItIs.outcome}</dd></div><div><dt>Helpful first</dt><dd>${lesson.whatItIs.prerequisites}</dd></div></dl></section>
+        ${renderLessonVisual(example)}
+
+        <section data-lesson-section="what-it-is"><h3>What it is</h3><p>${lesson.whatItIs.definition}</p><dl><div><dt>What you will do</dt><dd>${lesson.whatItIs.outcome}</dd></div><div><dt>Know this first</dt><dd>${lesson.whatItIs.prerequisites}</dd></div></dl></section>
         ${renderLessonTerms(lesson.whatItIs.terms)}
         <section data-lesson-section="how-to-recognize"><h3>How to recognize it</h3><p>${lesson.howToRecognize.introduction}</p><ol>${lesson.howToRecognize.steps.map((item) => `<li>${item}</li>`).join("")}</ol><h4>Before you make the move</h4><ul class="recognition-checks">${lesson.howToRecognize.conditions.map((item) => `<li>${item}</li>`).join("")}</ul></section>
         <section data-lesson-section="why-it-works"><h3>Why it works</h3><p>${lesson.whyItWorks.plain}</p><details><summary>Optional technical explanation</summary><p>${lesson.whyItWorks.formal}</p></details></section>
@@ -375,8 +370,34 @@ function renderLessonBrowser() {
         </section>
         <section data-lesson-section="common-mistakes"><h3>Common mistakes</h3><div class="near-miss-note"><strong>A look-alike that does not work:</strong> ${lesson.commonMistakes.nearMiss}</div><ul>${lesson.commonMistakes.items.map((item) => `<li>${item}</li>`).join("")}</ul></section>
         <section data-lesson-section="try-it" class="try-it"><h3>Try it</h3><p>Open a verified example where ${lesson.technique} is ready to find.</p><button class="primary" data-action="practice-from-lesson">${lesson.tryIt.label}</button></section>
+        ${renderLessonPagination(techniqueIndex)}
       </article>
     </main>
+  `;
+}
+
+function renderLessonVisual(example) {
+  const resultDescription = example.coaching.eliminations.length
+    ? "red marks show the candidates you can remove"
+    : "the blue digit shows what you can place";
+  return `
+    <figure class="lesson-visual" data-testid="lesson-visual">
+      <div class="lesson-visual-board">
+        ${renderHintBoard(example.targetMove, example.coaching, 4, example.puzzle)}
+      </div>
+      ${renderVisualLegend(example.coaching)}
+      <figcaption>A real ${example.technique} pattern. Green marks show the pattern; ${resultDescription}.</figcaption>
+    </figure>
+  `;
+}
+
+function renderLessonPagination(techniqueIndex) {
+  return `
+    <nav class="lesson-pagination lesson-pagination-bottom" aria-label="Lesson navigation">
+      <button data-action="previous-lesson" ${techniqueIndex === 0 ? "disabled" : ""}>Previous</button>
+      <span>${techniqueIndex + 1} of ${COMMITTED_COACHING_TECHNIQUES.length}</span>
+      <button data-action="next-lesson" ${techniqueIndex === COMMITTED_COACHING_TECHNIQUES.length - 1 ? "disabled" : ""}>Next</button>
+    </nav>
   `;
 }
 
@@ -392,10 +413,6 @@ function coachingStageLabel(kind) {
     "structural-location": "Where to look",
     "exact-move": "Exact move"
   })[kind] || kind.replaceAll("-", " ");
-}
-
-function renderLessonTier(label, techniques, selected) {
-  return `<section><h3>${label}</h3><div class="lesson-link-list">${techniques.map((technique) => `<button class="${technique === selected ? "active" : ""}" data-lesson-technique="${technique}" aria-current="${technique === selected ? "true" : "false"}">${technique}</button>`).join("")}</div></section>`;
 }
 
 function renderPracticeBrowser() {
@@ -951,7 +968,7 @@ function renderHintBoard(move, coachingMove = buildCoachingMove(move, state.puzz
   const placements = stage === 4 ? coachingMove?.placements || move.fills : [];
   return `
     <div class="mini-board-wrap" data-visual-stage="${stage}">
-    <div class="mini-board" aria-label="${stage === 3 ? "Highlighted search region" : `Exact ${move.technique} explanation board`}">
+    <div class="mini-board" role="img" aria-label="${stage === 3 ? "Highlighted search region" : `Exact ${move.technique} explanation board`}">
       ${puzzle.values.map((value, index) => {
         const evidenceItems = evidence.filter((item) => item.index === index);
         const evidenceDigits = evidenceItems.map((item) => item.digit);
@@ -1120,12 +1137,6 @@ function bindEvents() {
       state.practiceError = "";
       if (state.view === "learn") trackLessonViewed("navigation");
       closeHintDetails();
-      render();
-    });
-  });
-  app.querySelectorAll("[data-lesson-technique]").forEach((button) => {
-    button.addEventListener("click", () => {
-      selectLesson(button.dataset.lessonTechnique);
       render();
     });
   });
@@ -2018,7 +2029,7 @@ function createInitialState() {
   const fallback = {
     puzzle: createFreshPuzzle(defaultDifficulty),
     view: "play",
-    lessonTechnique: COMMITTED_COACHING_TECHNIQUES[0],
+    lessonTechnique: "Hidden Pair",
     lessonStage: 1,
     practiceTechnique: COMMITTED_COACHING_TECHNIQUES[0],
     practiceMode: "find-pattern",
