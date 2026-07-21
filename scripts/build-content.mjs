@@ -152,7 +152,7 @@ function renderAboutPage() {
     },
     {
       heading: "How the app was built",
-      paths: ["sudoku-without-guessing", "logically-unique-sudoku-puzzles", "why-we-built-this"]
+      paths: ["sudoku-without-guessing", "logically-unique-sudoku-puzzles", "how-we-rate-sudoku-difficulty", "why-we-built-this"]
     }
   ];
   const cards = groups.map((group) => `

@@ -1,0 +1,98 @@
+{
+  "path": "how-we-rate-sudoku-difficulty",
+  "title": "How We Rate Sudoku Difficulty and Find Better Puzzles",
+  "description": "Sudoku Pilot rates puzzle difficulty with logical solve paths, repeated hard gates, uniqueness checks, and a search for varied Expert and Extreme puzzles.",
+  "published": "2026-07-21",
+  "updated": "2026-07-21",
+  "eyebrow": "Puzzle difficulty",
+  "intro": "Sudoku Pilot rates each generated puzzle by solving it. Expert and Extreme puzzles need at least five separate points where easier techniques run out and a move from that level is required.",
+  "related": [
+    "logically-unique-sudoku-puzzles",
+    "sudoku-without-guessing",
+    "practice-sudoku-techniques"
+  ],
+  "sections": [
+    {
+      "heading": "Difficulty starts with a complete logical solve",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Before assigning a level, Sudoku Pilot checks that the givens have exactly one solution. Its solver must then complete the grid with the same named techniques available in the coach. The rating and solve metadata must remain stable when the check runs again."
+        },
+        {
+          "type": "paragraph",
+          "text": "The solver tests technique groups in order. Singles produce Easy or Medium puzzles, with a 45-step cutoff between them. Pointing and Claiming Candidates extend the ceiling to Hard. Pairs, triples, and quadruples extend it to Expert. Fish, wings, colouring, Crane, and Empty Rectangle extend it to Extreme. The first group that completes the puzzle sets its level."
+        }
+      ]
+    },
+    {
+      "heading": "One advanced move can dominate the label",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A technique ceiling tells us what the solver needed. It says less about how much of the puzzle depended on that technique. A long solve may contain one X-Wing followed by a large run of singles. The X-Wing makes the rating Extreme even when the advanced part is brief."
+        },
+        {
+          "type": "paragraph",
+          "text": "Our previous Extreme catalog showed this clearly. On the recorded deterministic paths, 84 of its 100 puzzles had one Extreme-level unblocking moment. The remaining 16 had two. The labels correctly described the technique ceiling, while the collection offered too little sustained advanced work."
+        }
+      ]
+    },
+    {
+      "heading": "Hard gates measure repeated difficulty",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "For an Expert puzzle, the solver applies every available technique through Hard. If the grid remains unsolved, an Expert subset move is required, so the solver counts one hard gate. It applies that move, exhausts the easier techniques again, and repeats."
+        },
+        {
+          "type": "paragraph",
+          "text": "Extreme uses the same process after exhausting every technique through Expert. If no easier move appears after a gate, the next Extreme move counts as another gate immediately. Every Expert and Extreme catalog puzzle now needs at least five gates on its certified path."
+        },
+        {
+          "type": "paragraph",
+          "text": "This is a deterministic path metric. It describes the stable move order used for certification. Another valid solving order may use fewer gates. Searching every possible move order grows expensive quickly, so we record the path we can reproduce and avoid claiming a mathematical minimum."
+        }
+      ]
+    },
+    {
+      "heading": "Finding a puzzle at one exact level takes many attempts",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Adding a correct clue preserves or simplifies the logical work. It cannot create the richer structure we wanted. Our search changes clue sets by removing, adding, and swapping solution-consistent clues, then evaluates each candidate. Qualifying candidates must pass Sudoku Pilot's solver and uniqueness checks."
+        },
+        {
+          "type": "paragraph",
+          "text": "Most candidates fail. The recent search evaluated 4,743 Expert mutations and found 161 qualifiers. It evaluated 27,477 Extreme mutations and found 240 qualifiers. Candidates were rejected when they solved at another level, needed unsupported techniques, missed the five-gate threshold, had poor clue distribution, or repeated an existing logical puzzle."
+        },
+        {
+          "type": "paragraph",
+          "text": "About 3 in 100 Expert mutations qualified. Fewer than 1 in 100 Extreme mutations did. A generator can produce valid Sudoku grids quickly. Producing a unique grid with a supported logical path, a precise level, repeated hard gates, and a distinct structure is a narrower problem."
+        }
+      ]
+    },
+    {
+      "heading": "A fun puzzle set needs variety",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Five gates sets the quality floor. A whole set can still feel repetitive when the same hard move appears at the same point in every solve. Final selection spreads clue counts, total solve steps, gate positions, and tier-level techniques."
+        },
+        {
+          "type": "paragraph",
+          "text": "Canonical identity checks remove puzzles that only relabel digits or rearrange the same structure. We also limit how many selected puzzles may descend from one starting grid."
+        },
+        {
+          "type": "paragraph",
+          "text": "Taste remains subjective. Some players enjoy several related deductions in a row. Others prefer long stretches of easier progress between hard moments. The rating gives us a repeatable standard, and the diversity checks prevent one kind of solve from dominating the catalog."
+        },
+        {
+          "type": "link",
+          "label": "Try an Expert or Extreme puzzle",
+          "href": "/"
+        }
+      ]
+    }
+  ]
+}
