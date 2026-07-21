@@ -451,7 +451,7 @@ function renderPracticeSession(session) {
       <section class="panel practice-status">
         <div class="panel-title"><h3>${mode.label}</h3><span>Example ${session.fixtureIndex + 1} of 10</span></div>
         <p>${practicePrompt(session)}</p>
-        <details class="practice-verification"><summary>Why this example is trustworthy</summary><ul class="certification-list"><li>It has exactly one solution.</li><li>${session.technique} works on the board now.</li><li>The shown move preserves the solution.</li><li>You can finish with techniques taught in Sudoku Pilot.</li></ul></details>
+        <details class="practice-verification"><summary>Why this example is trustworthy</summary><ul class="certification-list"><li>It has exactly one solution.</li><li>There is exactly one ${session.technique} move to find.</li><li>${practiceFocusClaim(session)}</li><li>The shown move preserves the solution.</li><li>You can finish with techniques taught in Sudoku Pilot.</li></ul></details>
         ${targetApplied ? `<p class="practice-success" role="status">Nice, the ${session.technique} move is applied. Keep solving or open another example.</p>` : ""}
         <div class="tool-row"><button data-action="back-to-lesson">Review lesson</button><button class="primary" data-action="next-practice-example">Start another example</button></div>
       </section>
@@ -503,9 +503,20 @@ function renderNearMissPractice(session) {
 }
 
 function practicePrompt(session) {
-  if (session.mode === "find-pattern") return `Find ${session.technique}. The board is ready for one. Open Hint for four clues, from a small nudge to the exact move.`;
-  if (session.mode === "complete-puzzle") return `Solve the puzzle. The first useful move is ${session.technique}, and every later step can use a technique taught in Sudoku Pilot.`;
+  const placement = ["Last Digit", "Naked Single", "Hidden Single"].includes(session.technique);
+  if (session.mode === "find-pattern") return placement
+    ? `Find ${session.technique}. The board has one placement to find. Open Hint for four clues, from a small nudge to the exact move.`
+    : `Find ${session.technique}. The board has exactly one, with no single placements to solve first. Open Hint for four clues, from a small nudge to the exact move.`;
+  if (session.mode === "complete-puzzle") return placement
+    ? `Solve the puzzle. The focused ${session.technique} placement is available from the start, and every later step can use a technique taught in Sudoku Pilot.`
+    : `Solve the puzzle. A ${session.technique} move is available from the start, with no single placements to solve first.`;
   return `Check the highlighted cells against the lesson rules. Is this a real ${session.technique} or a look-alike?`;
+}
+
+function practiceFocusClaim(session) {
+  return ["Last Digit", "Naked Single", "Hidden Single"].includes(session.technique)
+    ? "Every available single clue leads to that same placement."
+    : "No single placement is available to distract from the selected technique.";
 }
 
 function renderTechniqueOptions(selected) {

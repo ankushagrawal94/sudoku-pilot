@@ -59,6 +59,17 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
   for (const fixture of fixtures) {
     assert.ok(validatePracticeFixture(fixture));
     assert.equal(countSolutions(fixture.puzzle.values, 2), 1, `${fixture.id} must remain uniquely solvable`);
+    assert.equal(findAllMoves(fixture.puzzle, [technique]).length, 1, `${fixture.id} must offer exactly one ${technique} action`);
+    if (["Last Digit", "Naked Single", "Hidden Single"].includes(technique)) {
+      const singleEffects = new Set(findAllMoves(fixture.puzzle, ["Last Digit", "Naked Single", "Hidden Single"]).map(effectKey));
+      assert.equal(singleEffects.size, 1, `${fixture.id} must focus every single clue on the same placement`);
+    } else {
+      assert.equal(
+        findAllMoves(fixture.puzzle, ["Last Digit", "Naked Single", "Hidden Single"]).length,
+        0,
+        `${fixture.id} must not distract from ${technique} with available singles`
+      );
+    }
     const logicalCandidates = candidateSets(fixture.puzzle);
     for (const evidence of fixture.targetMove.evidence) {
       if (!evidence.digit || fixture.puzzle.values[evidence.index] || ["scan", "unit"].includes(evidence.role)) continue;
@@ -111,6 +122,13 @@ function assertCompletionTrace(fixture) {
 function actionKey(move) {
   return [
     move.technique,
+    ...move.fills.map(({ index, digit }) => `f${index}-${digit}`).sort(),
+    ...move.eliminations.map(({ index, digit }) => `e${index}-${digit}`).sort()
+  ].join("|");
+}
+
+function effectKey(move) {
+  return [
     ...move.fills.map(({ index, digit }) => `f${index}-${digit}`).sort(),
     ...move.eliminations.map(({ index, digit }) => `e${index}-${digit}`).sort()
   ].join("|");

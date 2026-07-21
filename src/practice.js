@@ -22,34 +22,99 @@ export const PRACTICE_MODES = Object.freeze([
 ]);
 
 const FIXTURE_SEEDS = {
-  "certified-easy-001": {
+  "last-digit": {
+    grid: "000040003000030791903000200709803010840012000600000000082005300064390000090100500",
+    solution: "216749853458236791973581264729863415845912637631457928182675349564398172397124586"
+  },
+  "hard-focus": {
+    grid: "000040003000030791903080200709803010800012000600000000082005300064390000090100500",
+    solution: "216749853458236791973581264729863415845912637631457928182675349564398172397124586"
+  },
+  "hidden-single": {
+    grid: "000000800680000100000618453004030021000902504032045000008009000006870240010304008",
+    solution: "143257869685493172279618453854736921761982534932145786428569317396871245517324698"
+  },
+  "naked-pair": {
+    grid: "000900000420600000080000170300000040000000030007004006010280700000000091600400300",
+    solution: "731958462429617583586342179398165247164729835257834916913286754842573691675491328"
+  },
+  subsets: {
+    grid: "302900080040000900000403170094030000208060400060204300003807096000000040000001000",
+    solution: "372916584841572963956483172594138627238765419167294358413857296685329741729641835"
+  },
+  "x-wing": {
+    grid: "001009030760003002002640019403900170000004003095000020014560300070092041000000060",
+    solution: "841729635769153482532648719423985176687214953195376824214567398376892541958431267"
+  },
+  swordfish: {
+    grid: "090000042001902000000006790910000607070060050005009024148003205009124006000807009",
+    solution: "697315842481972563523486791912548637374261958865739124148693275759124386236857419"
+  },
+  "kite-and-xy": {
+    grid: "090000000001900060520086790902000630370200050005039020040003205700004080206800010",
+    solution: "697315842481972563523486791912548637374261958865739124148693275759124386236857419"
+  },
+  "xyz-wing": {
+    grid: "000009600769000002002640009403900170680000903005000800010560090000892041000401000",
+    solution: "841729635769153482532648719423985176687214953195376824214567398376892541958431267"
+  },
+  "w-wing": {
+    grid: "000000030769103002002600009400900070000004903095070804210560000300090041000400200",
+    solution: "841729635769153482532648719423985176687214953195376824214567398376892541958431267"
+  },
+  "coaching-easy": {
     grid: "050002004730009085402000960290000800001026500800904021020001437083007000040260198",
     solution: "958632714736149285412758963294315876371826549865974321629581437183497652547263198"
   },
-  "certified-medium-001": {
+  "coaching-medium": {
     grid: "070010000300600000000048702000080405401007809700400000100062098003790060020001300",
     solution: "874213956392675184615948732239186475461537829758429613147362598583794261926851347"
   }
 };
 
-const EASY_STEPS = {
-  "Naked Single": 0,
-  "Hidden Single": 0,
-  "Pointing Candidates": 0,
-  "Claiming Candidates": 0,
-  "Naked Pair": 0,
-  "Hidden Pair": 0,
-  "Hidden Triple": 0,
-  "Naked Quadruple": 0,
-  "X-Wing": 0,
-  Swordfish: 0,
-  "XYZ-Wing": 0,
-  "Naked Triple": 1,
-  "XY-Wing": 1,
-  "Last Digit": 4,
-  "W-Wing": 6,
-  Skyscraper: 7
+const FOCUSED_REPLAYS = {
+  "Last Digit": ["last-digit", 19],
+  "Naked Single": ["hard-focus", 22],
+  "Hidden Single": ["hidden-single", 19],
+  "Pointing Candidates": ["hard-focus", 19],
+  "Claiming Candidates": ["hard-focus", 21],
+  "Naked Pair": ["naked-pair", 5],
+  "Hidden Pair": ["subsets", 7],
+  "Naked Triple": ["subsets", 7],
+  "Hidden Triple": ["subsets", 5],
+  "Naked Quadruple": ["subsets", 5],
+  "X-Wing": ["x-wing", 18],
+  Swordfish: ["swordfish", 24],
+  Skyscraper: ["kite-and-xy", 12],
+  "2-String Kite": ["kite-and-xy", 18],
+  "XY-Wing": ["kite-and-xy", 20],
+  "XYZ-Wing": ["xyz-wing", 10],
+  "W-Wing": ["w-wing", 14]
 };
+
+const BROAD_REPLAYS = {
+  "Naked Single": ["coaching-easy", 0],
+  "Hidden Single": ["coaching-easy", 0],
+  "Pointing Candidates": ["coaching-easy", 0],
+  "Claiming Candidates": ["coaching-easy", 0],
+  "Naked Pair": ["coaching-easy", 0],
+  "Hidden Pair": ["coaching-easy", 0],
+  "Hidden Triple": ["coaching-easy", 0],
+  "Naked Quadruple": ["coaching-easy", 0],
+  "X-Wing": ["coaching-easy", 0],
+  Swordfish: ["coaching-easy", 0],
+  "XYZ-Wing": ["coaching-easy", 0],
+  "Naked Triple": ["coaching-easy", 1],
+  "XY-Wing": ["coaching-easy", 1],
+  "Last Digit": ["coaching-easy", 4],
+  "W-Wing": ["coaching-easy", 6],
+  Skyscraper: ["coaching-easy", 7],
+  "2-String Kite": ["coaching-medium", 14]
+};
+
+const SINGLE_TECHNIQUES = ["Last Digit", "Naked Single", "Hidden Single"];
+const LOCKED_CANDIDATE_TECHNIQUES = ["Pointing Candidates", "Claiming Candidates"];
+const SUBSET_TECHNIQUES = ["Naked Pair", "Hidden Pair", "Naked Triple", "Hidden Triple", "Naked Quadruple"];
 
 const INDEX_TRANSFORMS = [
   (row, col) => [row, col],
@@ -76,7 +141,11 @@ export function buildTechniqueFixtureSuite(technique) {
   const positive = INDEX_TRANSFORMS.map((transform, index) => transformFixture(base, transform, index));
   const nearMissBase = createMutationNearMiss(base);
   const nearMiss = INDEX_TRANSFORMS.slice(0, 5).map((transform, index) => transformFixture(nearMissBase, transform, index + 3, false));
-  const multipleMove = positive.slice(0, 3).map((fixture) => ({ ...fixture, category: "multiple-move" }));
+  const broadBase = buildBroadFixture(technique);
+  const multipleMove = INDEX_TRANSFORMS.slice(0, 3).map((transform, index) => ({
+    ...transformFixture(broadBase, transform, index),
+    category: "multiple-move"
+  }));
   const partialNote = positive.slice(3, 6).map((fixture, index) => {
     const puzzle = clonePuzzle(fixture.puzzle);
     const open = puzzle.values.map((value, cell) => value ? -1 : cell).filter((cell) => cell >= 0).slice(index, index + 3);
@@ -120,8 +189,22 @@ export function createPracticeState(technique, mode, index = 0) {
 
 export function validatePracticeFixture(fixture) {
   if (!fixture?.puzzle?.solution || fixture.puzzle.values.length !== 81) throw new Error("Practice fixture needs a known 81-cell solution.");
-  const target = findAllMoves(fixture.puzzle, [fixture.technique]).find((move) => actionKey(move) === actionKey(fixture.targetMove));
+  const targetMoves = findAllMoves(fixture.puzzle, [fixture.technique]);
+  const target = targetMoves.find((move) => actionKey(move) === actionKey(fixture.targetMove));
   if (!target) throw new Error(`${fixture.id} does not expose its certified ${fixture.technique} action.`);
+  if (targetMoves.length !== 1) throw new Error(`${fixture.id} must expose exactly one ${fixture.technique} action, not ${targetMoves.length}.`);
+  if (SINGLE_TECHNIQUES.includes(fixture.technique)) {
+    const competingSingles = findAllMoves(fixture.puzzle, SINGLE_TECHNIQUES)
+      .filter((move) => effectKey(move) !== effectKey(target));
+    if (competingSingles.length) {
+      throw new Error(`${fixture.id} exposes a competing single placement: ${competingSingles[0].technique}.`);
+    }
+  }
+  const prerequisites = practicePrerequisites(fixture.technique);
+  const distractions = findAllMoves(fixture.puzzle, prerequisites);
+  if (distractions.length) {
+    throw new Error(`${fixture.id} exposes an earlier practice move: ${distractions[0].technique}.`);
+  }
   assertSolutionSafe(fixture.puzzle, target);
   if (!fixture.completionTrace.length || fixture.completionTrace[0].technique !== fixture.technique) {
     throw new Error(`${fixture.id} completion path must begin with ${fixture.technique}.`);
@@ -129,7 +212,7 @@ export function validatePracticeFixture(fixture) {
   if (fixture.completionTrace.some((move) => !COMMITTED_COACHING_TECHNIQUES.includes(move.technique))) {
     throw new Error(`${fixture.id} uses an unsupported completion technique.`);
   }
-  if (!fixture.certification.unique || !fixture.certification.targetAvailable || !fixture.certification.solutionPreserved) {
+  if (!fixture.certification.unique || !fixture.certification.targetAvailable || !fixture.certification.solutionPreserved || !fixture.certification.focusedStart) {
     throw new Error(`${fixture.id} is missing required certification flags.`);
   }
   return true;
@@ -137,7 +220,7 @@ export function validatePracticeFixture(fixture) {
 
 function buildCertifiedPracticeFixtures(technique) {
   const lesson = getTechniqueLesson(technique);
-  const positive = buildTechniqueFixtureSuite(technique).positive;
+  const positive = buildPositiveFixtures(technique);
   return positive.map((fixture, index) => {
     const targetMove = findAllMoves(fixture.puzzle, [technique]).find((move) => actionKey(move) === fixture.expectedAction);
     if (!targetMove) throw new Error(`${fixture.id} lost its target action.`);
@@ -157,9 +240,9 @@ function buildCertifiedPracticeFixtures(technique) {
         targetAvailable: true,
         candidateCorrect: true,
         solutionPreserved: true,
-        targetFirst: true,
+        focusedStart: true,
         unsupportedTechniques: false,
-        source: "deterministic-certified-state-and-sudoku-isomorphism"
+        source: "deterministic-focused-checkpoint-and-sudoku-isomorphism"
       }
     };
     validatePracticeFixture(result);
@@ -242,24 +325,34 @@ function brokenRecognitionRule(technique) {
 }
 
 function buildCanonicalFixture(technique) {
-  return technique === "2-String Kite"
-    ? replayFixture(technique, "certified-medium-001", 14)
-    : replayFixture(technique, "certified-easy-001", EASY_STEPS[technique]);
+  const [seedId, stepCount] = FOCUSED_REPLAYS[technique] || [];
+  return replayFixture(technique, seedId, stepCount);
 }
 
-function replayFixture(technique, seedId, stepCount) {
+function buildPositiveFixtures(technique) {
+  const base = buildCanonicalFixture(technique);
+  return INDEX_TRANSFORMS.map((transform, index) => transformFixture(base, transform, index));
+}
+
+function buildBroadFixture(technique) {
+  const [seedId, stepCount] = BROAD_REPLAYS[technique] || [];
+  const replayTechniques = COMMITTED_COACHING_TECHNIQUES.filter((name) => name !== "2-String Kite");
+  return replayFixture(technique, seedId, stepCount, replayTechniques);
+}
+
+function replayFixture(technique, seedId, stepCount, replayTechniques = COMMITTED_COACHING_TECHNIQUES) {
   if (!Number.isInteger(stepCount)) throw new Error(`Missing replay step for ${technique}.`);
   const seed = FIXTURE_SEEDS[seedId];
   if (!seed) throw new Error(`Unknown coaching fixture seed: ${seedId}.`);
   const puzzle = createPuzzle(seed.grid, seed.solution);
   fillAllNotes(puzzle);
-  const replayTechniques = COMMITTED_COACHING_TECHNIQUES.filter((name) => name !== "2-String Kite");
   for (let step = 0; step < stepCount; step += 1) {
     const move = findAllMoves(puzzle, replayTechniques)[0];
     if (!move) throw new Error(`${seedId} ended before step ${stepCount}.`);
     applyMove(puzzle, move);
   }
   fillAllNotes(puzzle);
+  puzzle.givens = puzzle.values.map(Boolean);
   puzzle.history = [];
   const move = findAllMoves(puzzle, [technique])[0];
   if (!move) throw new Error(`${seedId} step ${stepCount} does not expose ${technique}.`);
@@ -315,17 +408,27 @@ function createMutationNearMiss(fixture) {
   const move = findAllMoves(puzzle, [fixture.technique]).find((candidate) => actionKey(candidate) === fixture.expectedAction) || fixture.move;
   if (fixture.technique === "Last Digit") {
     const target = move.fills[0].index;
-    const unit = UNITS.find((candidate) => candidate.cells.includes(target) && candidate.cells.filter((cell) => !puzzle.values[cell]).length === 1);
-    const second = unit.cells.find((cell) => puzzle.givens[cell]);
-    puzzle.values[second] = 0;
-    puzzle.givens[second] = false;
+    const targetUnits = UNITS.filter((unit) => (
+      unit.cells.includes(target) && unit.cells.filter((cell) => !puzzle.values[cell]).length === 1
+    ));
+    for (const unit of targetUnits) {
+      const second = unit.cells.find((cell) => cell !== target && puzzle.givens[cell]);
+      puzzle.values[second] = 0;
+      puzzle.givens[second] = false;
+    }
   } else if (fixture.technique === "Naked Single") {
     addAlternateCandidate(puzzle, move.fills[0].index, move.fills[0].digit);
   } else if (fixture.technique === "Hidden Single") {
     const target = move.fills[0];
-    const unit = UNITS.find((candidate) => move.evidence.map(({ index }) => index).every((index) => candidate.cells.includes(index)));
-    const alternate = unit.cells.find((cell) => cell !== target.index && !puzzle.values[cell]);
-    makeCandidateLegal(puzzle, alternate, target.digit);
+    const candidates = candidateSets(puzzle);
+    const targetUnits = UNITS.filter((unit) => (
+      unit.cells.includes(target.index)
+      && unit.cells.filter((cell) => !puzzle.values[cell] && candidates[cell].has(target.digit)).length === 1
+    ));
+    for (const unit of targetUnits) {
+      const alternate = unit.cells.find((cell) => cell !== target.index && !puzzle.values[cell]);
+      makeCandidateLegal(puzzle, alternate, target.digit);
+    }
   } else {
     const removable = move.evidence.filter(({ index, digit }) => digit && puzzle.solution?.[index] !== digit && candidateSets(puzzle)[index].has(digit));
     if (!removable.length) throw new Error(`No solution-safe evidence mutation for ${fixture.technique}.`);
@@ -390,6 +493,13 @@ function actionKey(move) {
   ].join("|");
 }
 
+function effectKey(move) {
+  return [
+    ...(move.fills || []).map(({ index, digit }) => `f${index}-${digit}`).sort(),
+    ...(move.eliminations || []).map(({ index, digit }) => `e${index}-${digit}`).sort()
+  ].join("|");
+}
+
 function cloneMove(move) {
   return {
     ...move,
@@ -412,6 +522,17 @@ function assertSolutionSafe(puzzle, move) {
 
 function assertCommittedTechnique(technique) {
   if (!COMMITTED_COACHING_TECHNIQUES.includes(technique)) throw new Error(`Practice is not committed for ${technique}.`);
+}
+
+function practicePrerequisites(technique) {
+  if (technique === "Last Digit") return [];
+  if (technique === "Naked Single") return ["Last Digit"];
+  if (technique === "Hidden Single") return ["Last Digit", "Naked Single"];
+  if (technique === "Pointing Candidates") return SINGLE_TECHNIQUES;
+  if (technique === "Claiming Candidates") return [...SINGLE_TECHNIQUES, "Pointing Candidates"];
+  if (SUBSET_TECHNIQUES.includes(technique)) return [...SINGLE_TECHNIQUES, ...LOCKED_CANDIDATE_TECHNIQUES];
+  const techniqueIndex = COMMITTED_COACHING_TECHNIQUES.indexOf(technique);
+  return COMMITTED_COACHING_TECHNIQUES.slice(0, techniqueIndex);
 }
 
 function slug(value) {
