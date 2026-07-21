@@ -104,7 +104,7 @@
         },
         {
           "type": "paragraph",
-          "text": "Screenshot recognition requires an internet connection to start. Manual puzzle entry remains available offline."
+          "text": "Screenshot recognition is an optional online action that sends the selected image to Sudoku OCR through RapidAPI. It requires a connection and available provider quota. Manual puzzle entry remains available offline."
         }
       ]
     },

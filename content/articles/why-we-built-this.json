@@ -3,7 +3,7 @@
   "title": "Why We Built Sudoku Pilot",
   "description": "I built Sudoku Pilot because reading Sudoku technique guides was not helping me spot those techniques in real puzzles.",
   "published": "2026-07-12",
-  "updated": "2026-07-12",
+  "updated": "2026-07-20",
   "eyebrow": "Why we built this",
   "intro": "I kept reading about techniques such as X-Wings and Skyscrapers. Then I would open a puzzle and fail to see them. I built Sudoku Pilot to get more practice with that part.",
   "related": [
@@ -73,7 +73,7 @@
         },
         {
           "type": "paragraph",
-          "text": "The importer reads the large digits and puts them in an editable grid. I still check the grid before starting because OCR makes mistakes. The screenshot stays in the browser."
+          "text": "The importer drafts the visible digits and pencil notes in an editable grid. I still check every cell before starting because OCR makes mistakes. When I start online recognition, the selected image is sent to Sudoku OCR through RapidAPI."
         }
       ]
     },

@@ -8,13 +8,15 @@
     "dev": "vite --host 0.0.0.0",
     "build": "node scripts/build-content.mjs && vite build && node scripts/build-sw.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node tests/analytics.test.js && node tests/solver.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && playwright test",
+    "test": "node tests/analytics.test.js && node tests/solver.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && node tests/sudoku-ocr-api.test.js && playwright test",
     "test:analytics": "node tests/analytics.test.js && playwright test tests/functional/analytics.spec.js",
     "test:solver": "node tests/solver.test.js",
     "test:coaching": "node tests/coaching.test.js",
     "test:learning-practice": "node tests/learning-practice.test.js",
     "test:trusted-import-corpus": "node tests/trusted-import-corpus.test.js",
     "test:content": "node tests/content.test.js",
+    "test:sudoku-ocr-api": "node tests/sudoku-ocr-api.test.js",
+    "test:sudoku-ocr-live": "node --env-file=.env.local scripts/test-sudoku-ocr-live.mjs",
     "test:functional": "playwright test",
     "review:coaching": "npm run build && node scripts/capture-coaching-review.mjs",
     "review:learning-practice": "npm run build && node scripts/capture-learning-practice-review.mjs",
@@ -28,11 +30,9 @@
     "catalog:verify": "node --no-warnings scripts/catalog/verify-catalog.mjs"
   },
   "dependencies": {
-    "@tesseract.js-data/eng": "1.0.0",
     "@vercel/analytics": "^2.0.1",
     "posthog-js": "^1.280.1",
     "sudoku-gen": "^1.0.2",
-    "tesseract.js": "5.1.1",
     "vite": "8.1.4"
   },
   "devDependencies": {

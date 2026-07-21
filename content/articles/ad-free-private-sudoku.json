@@ -3,7 +3,7 @@
   "title": "Play Sudoku Without Ads or an Account",
   "description": "Sudoku Pilot is free and has no ads, paid tier, account requirement, token system, or other monetization layer.",
   "published": "2026-07-12",
-  "updated": "2026-07-12",
+  "updated": "2026-07-20",
   "eyebrow": "Quiet, local play",
   "intro": "Sudoku Pilot is free. There are no ads, subscriptions, paid hints, lives, token packs, or account prompts. The current app has no monetization layer.",
   "related": [
@@ -52,11 +52,15 @@
       ]
     },
     {
-      "heading": "Screenshot recognition stays on your device",
+      "heading": "Screenshot recognition has no direct charge",
       "blocks": [
         {
           "type": "paragraph",
-          "text": "Screenshot import runs in the browser. The selected image is not sent to an OCR service."
+          "text": "Screenshot OCR is an optional online action. The selected image is sent to Sudoku OCR through RapidAPI for recognition. Sudoku Pilot does not ask for payment information or charge users for each scan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Scans can be unavailable when the site's provider quota is exhausted. Generated puzzles, manual entry, and ordinary gameplay continue without the OCR service."
         },
         {
           "type": "link",

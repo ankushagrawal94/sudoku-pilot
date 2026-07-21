@@ -941,11 +941,45 @@ button:hover,
   background: #fff;
 }
 
+.import-disclosure {
+  padding: 10px 12px;
+  border: 1px solid #d7b76b;
+  border-radius: 8px;
+  background: #fff9e8;
+  color: #594313;
+}
+
 .import-grid {
   display: grid;
   grid-template-columns: repeat(9, 1fr);
   gap: 2px;
   margin: 10px 0;
+}
+
+.import-kind-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.import-kind-control span {
+  margin-right: 2px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.import-kind-control button {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.import-kind-control button.active {
+  border-color: #255f9e;
+  background: #e9f2ff;
+  color: #174c82;
 }
 
 .import-grid input {
@@ -955,6 +989,13 @@ button:hover,
   text-align: center;
   border-radius: 3px;
   font-size: 14px;
+}
+
+.import-grid input[data-import-kind="notes"].has-import-content {
+  color: #255f9e;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f3f8ff;
 }
 
 .about-panel {

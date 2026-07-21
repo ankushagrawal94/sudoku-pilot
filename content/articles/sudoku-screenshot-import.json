@@ -1,14 +1,11 @@
 {
   "path": "sudoku-screenshot-import",
   "title": "Import a Sudoku Puzzle From a Screenshot",
-  "description": "Use local browser OCR to read filled digits from a Sudoku screenshot, review the grid, and continue solving with step-by-step coaching.",
+  "description": "Use optional online OCR to draft filled digits and pencil notes from a Sudoku screenshot, review the grid, and continue solving with step-by-step coaching.",
   "published": "2026-07-12",
-  "updated": "2026-07-18",
+  "updated": "2026-07-20",
   "eyebrow": "Screenshot import",
-  "intro": "Upload a screenshot of one Sudoku grid. Sudoku Pilot reads the large digits and puts them in an editable review screen. Check the grid, fix any OCR errors, and start solving.",
-  "image": "/images/sudoku-pilot-import-review-grid-v3.png",
-  "imageAlt": "Sudoku Pilot screenshot import screen with file selection, OCR guidance, all 81 review cells, and import controls",
-  "imageCaption": "Review all nine rows, fix any incorrect digits, and apply the imported puzzle.",
+  "intro": "Upload a screenshot of one Sudoku grid. Sudoku Pilot drafts the filled digits and pencil notes in an editable review screen. Check every cell, fix any OCR errors, and start solving.",
   "related": [
     "sudoku-coach",
     "sudoku-hints-that-explain",
@@ -20,7 +17,7 @@
       "blocks": [
         {
           "type": "paragraph",
-          "text": "Choose a PNG, JPEG, WebP, GIF, or BMP. Crop the image close to one complete 9 by 9 grid and keep the outside border visible."
+          "text": "Choose a PNG, JPEG, or WebP image that is 4 MB or smaller. Crop it close to one complete 9 by 9 grid and keep the outside border visible."
         },
         {
           "type": "paragraph",
@@ -42,28 +39,36 @@
       ]
     },
     {
-      "heading": "What the importer can read today",
+      "heading": "Review filled digits and pencil notes",
       "blocks": [
         {
           "type": "paragraph",
-          "text": "The importer is tuned for large, centered digits. It does not import pencil notes. Add those from the solving board after the puzzle opens."
+          "text": "The importer can recognize filled digits and pencil notes. Each review cell identifies which kind it contains, and you can correct the result before applying the puzzle."
         },
         {
           "type": "paragraph",
-          "text": "Handwriting is hit or miss. Treat every handwritten result as a draft and check it carefully."
+          "text": "Recognition varies with font, contrast, and note placement. Treat every recognized cell as a draft and check it carefully."
         }
       ]
     },
     {
-      "heading": "The screenshot stays in your browser",
+      "heading": "Online recognition sends the selected image for processing",
       "blocks": [
         {
           "type": "paragraph",
-          "text": "Recognition runs locally. The first scan may download OCR files from Sudoku Pilot, but the selected image is not uploaded to an OCR service."
+          "text": "Screenshot OCR is optional. Starting recognition sends the selected image to Sudoku Pilot's serverless endpoint, which forwards it to Sudoku OCR through RapidAPI."
         },
         {
           "type": "paragraph",
-          "text": "After review, the imported puzzle gets the same notes, hints, and technique tools as a generated puzzle."
+          "text": "Each online scan uses a metered service that Sudoku Pilot pays for. You are not charged for a scan. Recognition can be unavailable when the site's shared provider quota is exhausted or the service is down, and you can always enter the puzzle manually instead."
+        },
+        {
+          "type": "paragraph",
+          "text": "The OCR provider's image handling and retention policy is not publicly detailed. Avoid uploading screenshots that contain personal or sensitive information."
+        },
+        {
+          "type": "paragraph",
+          "text": "After review, the imported grid is stored in your browser and gets the same notes, hints, and technique tools as a generated puzzle. Ordinary gameplay does not require another image upload."
         }
       ]
     },
@@ -77,7 +82,7 @@
             "Use a straight-on image with even lighting.",
             "Keep the full border visible.",
             "Review all 81 cells before starting.",
-            "Enter pencil notes after the import is complete."
+            "Check every filled digit and pencil note before applying the import."
           ]
         }
       ]

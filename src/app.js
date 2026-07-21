@@ -50,17 +50,8 @@ const playedCanonicalIds = loadPlayedCanonicalIds();
 const MAX_HISTORY = 40;
 const MAX_PERSISTED_HISTORY = 12;
 const FEEDBACK_EMAIL = "hello@sudokupilot.com";
-const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp"]);
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const OCR_OPTIONS = {
-  workerPath: "/ocr/worker.min.js",
-  corePath: "/ocr/tesseract-core.wasm.js",
-  langPath: "/ocr",
-  gzip: true,
-  logger: () => {}
-};
-const OCR_GRID_MARGIN_RATIO = 0.071;
-const OCR_CELL_RATIO = 0.095;
+const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 let timerInterval = null;
 const viewedLessons = new Set();
 let deferredInstallPrompt = null;
@@ -649,6 +640,7 @@ function renderNewPuzzle() {
       </div>
       <div class="action-stack">
         <button class="primary" data-action="new-puzzle" data-testid="new-puzzle">New generated puzzle</button>
+        <button data-action="toggle-import">Import screenshot</button>
       </div>
     </section>
   `;
@@ -1045,17 +1037,28 @@ function renderImportPanel() {
         <h2>Import screenshot</h2>
         <button data-action="toggle-import">Close</button>
       </div>
-      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" data-import-file ${state.ocrLoading ? "disabled" : ""} />
+      <input type="file" accept="image/png,image/jpeg,image/webp" data-import-file ${state.ocrLoading ? "disabled" : ""} />
       ${state.importedImage ? `<img class="import-preview" src="${state.importedImage}" alt="Uploaded Sudoku screenshot preview" />` : ""}
       ${state.importError ? `<p class="caption" data-testid="import-error" role="alert">${escapeHtml(state.importError)}</p>` : ""}
-      <p class="caption">OCR reads large, center-aligned filled digits. Enter pencil notes in the review grid. Crop closely to one straight-on 9 by 9 grid for best results.</p>
-      <p class="caption">OCR assets are downloaded from this app on first use, so the scan button needs internet. Recognition stays in this browser; your image is never uploaded.</p>
+      <p class="caption">Crop closely to one straight-on 9 by 9 grid for best results. Always review every detected filled digit and pencil note before applying the import. Select a review cell, then use Filled value or Pencil notes to correct its type.</p>
+      <p class="caption import-disclosure"><strong>Before you scan:</strong> Sudoku Pilot uploads your puzzle image to a paid third-party recognition API. You are never charged. Online scans use a limited shared quota, so recognition may not always be available.</p>
       ${state.importStatus ? `<p class="run-message" data-testid="import-status" role="status">${state.importStatus}</p>` : ""}
+      <div class="import-kind-control" role="group" aria-label="Selected review cell type">
+        <span data-import-kind-label>${cellName(state.importSelectedCell)} type</span>
+        <button type="button" data-import-kind-choice="value" aria-pressed="${state.importCellKinds[state.importSelectedCell] !== "notes"}" class="${state.importCellKinds[state.importSelectedCell] !== "notes" ? "active" : ""}">Filled value</button>
+        <button type="button" data-import-kind-choice="notes" aria-pressed="${state.importCellKinds[state.importSelectedCell] === "notes"}" class="${state.importCellKinds[state.importSelectedCell] === "notes" ? "active" : ""}">Pencil notes</button>
+      </div>
       <div class="import-grid">
-        ${state.importCells.map((value, index) => `<input value="${escapeHtml(value)}" data-import-cell="${index}" maxlength="9" inputmode="numeric" aria-label="Import ${cellName(index)}" />`).join("")}
+        ${state.importCells.map((value, index) => {
+          const kind = state.importCellKinds[index] === "notes" ? "notes" : "value";
+          const description = !value ? "empty cell" : kind === "notes" ? "pencil notes" : "filled digit";
+          return `<input class="${value ? "has-import-content" : ""}" value="${escapeHtml(value)}" data-import-cell="${index}" data-import-kind="${kind}" maxlength="9" inputmode="numeric" aria-label="Import ${cellName(index)}, ${description}" />`;
+        }).join("")}
       </div>
       <div class="tool-row">
-        ${state.ocrLoading ? `<button data-action="cancel-ocr">Cancel OCR</button>` : `<button data-action="ocr-import" ${state.importedFile ? "" : "disabled"}>Try OCR</button>`}
+        ${state.ocrLoading
+          ? `<button data-action="cancel-ocr">Cancel online scan</button>`
+          : `<button data-action="ocr-import" ${state.importedFile && !state.ocrScanComplete ? "" : "disabled"}>${state.ocrScanComplete ? "Scan complete" : "Scan online"}</button>`}
         <button class="primary" data-action="apply-import" ${state.ocrLoading ? "disabled" : ""}>Apply Import</button>
       </div>
     </section>
@@ -1147,12 +1150,46 @@ function bindEvents() {
   const fileInput = app.querySelector("[data-import-file]");
   if (fileInput) fileInput.addEventListener("change", onImportFile);
   app.querySelectorAll("[data-import-cell]").forEach((input) => {
+    input.addEventListener("focus", () => selectImportReviewCell(Number(input.dataset.importCell)));
     input.addEventListener("input", () => {
-      state.importCells[Number(input.dataset.importCell)] = input.value.replace(/[^1-9]/g, "");
-      input.value = state.importCells[Number(input.dataset.importCell)];
+      const index = Number(input.dataset.importCell);
+      state.importCells[index] = input.value.replace(/[^1-9]/g, "");
+      if (state.importCells[index].length > 1) state.importCellKinds[index] = "notes";
+      input.value = state.importCells[index];
+      syncImportReviewCell(index);
+    });
+  });
+  app.querySelectorAll("[data-import-kind-choice]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.importCellKinds[state.importSelectedCell] = button.dataset.importKindChoice;
+      syncImportReviewCell(state.importSelectedCell);
     });
   });
   document.onkeydown = handleKeydown;
+}
+
+function selectImportReviewCell(index) {
+  state.importSelectedCell = index;
+  syncImportReviewCell(index);
+}
+
+function syncImportReviewCell(index) {
+  const kind = state.importCellKinds[index] === "notes" ? "notes" : "value";
+  const value = state.importCells[index];
+  const input = app.querySelector(`[data-import-cell="${index}"]`);
+  if (input) {
+    input.dataset.importKind = kind;
+    input.classList.toggle("has-import-content", Boolean(value));
+    const description = !value ? "empty cell" : kind === "notes" ? "pencil notes" : "filled digit";
+    input.setAttribute("aria-label", `Import ${cellName(index)}, ${description}`);
+  }
+  const label = app.querySelector("[data-import-kind-label]");
+  if (label) label.textContent = `${cellName(index)} type`;
+  app.querySelectorAll("[data-import-kind-choice]").forEach((button) => {
+    const active = button.dataset.importKindChoice === kind;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function handleAction(action) {
@@ -1728,8 +1765,8 @@ function puzzleFromImportCells() {
   const notes = Array.from({ length: 81 }, () => new Set());
   for (let index = 0; index < 81; index += 1) {
     const unique = [...new Set((state.importCells[index] || "").split("").map(Number).filter(Boolean))];
-    if (unique.length === 1) values[index] = unique[0];
-    if (unique.length > 1) notes[index] = new Set(unique);
+    if (unique.length === 1 && state.importCellKinds[index] !== "notes") values[index] = unique[0];
+    if (unique.length > 1 || (unique.length === 1 && state.importCellKinds[index] === "notes")) notes[index] = new Set(unique);
   }
   return {
     values,
@@ -1938,22 +1975,35 @@ function onImportFile(event) {
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
     state.importedImage = null;
     state.importedFile = null;
-    state.importError = "Choose a PNG, JPEG, WebP, GIF, or BMP screenshot. SVG files are not supported.";
+    state.ocrScanComplete = false;
+    state.importError = "Choose a PNG, JPEG, or WebP screenshot.";
+    state.importStatus = "Your review entries are preserved, but choose a valid image before scanning.";
     render();
     return;
   }
   if (file.size > MAX_IMAGE_BYTES) {
     state.importedImage = null;
     state.importedFile = null;
-    state.importError = "Choose an image that is 5 MB or smaller.";
+    state.ocrScanComplete = false;
+    state.importError = "Choose an image that is 4 MB or smaller.";
+    state.importStatus = "Your review entries are preserved, but choose a valid image before scanning.";
     render();
     return;
   }
+  state.ocrScanComplete = false;
+  state.importedImage = null;
+  state.importedFile = null;
+  state.importCells = Array.from({ length: 81 }, () => "");
+  state.importCellKinds = Array.from({ length: 81 }, () => "value");
+  state.importSelectedCell = 0;
+  state.importStatus = "Loading screenshot for review…";
+  render();
   const reader = new FileReader();
   reader.onload = () => {
     state.importedFile = file;
     state.importedImage = reader.result;
-    state.importStatus = "Screenshot ready. OCR runs in your browser and is available while online; your image is never uploaded.";
+    state.ocrScanComplete = false;
+    state.importStatus = "Screenshot ready. Review the upload disclosure, then choose Scan online to send this image for recognition.";
     productAnalytics.capture("screenshot_import_selected", {
       image_type: file.type,
       size_kb_bucket: Math.min(5000, Math.ceil(file.size / 100000) * 100)
@@ -2018,9 +2068,12 @@ function createInitialState() {
     importedFile: null,
     importError: "",
     importCells: Array.from({ length: 81 }, () => ""),
+    importCellKinds: Array.from({ length: 81 }, () => "value"),
+    importSelectedCell: 0,
     importStatus: "",
     ocrLoading: false,
-    ocrRecognizer: null,
+    ocrAbortController: null,
+    ocrScanComplete: false,
     ocrRequestId: null,
     previousPuzzle: null
   };
@@ -2060,7 +2113,10 @@ function createInitialState() {
       completionRecorded: Boolean(saved.completionRecorded),
       wasSolved: isSolved(puzzle.values),
       runMessage: saved.runMessage || "",
-      importCells: Array.isArray(saved.importCells) && saved.importCells.length === 81 ? saved.importCells : fallback.importCells
+      importCells: Array.isArray(saved.importCells) && saved.importCells.length === 81 ? saved.importCells : fallback.importCells,
+      importCellKinds: Array.isArray(saved.importCellKinds) && saved.importCellKinds.length === 81
+        ? saved.importCellKinds.map((kind) => kind === "notes" ? "notes" : "value")
+        : fallback.importCellKinds
     };
   } catch {
     return fallback;
@@ -2094,7 +2150,8 @@ function saveState() {
       practiceMode: state.practiceMode,
       completionRecorded: state.completionRecorded,
       runMessage: state.runMessage,
-      importCells: state.importCells
+      importCells: state.importCells,
+      importCellKinds: state.importCellKinds
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
@@ -2215,6 +2272,11 @@ function tryOcr() {
     render();
     return;
   }
+  if (state.ocrScanComplete) {
+    state.importStatus = "This screenshot has already been scanned. Choose it again if you intentionally want to rescan it.";
+    render();
+    return;
+  }
   if (!navigator.onLine) {
     state.importError = "OCR requires an internet connection to start. Manual review remains available offline.";
     state.importStatus = "Manual import is available offline.";
@@ -2226,115 +2288,102 @@ function tryOcr() {
 
 async function runOcr() {
   const requestId = Symbol("ocr");
+  const abortController = new AbortController();
   state.ocrRequestId = requestId;
+  state.ocrAbortController = abortController;
   state.ocrLoading = true;
   state.importError = "";
-  state.importStatus = "Reading screenshot in your browser. Your image is never uploaded.";
+  state.importStatus = "Uploading and reading screenshot with online recognition…";
   productAnalytics.capture("screenshot_ocr_started", {
     image_type: state.importedFile.type
   });
   render();
   try {
-    const recognizer = await getOcrRecognizer();
-    state.ocrRecognizer = recognizer;
-    const cells = await recognizeSudokuCells(recognizer, state.importedFile);
+    const response = await requestSudokuOcr(state.importedFile, abortController.signal);
     if (state.ocrRequestId !== requestId) return;
-    state.importCells = cells;
-    state.importStatus = "OCR completed. Please review the detected large digits; pencil notes must be entered in the review grid.";
+    const review = importReviewFromOcrResponse(response);
+    state.importCells = review.values;
+    state.importCellKinds = review.kinds;
+    state.ocrScanComplete = true;
+    state.importStatus = "Online recognition completed. Review every detected filled digit and pencil note before applying the import.";
     productAnalytics.capture("screenshot_ocr_completed", {
-      detected_cells: cells.filter(Boolean).length
+      detected_cells: review.values.filter(Boolean).length,
+      detected_value_cells: review.kinds.filter((kind, index) => kind === "value" && review.values[index]).length,
+      detected_note_cells: review.kinds.filter((kind, index) => kind === "notes" && review.values[index]).length
     });
   } catch (error) {
     if (state.ocrRequestId !== requestId) return;
-    state.importError = error.message || "OCR could not read this screenshot. Try a clearer image or fill the review grid manually.";
-    state.importStatus = "Manual import is available offline.";
+    if (error?.name !== "AbortError") {
+      state.importError = error.message || "Online recognition could not read this screenshot. Try a clearer image or fill the review grid manually.";
+      state.importStatus = "The review grid remains available for manual import.";
+    }
     productAnalytics.capture("screenshot_ocr_failed", {
       failure_type: error?.name || "Error"
     });
   } finally {
     if (state.ocrRequestId === requestId) {
       state.ocrLoading = false;
-      state.ocrRecognizer = null;
+      state.ocrAbortController = null;
       render();
     }
   }
 }
 
-async function getOcrRecognizer() {
-  if (window.__SUDOKU_OCR_RECOGNIZER__) return window.__SUDOKU_OCR_RECOGNIZER__;
-  const { createWorker } = await import("tesseract.js");
-  return createWorker("eng", 1, OCR_OPTIONS);
-}
-
-async function recognizeSudokuCells(recognizer, imageFile) {
-  const { width, height } = await imageDimensions(imageFile);
-  const side = Math.min(width, height);
-  const left = Math.max(0, Math.round((width - side) / 2));
-  const top = Math.max(0, Math.round((height - side) / 2));
-  const gridStart = Math.round(side * OCR_GRID_MARGIN_RATIO);
-  const cellSize = Math.round(side * OCR_CELL_RATIO);
-  if (cellSize < 12) throw new Error("The screenshot is too small to read. Choose a clearer, closer grid image.");
-
-  const cropWidth = cellSize;
-  const cropHeight = cellSize;
-  const cellJobs = [];
-  for (let row = 0; row < 9; row += 1) {
-    for (let col = 0; col < 9; col += 1) {
-      cellJobs.push({
-        row,
-        col,
-        rectangle: {
-          left: left + gridStart + col * cellSize,
-          top: top + gridStart + row * cellSize,
-          width: cropWidth,
-          height: cropHeight
-        }
-      });
-    }
-  }
-  const results = await Promise.all(cellJobs.map(async ({ rectangle }) => {
-    const result = await recognizer.recognize(imageFile, { rectangle });
-    const digits = String(result?.data?.text || "").match(/[1-9]/g) || [];
-    return digits.length === 1 ? digits[0] : "";
-  }));
-  return results;
-}
-
-function imageDimensions(file) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    const url = URL.createObjectURL(file);
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("The selected image could not be read."));
-    };
-    image.src = url;
+async function requestSudokuOcr(imageFile, signal) {
+  const response = await fetch("/api/sudoku-ocr", {
+    method: "POST",
+    headers: {
+      "Content-Type": imageFile.type
+    },
+    body: imageFile,
+    signal
   });
+  if (response.ok) return response.json();
+
+  let serverMessage = "";
+  try {
+    const payload = await response.json();
+    serverMessage = typeof payload?.error === "string" ? payload.error : "";
+  } catch {
+    // A generic status-based message is safer than assuming an error response shape.
+  }
+  if (response.status === 429) throw new Error("The shared online scan quota is temporarily exhausted. Review the grid manually or try again later.");
+  if (response.status === 503) throw new Error("Online recognition is temporarily unavailable. Review the grid manually or try again later.");
+  throw new Error(serverMessage || "Online recognition could not process this image. Review the grid manually or try again.");
 }
 
-function parseOcrGrid(text) {
-  const digits = String(text).match(/[0-9]/g) || [];
-  if (digits.length !== 81) return null;
-  return digits.map((digit) => digit === "0" ? "" : digit);
+function importReviewFromOcrResponse(payload) {
+  const rows = payload?.puzzle?.cells;
+  if (!Array.isArray(rows) || rows.length !== 9 || rows.some((row) => !Array.isArray(row) || row.length !== 9)) {
+    throw new Error("Online recognition returned an invalid puzzle. Review the grid manually or try again.");
+  }
+  const values = [];
+  const kinds = [];
+  for (const cell of rows.flat()) {
+    if (cell?.kind === "value" && Number.isInteger(cell.value) && cell.value >= 1 && cell.value <= 9) {
+      values.push(String(cell.value));
+      kinds.push("value");
+      continue;
+    }
+    if (cell?.kind === "notes" && Array.isArray(cell.notes) && cell.notes.every((digit) => Number.isInteger(digit) && digit >= 1 && digit <= 9)) {
+      values.push([...new Set(cell.notes)].sort((a, b) => a - b).join(""));
+      kinds.push("notes");
+      continue;
+    }
+    throw new Error("Online recognition returned an invalid puzzle cell. Review the grid manually or try again.");
+  }
+  return { values, kinds };
 }
 
-async function cancelOcr() {
-  const recognizer = state.ocrRecognizer;
+function cancelOcr() {
+  const abortController = state.ocrAbortController;
   state.ocrRequestId = null;
   state.ocrLoading = false;
-  state.ocrRecognizer = null;
+  state.ocrAbortController = null;
   state.importError = "";
-  state.importStatus = "OCR cancelled. You can try again or complete the review grid manually.";
+  state.importStatus = "Online scan cancelled. Sudoku Pilot stopped waiting; a scan already sent may still count against the shared quota.";
+  abortController?.abort();
   render();
-  try {
-    await recognizer?.terminate?.();
-  } catch {
-    // Termination is best-effort and must not prevent manual import.
-  }
 }
 
 function moveSelection(dx, dy) {

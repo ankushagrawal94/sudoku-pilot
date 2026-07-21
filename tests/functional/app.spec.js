@@ -185,14 +185,14 @@ test("new puzzle generates a different board", async ({ page }) => {
   expect(after).not.toEqual(before);
 });
 
-test("more menu prioritizes closing and explains automation before technique selection", async ({ page }) => {
+test("more menu prioritizes closing and keeps puzzle import with start actions", async ({ page }) => {
   await page.goto("/");
   await openMore(page);
 
   const morePanel = page.getByTestId("more-panel");
   await expect(morePanel.getByRole("button", { name: "Close", exact: true })).toHaveClass(/primary/);
   await expect(morePanel.getByRole("button", { name: "Practice selected technique", exact: true })).toHaveCount(0);
-  await expect(morePanel.getByRole("button", { name: "Import screenshot", exact: true })).toHaveCount(0);
+  await expect(morePanel.getByRole("button", { name: "Import screenshot", exact: true })).toBeVisible();
   await expect(morePanel).toContainText("Run every checked technique repeatedly until none of them can move the board forward.");
 
   const headings = await morePanel.getByRole("heading").allTextContents();
@@ -528,6 +528,8 @@ test("all possible moves stay hidden until requested", async ({ page }) => {
   await page.goto("/");
   await page.locator("[data-action='fill-notes']").click();
 
+  await expect(page.getByTestId("hint-panel")).toHaveCount(0);
+  await page.getByTestId("hint-button").click();
   await expect(page.getByTestId("hint-panel")).not.toContainText("All possible moves");
   await page.getByRole("button", { name: "All moves", exact: true }).click();
 
@@ -1011,20 +1013,31 @@ test("rejects unsafe and oversized screenshot uploads with a visible error", asy
   await page.reload();
   await openMore(page);
   await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await page.locator("[data-import-file]").setInputFiles({
+    name: "valid.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("valid-image-placeholder")
+  });
+  await expect(page.locator(".import-preview")).toBeVisible();
+  await page.locator("[data-import-cell='0']").fill("9");
 
   await page.locator("[data-import-file]").setInputFiles({
     name: "puzzle.svg",
     mimeType: "image/svg+xml",
     buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'/>")
   });
-  await expect(page.getByTestId("import-error")).toContainText("PNG, JPEG, WebP, GIF, or BMP");
+  await expect(page.getByTestId("import-error")).toContainText("PNG, JPEG, or WebP");
+  await expect(page.locator("[data-import-cell='0']")).toHaveValue("9");
+  await expect(page.locator(".import-preview")).toHaveCount(0);
+  await expect(page.locator("[data-action='ocr-import']")).toBeDisabled();
 
   await page.locator("[data-import-file]").setInputFiles({
     name: "large.png",
     mimeType: "image/png",
-    buffer: Buffer.alloc(5 * 1024 * 1024 + 1)
+    buffer: Buffer.alloc(4 * 1024 * 1024 + 1)
   });
-  await expect(page.getByTestId("import-error")).toContainText("5 MB or smaller");
+  await expect(page.getByTestId("import-error")).toContainText("4 MB or smaller");
+  await expect(page.locator("[data-import-cell='0']")).toHaveValue("9");
 });
 
 test("works offline after first load and preserves progress", async ({ page, context }) => {
@@ -1092,6 +1105,22 @@ test("typing in import fields never triggers board keyboard shortcuts", async ({
   await expect(page.getByTestId("cell-2").locator(".value")).toHaveCount(0);
 });
 
+test("manual review can explicitly preserve a singleton pencil note", async ({ page }) => {
+  await page.goto("/");
+  await openMore(page);
+  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+
+  const field = page.locator("[data-import-cell='0']");
+  await field.fill("4");
+  await page.getByRole("button", { name: "Pencil notes", exact: true }).click();
+  await expect(field).toHaveAttribute("data-import-kind", "notes");
+  await expect(page.getByRole("button", { name: "Pencil notes", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  await page.locator("[data-action='apply-import']").click();
+  await expect(page.getByTestId("cell-0").locator(".value")).toHaveCount(0);
+  await expect(page.getByTestId("cell-0").locator(".notes .on")).toHaveText("4");
+});
+
 test("import validates before replacement and allows restoring replaced progress", async ({ page }) => {
   await page.goto("/");
   await page.locator("[data-action='fill-notes']").click();
@@ -1110,46 +1139,68 @@ test("import validates before replacement and allows restoring replaced progress
   await expect(page.locator(".notes .on")).not.toHaveCount(0);
 });
 
-test("runs online OCR through a local recognizer seam, parses its result into the review grid, and never injects a remote script", async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__SUDOKU_OCR_RECOGNIZER__ = {
-      recognize: async () => ({ data: { text: "5" } }),
-      terminate: async () => {}
-    };
-    window.Image = class {
-      set src(_) { queueMicrotask(() => this.onload()); }
-      get naturalWidth() { return 756; }
-      get naturalHeight() { return 756; }
-    };
-    URL.createObjectURL = () => "blob:ocr-fixture";
-    URL.revokeObjectURL = () => {};
+test("uploads raw image bytes to same-origin OCR and preserves detected values and notes for review", async ({ page }) => {
+  const cells = Array.from({ length: 9 }, (_, row) => Array.from({ length: 9 }, (_, column) => {
+    if (row === 0 && column === 0) return { kind: "value", value: 5 };
+    if (row === 0 && column === 1) return { kind: "notes", notes: [2] };
+    if (row === 0 && column === 2) return { kind: "notes", notes: [7, 3, 3] };
+    return { kind: "notes", notes: [] };
+  }));
+  await page.route("**/api/sudoku-ocr", async (route) => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().headers()["content-type"]).toBe("image/png");
+    expect(route.request().headers()["x-sudoku-image-name"]).toBeUndefined();
+    expect(route.request().postDataBuffer()).toEqual(Buffer.from("raw-image-bytes"));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ puzzle: { cells } })
+    });
   });
   await page.goto("/");
   await openMore(page);
   await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await expect(page.locator(".import-disclosure")).toContainText("paid third-party recognition API");
+  await expect(page.locator(".import-disclosure")).toContainText("limited shared quota");
+  await page.locator("[data-import-cell='80']").fill("9");
   await page.locator("[data-import-file]").setInputFiles({
-    name: "puzzle.png", mimeType: "image/png", buffer: Buffer.from("not-a-real-image")
+    name: "puzzle.png", mimeType: "image/png", buffer: Buffer.from("raw-image-bytes")
   });
+  await expect(page.locator("[data-import-cell='80']")).toHaveValue("");
   await page.locator("[data-action='ocr-import']").click();
-  await expect(page.getByTestId("import-status")).toContainText("review the detected large digits");
+  await expect(page.getByTestId("import-status")).toContainText("Review every detected filled digit and pencil note");
   await expect(page.locator("[data-import-cell='0']")).toHaveValue("5");
-  await expect(page.locator("[data-import-cell='80']")).toHaveValue("5");
-  expect(await page.locator("script[src^='http']").count()).toBe(0);
+  await expect(page.locator("[data-import-cell='0']")).toHaveAttribute("data-import-kind", "value");
+  await expect(page.locator("[data-import-cell='1']")).toHaveValue("2");
+  await expect(page.locator("[data-import-cell='1']")).toHaveAttribute("data-import-kind", "notes");
+  await expect(page.locator("[data-import-cell='2']")).toHaveValue("37");
+  await expect(page.locator("[data-import-cell='2']")).toHaveAttribute("data-import-kind", "notes");
+  await expect(page.locator("[data-action='ocr-import']")).toBeDisabled();
+  await expect(page.locator("[data-action='ocr-import']")).toHaveText("Scan complete");
+
+  await page.locator("[data-import-cell='2']").fill("3");
+  await expect(page.locator("[data-import-cell='2']")).toHaveAttribute("data-import-kind", "notes");
+  await expect(page.getByRole("button", { name: "Pencil notes", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.locator("[data-action='apply-import']").click();
+  await expect(page.getByTestId("cell-0").locator(".value")).toHaveText("5");
+  await expect(page.getByTestId("cell-1").locator(".notes .on")).toHaveText("2");
+  await expect(page.getByTestId("cell-2").locator(".notes .on")).toHaveText("3");
 });
 
-test("keeps OCR online-only and allows an in-progress OCR request to be cancelled", async ({ page, context }) => {
+test("keeps OCR online-only and aborts an in-progress upload when cancelled", async ({ page, context }) => {
   await page.addInitScript(() => {
-    window.__SUDOKU_OCR_RECOGNIZER__ = {
-      recognize: () => new Promise(() => {}),
-      terminate: async () => { window.__ocrTerminated = true; }
+    const browserFetch = window.fetch;
+    window.fetch = (input, init) => {
+      if (String(input).includes("/api/sudoku-ocr")) {
+        return new Promise((resolve, reject) => {
+          init.signal.addEventListener("abort", () => {
+            window.__ocrAborted = true;
+            reject(new DOMException("Aborted", "AbortError"));
+          }, { once: true });
+        });
+      }
+      return browserFetch(input, init);
     };
-    window.Image = class {
-      set src(_) { queueMicrotask(() => this.onload()); }
-      get naturalWidth() { return 756; }
-      get naturalHeight() { return 756; }
-    };
-    URL.createObjectURL = () => "blob:ocr-fixture";
-    URL.revokeObjectURL = () => {};
   });
   await page.goto("/");
   await openMore(page);
@@ -1162,10 +1213,10 @@ test("keeps OCR online-only and allows an in-progress OCR request to be cancelle
   await expect(page.getByTestId("import-error")).toContainText("requires an internet connection");
   await context.setOffline(false);
   await page.locator("[data-action='ocr-import']").click();
-  await expect(page.getByTestId("import-status")).toContainText("Reading screenshot");
-  await page.getByRole("button", { name: "Cancel OCR", exact: true }).click();
+  await expect(page.getByTestId("import-status")).toContainText("Uploading and reading screenshot");
+  await page.getByRole("button", { name: "Cancel online scan", exact: true }).click();
   await expect(page.getByTestId("import-status")).toContainText("cancelled");
-  await expect.poll(() => page.evaluate(() => window.__ocrTerminated)).toBeTruthy();
+  await expect.poll(() => page.evaluate(() => window.__ocrAborted)).toBeTruthy();
 });
 
 test("exposes accessible board state, OCR controls, and data controls", async ({ page }) => {
@@ -1173,7 +1224,7 @@ test("exposes accessible board state, OCR controls, and data controls", async ({
   await expect(page.getByTestId("cell-0")).toHaveAttribute("aria-pressed", "false");
   await openMore(page);
   await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
-  await expect(page.locator("[data-action='ocr-import']")).toHaveText("Try OCR");
+  await expect(page.locator("[data-action='ocr-import']")).toHaveText("Scan online");
   await page.getByRole("button", { name: "More", exact: true }).click();
   await expect(page.getByRole("button", { name: "Clear local data", exact: true })).toBeVisible();
 });

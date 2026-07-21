@@ -1,6 +1,9 @@
 .vercel
 .hermes/
-.env*
+
+# Local environment variables and secrets
+.env
+.env.*
 !.env.example
 
 .DS_Store

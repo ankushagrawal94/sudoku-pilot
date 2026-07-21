@@ -24,17 +24,46 @@ When you get stuck, the coach shows the logical moves available from the techniq
 - **Practice for a specific technique.** Choose the pattern you want to learn instead of waiting for it to appear in a random puzzle. Practice finding it, using it in a complete solve, and distinguishing it from near misses.
 - **Technique-based difficulty.** Puzzle ratings reflect the logical techniques and effort in Sudoku Pilot's verified solve path, not simply the number of given digits.
 - **Automation for familiar techniques.** Let Sudoku Pilot handle deductions you already know until the puzzle reaches a move worth your attention, or run one named technique at a time.
-- **Import a puzzle for review.** Start from a screenshot, correct the recognized digits in an editable grid, and then solve or ask the coach to review the board. OCR reads large filled digits; pencil notes still need to be entered manually.
+- **Import a puzzle for review.** Start from a screenshot, correct the recognized filled digits and pencil notes in an editable grid, and then solve or ask the coach to review the board.
 - **Input that works the way you solve.** Choose cell-first or digit-first entry, use the on-screen number pad or keyboard, and add a note to several cells at once. Fill or clear all pencil notes, undo moves, and configure peer highlights, matching-digit highlights, the timer, and live mistake feedback.
-- **Private and offline-friendly.** Your puzzle progress stays in your browser. The installable app works offline after loading, and imported screenshots are not uploaded to an OCR service.
+- **Local-first and offline-friendly.** Your puzzle progress stays in your browser, and the installable app works offline after loading. Screenshot OCR is an optional online action that sends the selected puzzle image to Sudoku OCR through RapidAPI.
 
 Technique detection never repairs an imported puzzle or overwrites a player's decisions. The solver tracks logical candidates separately from player-entered notes, so partial notes cannot create false deductions.
 
 ## Local, installable, and offline-friendly
 
-Sudoku Pilot is a static Vite app with no application backend. It can be installed as a PWA, its app shell works offline after loading, and the current puzzle, notes, undo history, and technique selections are stored locally in the browser.
+Sudoku Pilot is a local-first Vite app with one serverless endpoint for optional screenshot OCR. It can be installed as a PWA, its app shell works offline after loading, and the current puzzle, notes, undo history, and technique selections are stored locally in the browser.
 
-Starting screenshot OCR may require connectivity to load its browser-local recognition assets. Manual puzzle entry and the installed solving experience do not depend on an OCR server.
+Generated puzzles, manual entry, solving, notes, hints, and practice stay available without the OCR endpoint. Screenshot recognition requires a connection and available provider quota.
+
+## Optional online screenshot OCR
+
+Starting screenshot recognition sends the selected image to Sudoku Pilot's `/api/sudoku-ocr` serverless function. The function forwards that image to Sudoku OCR through RapidAPI and returns the recognized grid for review. Each scan consumes a metered service paid for by Sudoku Pilot; users are not charged, and no payment information is requested. The RapidAPI credential stays on the server, and availability depends on the quota and status of the site's subscription.
+
+The OCR provider's image handling and retention policy is not publicly detailed. Avoid uploading screenshots that contain personal or sensitive information. Ordinary gameplay remains local-first and does not require an image upload.
+
+For local endpoint development, copy the example environment file and add a RapidAPI key:
+
+```sh
+cp .env.example .env.local
+# Edit .env.local and set RAPIDAPI_KEY to the server-side RapidAPI credential.
+# Set SUDOKU_OCR_ENABLED=true only when this environment may spend OCR quota.
+npx vercel dev
+```
+
+`npm run dev` still runs the Vite app for ordinary gameplay work. Use `vercel dev` when the browser must call the local serverless OCR endpoint. Never prefix the provider key with `VITE_`, which would expose it to browser code.
+
+For a Vercel deployment, add `RAPIDAPI_KEY` as a Sensitive environment variable. Keep `SUDOKU_OCR_ENABLED=false` until the RapidAPI subscription dashboard confirms that a hard request cap is active; only then set it to `true` for environments that should support OCR and redeploy. Keep the key out of source control and client-visible configuration. Preview environments should stay disabled unless they intentionally share the quota.
+
+`SUDOKU_OCR_MAX_CALLS_PER_IP_PER_HOUR` is a best-effort per-instance abuse brake; it is not a durable billing limit in a serverless deployment. A confirmed provider-side hard request cap is the required billing control. A response header that reports a request limit is useful monitoring data, but is not by itself proof that overages are disabled. Do not enable production OCR or move to a plan with paid overages until the subscription has a verified hard cap, or the endpoint has durable cross-instance rate limiting or authenticated entitlements. `SUDOKU_OCR_ENABLED=false` is a fail-closed, deployment-time switch; for an emergency cutoff before a redeploy completes, disable the RapidAPI subscription or credential.
+
+The normal test suite uses a mocked provider and does not spend OCR quota. A separate live check makes exactly one provider request and must be confirmed explicitly:
+
+```sh
+npm run test:sudoku-ocr-live -- --confirm-live-call
+```
+
+The live check loads `RAPIDAPI_KEY` from `.env.local` and prints the quota headers returned by RapidAPI. Each provider call also emits a structured `sudoku_ocr_provider_call` entry with `provider_calls: 1`, `retry: false`, image size and type, request ID, and UTC billing month. The matching `sudoku_ocr_provider_response` entry records status, duration, and available quota headers. Use Vercel function logs to count calls and investigate failures, and use the RapidAPI dashboard to confirm plan usage and remaining quota.
 
 ## Product analytics
 
@@ -110,7 +139,7 @@ Each article lives in `content/articles/<slug>.json`. The file contains its copy
 
 Use the Codex skill in `skills/publish-sudoku-article` to create, verify, and publish an article. It is installed locally at `~/.codex/skills/publish-sudoku-article`. Run `npm run build` and `npm run test:content` after every content change.
 
-The product rationale and original requirements are documented in [resources/PRD.md](resources/PRD.md). The review-first screenshot and mistake-diagnosis milestone is specified in [resources/trusted-import-v0.1.md](resources/trusted-import-v0.1.md), with its first-party corpus contract in [resources/trusted-import-evaluation/README.md](resources/trusted-import-evaluation/README.md). Reference material lives in `resources/`. Generated reviews and measurements are written to the ignored `output/` directory; the certified catalog audit is the only tracked output artifact.
+The product rationale and original requirements are documented in [resources/PRD.md](resources/PRD.md). The current online, note-aware OCR decision is specified in [resources/trusted-import-v0.2.md](resources/trusted-import-v0.2.md); [v0.1](resources/trusted-import-v0.1.md) is preserved as the earlier browser-local research decision. The first-party corpus contract remains in [resources/trusted-import-evaluation/README.md](resources/trusted-import-evaluation/README.md). Reference material lives in `resources/`. Generated reviews and measurements are written to the ignored `output/` directory; the certified catalog audit is the only tracked output artifact.
 
 ## License
 
