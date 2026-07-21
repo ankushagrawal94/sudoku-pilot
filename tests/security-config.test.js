@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [vercelConfig, appSource] = await Promise.all([
+const [vercelConfig, appSource, browserAnalyticsSource, envExample, gitignore, readme] = await Promise.all([
   readFile(new URL("../vercel.json", import.meta.url), "utf8"),
-  readFile(new URL("../src/app.js", import.meta.url), "utf8")
+  readFile(new URL("../src/app.js", import.meta.url), "utf8"),
+  readFile(new URL("../src/browserAnalytics.js", import.meta.url), "utf8"),
+  readFile(new URL("../.env.example", import.meta.url), "utf8"),
+  readFile(new URL("../.gitignore", import.meta.url), "utf8"),
+  readFile(new URL("../README.md", import.meta.url), "utf8")
 ]);
 const vercel = JSON.parse(vercelConfig);
 const packageConfig = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -11,6 +15,7 @@ const headers = Object.fromEntries(vercel.headers?.[0]?.headers?.map(({ key, val
 
 assert.match(headers["content-security-policy"] || "", /default-src 'self'/);
 assert.match(headers["content-security-policy"] || "", /script-src 'self'/);
+assert.match(headers["content-security-policy"] || "", /connect-src 'self' https:\/\/us\.i\.posthog\.com https:\/\/eu\.i\.posthog\.com/);
 assert.match(headers["content-security-policy"] || "", /frame-ancestors 'none'/);
 assert.equal(headers["x-frame-options"], "DENY");
 assert.equal(headers["x-content-type-options"], "nosniff");
@@ -27,5 +32,13 @@ assert.match(appSource, /import\(["']tesseract\.js["']\)/, "OCR engine must be d
 assert.match(appSource, /langPath: "\/ocr"/, "OCR language data must be served from this origin.");
 assert.match(appSource, /workerPath:/, "OCR worker must be an app-controlled asset.");
 assert.doesNotMatch(appSource, /cdn\.|jsdelivr|unpkg/i, "OCR must not reference third-party CDNs.");
+assert.match(envExample, /^VITE_POSTHOG_KEY=\s*$/m);
+assert.match(envExample, /^VITE_POSTHOG_HOST=https:\/\/us\.i\.posthog\.com$/m);
+assert.match(gitignore, /^\.env\*$/m);
+assert.match(gitignore, /^!\.env\.example$/m);
+assert.match(readme, /VITE_POSTHOG_KEY/);
+assert.match(readme, /VITE_POSTHOG_HOST/);
+assert.doesNotMatch(browserAnalyticsSource, /phc_[A-Za-z0-9]/, "Production source must not embed a PostHog project key.");
+assert.match(appSource, /board-frame analytics-block/, "Session replay must block the puzzle board and its cell values.");
 
 console.log("security configuration tests passed");

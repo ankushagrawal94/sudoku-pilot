@@ -22,6 +22,11 @@ Copyright Vercel, Inc.
 License: MIT License.
 See /licenses/Vercel-Analytics-MIT.txt.
 
+PostHog JavaScript SDK 1.280.1
+Copyright 2020 PostHog / Hiberly, Inc. and Copyright 2015 Mixpanel, Inc.
+Used for anonymous product analytics.
+License: Apache License 2.0. See /licenses/Apache-2.0.txt.
+
 OCR EVALUATION CORPUS
 
 Libre Franklin

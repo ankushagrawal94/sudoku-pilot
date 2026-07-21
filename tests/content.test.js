@@ -91,10 +91,19 @@ assert.match(privacy, /<link rel="canonical" href="https:\/\/sudokupilot\.com\/p
 assert.match(privacy, /Game data stays in your browser/);
 assert.match(privacy, /Screenshot imports are processed locally/);
 assert.match(privacy, /Vercel Web Analytics/);
+assert.match(privacy, /PostHog/);
+assert.match(privacy, /persistent anonymous browser identifier/);
+assert.match(privacy, /Session replay is disabled/);
+assert.match(privacy, /does not receive screenshots, recognized grids, cell values, or pencil notes/);
+assert.match(privacy, /offline activity is not queued/);
+assert.match(privacy, /Clear local data/);
 assert.match(privacy, /third-party-notices\.txt/);
-assert.match(privacy, /github\.com\/ankushagrawal94\/sudoku-app/);
+assert.match(privacy, /github\.com\/ankushagrawal94\/sudoku-pilot/);
 assert.match(privacy, /PolyForm Noncommercial License 1\.0\.0/);
 assert.match(privacy, /branding are separately reserved/);
+
+const publicNotices = await readFile("public/third-party-notices.txt", "utf8");
+assert.match(publicNotices, /PostHog JavaScript SDK/);
 
 const home = await readFile("index.html", "utf8");
 assert.match(home, /<link rel="canonical" href="https:\/\/sudokupilot\.com\/"/);

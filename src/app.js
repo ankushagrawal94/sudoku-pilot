@@ -1,5 +1,7 @@
 import "./styles.css";
 import { inject } from "@vercel/analytics";
+import { createPuzzleJourney } from "./analytics.js";
+import { createBrowserProductAnalytics } from "./browserAnalytics.js";
 import { DIFFICULTY_ORDER } from "./difficulty.js";
 import { generatePuzzle } from "./generator.js";
 import { buildCoachingMove } from "./coaching.js";
@@ -30,7 +32,9 @@ import {
 } from "./solver.js";
 
 const app = document.querySelector("#app");
+const productAnalytics = createBrowserProductAnalytics();
 inject();
+productAnalytics.init();
 const STORAGE_KEY = "sudoku-pilot-state-v1";
 const LEGACY_STORAGE_KEY = "sudoku-method-state-v1";
 const PLAYED_PUZZLES_KEY = "sudoku-pilot-played-canonical-v1";
@@ -52,11 +56,22 @@ const OCR_OPTIONS = {
 const OCR_GRID_MARGIN_RATIO = 0.071;
 const OCR_CELL_RATIO = 0.095;
 let timerInterval = null;
-
-// Initialize Vercel Web Analytics
-inject();
+const viewedLessons = new Set();
 
 const state = createInitialState();
+const puzzleJourney = createPuzzleJourney((event, properties) => productAnalytics.capture(event, properties));
+puzzleJourney.resume(puzzleAnalyticsContext(), state.puzzleMoveCount);
+productAnalytics.capture("app_opened", {
+  has_saved_progress: hasPlayerProgress(),
+  local_completed_puzzles: state.playerStats.completed,
+  current_view: state.view
+});
+if (hasPlayerProgress()) {
+  productAnalytics.capture("puzzle_resumed", {
+    ...puzzleAnalyticsContext(),
+    existing_moves: state.puzzleMoveCount
+  });
+}
 
 registerServiceWorker();
 render();
@@ -161,12 +176,21 @@ function recordPuzzleCompletion() {
   }
   if (state.wasSolved) return;
   state.wasSolved = true;
-  if (!state.completionRecorded) {
+  const firstCompletion = !state.completionRecorded;
+  if (firstCompletion) {
     state.completionRecorded = true;
     state.playerStats.completed += 1;
     savePlayerStats();
   }
   const elapsed = runningElapsedSeconds();
+  if (firstCompletion) {
+    puzzleJourney.complete({
+      active_seconds: elapsed,
+      moves: state.puzzleMoveCount,
+      hints_used: state.hintCount,
+      local_completed_puzzles: state.playerStats.completed
+    });
+  }
   state.elapsedBeforeStart = elapsed;
   state.startedAt = Date.now();
   state.completionSummary = {
@@ -349,7 +373,7 @@ function renderBoard() {
   const showCounts = state.lineCountsVisible && highlightedDigit;
   const counts = showCounts ? getLineCounts(highlightedDigit) : null;
   return `
-    <div class="board-frame ${showCounts ? "show-counts" : ""}" data-testid="board-frame">
+    <div class="board-frame analytics-block ${showCounts ? "show-counts" : ""}" data-testid="board-frame">
       ${showCounts ? `
         <div class="count-corner">${highlightedDigit}</div>
         <div class="column-counts" aria-label="Selected digit column counts">
@@ -873,7 +897,7 @@ function relationshipLabel(kind) {
 
 function renderImportPanel() {
   return `
-    <section class="panel import-panel">
+    <section class="panel import-panel analytics-block">
       <div class="panel-title">
         <h2>Import screenshot</h2>
         <button data-action="toggle-import">Close</button>
@@ -948,6 +972,7 @@ function bindEvents() {
     button.addEventListener("click", () => {
       state.view = button.dataset.view;
       state.practiceError = "";
+      if (state.view === "learn") trackLessonViewed("navigation");
       closeHintDetails();
       render();
     });
@@ -1108,10 +1133,13 @@ function enterDigit(digit) {
     const notes = state.puzzle.notes[state.selected];
     if (notes.has(digit)) notes.delete(digit);
     else notes.add(digit);
+    puzzleJourney.recordInteraction();
   } else {
-    if (state.puzzle.values[state.selected] !== digit) state.puzzleMoveCount += 1;
+    const changed = state.puzzle.values[state.selected] !== digit;
+    if (changed) state.puzzleMoveCount += 1;
     state.puzzle.values[state.selected] = digit;
     state.puzzle.notes[state.selected].clear();
+    if (changed) puzzleJourney.recordMove(state.puzzleMoveCount);
     for (let index = 0; index < 81; index += 1) {
       if (sameBox(index, state.selected) || rowOf(index) === rowOf(state.selected) || colOf(index) === colOf(state.selected)) {
         state.puzzle.notes[index].delete(digit);
@@ -1185,6 +1213,7 @@ function toggleMultiNote(digit) {
     }
   }
   state.runMessage = `${shouldRemove ? "Removed" : "Added"} ${digit} ${shouldRemove ? "from" : "to"} ${changed} selected cell${changed === 1 ? "" : "s"}.`;
+  if (changed > 0) puzzleJourney.recordInteraction();
   closeHintDetails();
   render();
 }
@@ -1243,6 +1272,7 @@ function startPuzzle(difficulty = state.difficulty, { skipConfirm = false } = {}
   state.importOpen = false;
   state.runMessage = `Started a new ${difficulty} puzzle.`;
   resetPuzzleStats();
+  startTrackedPuzzle("generated");
   resetTimer();
   closeHintDetails();
 }
@@ -1286,6 +1316,13 @@ function startCertifiedPractice(index = 0) {
     state.importOpen = false;
     state.runMessage = `${session.technique} practice example ready.`;
     resetPuzzleStats();
+    state.puzzleSource = "practice";
+    productAnalytics.capture("practice_started", {
+      technique: session.technique,
+      practice_mode: session.mode,
+      fixture_index: session.fixtureIndex
+    });
+    if (session.mode !== "near-miss") startTrackedPuzzle("practice");
     resetTimer();
     closeHintDetails();
   } catch (error) {
@@ -1298,6 +1335,11 @@ function startCertifiedPractice(index = 0) {
 function answerNearMiss(answer) {
   if (!state.practiceSession || state.practiceSession.mode !== "near-miss") return;
   state.practiceAnswer = answer;
+  productAnalytics.capture("practice_answered", {
+    technique: state.practiceSession.technique,
+    practice_mode: state.practiceSession.mode,
+    correct: answer === state.practiceSession.nearMiss.valid
+  });
 }
 
 function selectNextPracticeTechnique() {
@@ -1311,6 +1353,7 @@ function openCurrentLesson() {
   state.lessonStage = 1;
   state.view = "learn";
   state.practiceError = "";
+  trackLessonViewed("practice_return");
   closeHintDetails();
 }
 
@@ -1318,6 +1361,16 @@ function selectLesson(technique) {
   if (!COMMITTED_COACHING_TECHNIQUES.includes(technique)) return;
   state.lessonTechnique = technique;
   state.lessonStage = 1;
+  trackLessonViewed("lesson_selector");
+}
+
+function trackLessonViewed(entryPoint) {
+  if (viewedLessons.has(state.lessonTechnique)) return;
+  viewedLessons.add(state.lessonTechnique);
+  productAnalytics.capture("lesson_viewed", {
+    technique: state.lessonTechnique,
+    entry_point: entryPoint
+  });
 }
 
 function changeLesson(offset) {
@@ -1339,6 +1392,11 @@ function requestHint() {
     return;
   }
   const check = checkBoard();
+  puzzleJourney.recordHint({
+    board_status: check.status,
+    technique: state.moves[state.hintIndex]?.technique || "note-diagnosis",
+    stage: 1
+  });
   if (check.status !== "ok") {
     state.runMessage = "Fix the board issue before asking for a hint.";
     return;
@@ -1396,6 +1454,7 @@ function applyCurrentHint() {
   if (move) {
     applyMove(state.puzzle, move);
     state.puzzleMoveCount += (move.fills || []).length;
+    puzzleJourney.recordMove(state.puzzleMoveCount);
     state.hintCount += 1;
     if (state.practiceSession && sameMoveAction(move, state.practiceSession.targetMove)) state.practiceSession.targetApplied = true;
     state.runMessage = `Applied ${move.technique}: ${move.title}.`;
@@ -1435,6 +1494,7 @@ function runSelectedTechniques() {
     return;
   }
   state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
+  puzzleJourney.recordMove(state.puzzleMoveCount);
   state.hintCount += 1;
   const counts = groupMoves(applied).map(([technique, count]) => `${count} ${technique}`).join(", ");
   state.runMessage = `Applied ${applied.length} move${applied.length === 1 ? "" : "s"}: ${counts}.`;
@@ -1450,6 +1510,7 @@ function runOneTechnique(technique) {
   const applied = applySelectedTechniques(state.puzzle, [technique]);
   if (applied.length) {
     state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
+    puzzleJourney.recordMove(state.puzzleMoveCount);
     state.hintCount += 1;
   }
   state.runMessage = applied.length ? `Applied ${applied.length} ${technique} move${applied.length === 1 ? "" : "s"}.` : `${technique} cannot move this board right now.`;
@@ -1474,6 +1535,12 @@ function applyImport() {
   state.importStatus = "";
   state.runMessage = "Imported puzzle.";
   resetPuzzleStats();
+  startTrackedPuzzle("import");
+  productAnalytics.capture("screenshot_review_confirmed", {
+    input_method: state.importedFile ? "screenshot" : "manual",
+    filled_cells: candidate.values.filter(Boolean).length,
+    note_cells: candidate.notes.filter((notes) => notes.size).length
+  });
   resetTimer();
   closeHintDetails();
 }
@@ -1512,11 +1579,17 @@ function restorePreviousPuzzle() {
   state.startedAt = Date.now();
   state.puzzleMoveCount = previous.puzzleMoveCount;
   state.hintCount = previous.hintCount;
+  state.puzzleSource = previous.puzzleSource;
   state.completionRecorded = previous.completionRecorded;
   state.completionSummary = null;
   state.wasSolved = previous.wasSolved;
   state.previousPuzzle = null;
   state.runMessage = "Restored your previous puzzle.";
+  puzzleJourney.resume(puzzleAnalyticsContext(), state.puzzleMoveCount);
+  productAnalytics.capture("puzzle_resumed", {
+    ...puzzleAnalyticsContext(),
+    existing_moves: state.puzzleMoveCount
+  });
 }
 
 function snapshotCurrentPuzzle() {
@@ -1525,6 +1598,7 @@ function snapshotCurrentPuzzle() {
     elapsedBeforeStart: elapsedSeconds(),
     puzzleMoveCount: state.puzzleMoveCount,
     hintCount: state.hintCount,
+    puzzleSource: state.puzzleSource,
     completionRecorded: state.completionRecorded,
     wasSolved: state.wasSolved
   };
@@ -1536,12 +1610,34 @@ function clearLocalData() {
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
     window.localStorage.removeItem(PLAYER_STATS_KEY);
+    productAnalytics.reset();
     playedCanonicalIds.clear();
-    state.playerStats = { completed: 0 };
+    const freshState = createInitialState();
+    window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
+    playedCanonicalIds.clear();
+    for (const key of Object.keys(state)) delete state[key];
+    Object.assign(state, freshState);
+    puzzleJourney.resume(puzzleAnalyticsContext(), 0);
     state.runMessage = "Cleared locally saved puzzle data.";
   } catch {
     state.runMessage = "Could not clear local data. Your browser blocked storage access.";
   }
+}
+
+function puzzleAnalyticsContext() {
+  return {
+    difficulty: state.puzzleSource === "import" ? "custom" : state.difficulty,
+    source: state.puzzleSource,
+    ...(state.puzzleSource === "practice" ? {
+      practice_technique: state.practiceTechnique,
+      practice_mode: state.practiceMode
+    } : {})
+  };
+}
+
+function startTrackedPuzzle(source) {
+  state.puzzleSource = source;
+  puzzleJourney.start(puzzleAnalyticsContext());
 }
 
 function resetPuzzleStats() {
@@ -1670,6 +1766,10 @@ function onImportFile(event) {
     state.importedFile = file;
     state.importedImage = reader.result;
     state.importStatus = "Screenshot ready. OCR runs in your browser and is available while online; your image is never uploaded.";
+    productAnalytics.capture("screenshot_import_selected", {
+      image_type: file.type,
+      size_kb_bucket: Math.min(5000, Math.ceil(file.size / 100000) * 100)
+    });
     render();
   };
   reader.readAsDataURL(file);
@@ -1711,6 +1811,7 @@ function createInitialState() {
     elapsedBeforeStart: 0,
     puzzleMoveCount: 0,
     hintCount: 0,
+    puzzleSource: "generated",
     completionRecorded: false,
     completionSummary: null,
     wasSolved: false,
@@ -1758,6 +1859,7 @@ function createInitialState() {
       elapsedBeforeStart: Number(saved.elapsedBeforeStart) || 0,
       puzzleMoveCount: Math.max(0, Number(saved.puzzleMoveCount) || 0),
       hintCount: Math.max(0, Number(saved.hintCount) || 0),
+      puzzleSource: ["generated", "import", "practice"].includes(saved.puzzleSource) ? saved.puzzleSource : "generated",
       completionRecorded: Boolean(saved.completionRecorded),
       wasSolved: isSolved(puzzle.values),
       runMessage: saved.runMessage || "",
@@ -1787,6 +1889,7 @@ function saveState() {
       elapsedBeforeStart: state.elapsedBeforeStart,
       puzzleMoveCount: state.puzzleMoveCount,
       hintCount: state.hintCount,
+      puzzleSource: state.puzzleSource,
       completionRecorded: state.completionRecorded,
       runMessage: state.runMessage,
       importCells: state.importCells
@@ -1911,6 +2014,9 @@ async function runOcr() {
   state.ocrLoading = true;
   state.importError = "";
   state.importStatus = "Reading screenshot in your browser. Your image is never uploaded.";
+  productAnalytics.capture("screenshot_ocr_started", {
+    image_type: state.importedFile.type
+  });
   render();
   try {
     const recognizer = await getOcrRecognizer();
@@ -1919,10 +2025,16 @@ async function runOcr() {
     if (state.ocrRequestId !== requestId) return;
     state.importCells = cells;
     state.importStatus = "OCR completed. Please review the detected large digits; pencil notes must be entered in the review grid.";
+    productAnalytics.capture("screenshot_ocr_completed", {
+      detected_cells: cells.filter(Boolean).length
+    });
   } catch (error) {
     if (state.ocrRequestId !== requestId) return;
     state.importError = error.message || "OCR could not read this screenshot. Try a clearer image or fill the review grid manually.";
     state.importStatus = "Manual import is available offline.";
+    productAnalytics.capture("screenshot_ocr_failed", {
+      failure_type: error?.name || "Error"
+    });
   } finally {
     if (state.ocrRequestId === requestId) {
       state.ocrLoading = false;

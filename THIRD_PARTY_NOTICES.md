@@ -8,6 +8,7 @@ Sudoku Pilot is licensed under the PolyForm Noncommercial License 1.0.0. The rep
 - **English Tesseract trained data** is redistributed from the `@tesseract.js-data/eng` package and the upstream `naptha/tessdata` project. Copyright their respective contributors; the upstream data is distributed under Apache License 2.0.
 - **sudoku-gen 1.0.2**, by Pete Williams, supplies locally generated source puzzles. Licensed under the MIT License.
 - **Vercel Web Analytics**, copyright Vercel, Inc., provides aggregate site analytics. Licensed under the MIT License.
+- **PostHog JavaScript SDK 1.280.1**, copyright PostHog / Hiberly, Inc. and Mixpanel, Inc., provides anonymous product analytics. Licensed under Apache License 2.0.
 
 The Apache License 2.0 and MIT license texts are available under `public/licenses/` and are included in production builds.
 

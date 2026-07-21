@@ -1,5 +1,7 @@
 .vercel
 .hermes/
+.env*
+!.env.example
 
 .DS_Store
 node_modules/

@@ -1020,7 +1020,13 @@ test("exposes accessible board state, OCR controls, and data controls", async ({
 test("clear local data resets canonical played-puzzle history", async ({ page }) => {
   await page.goto("/");
   await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("sudoku-pilot-played-canonical-v1") || "[]").length)).toBeGreaterThan(0);
+  const editable = page.locator(".cell:not(.given)").first();
+  await editable.click();
+  await page.locator("[data-digit='1']").click();
   await openMore(page);
   await page.getByRole("button", { name: "Clear local data", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem("sudoku-pilot-played-canonical-v1"))).toBeNull();
+  const saved = await page.evaluate(() => JSON.parse(window.localStorage.getItem("sudoku-pilot-state-v1")));
+  expect(saved.puzzle.values.every((value, index) => saved.puzzle.givens[index] || value === 0)).toBe(true);
+  expect(saved.puzzle.notes.every((notes) => notes.length === 0)).toBe(true);
 });
