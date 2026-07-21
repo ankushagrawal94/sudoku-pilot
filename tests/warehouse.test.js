@@ -3,7 +3,21 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { archiveCounts, ensureLocalArchiveIdentity, readLocalArchive } from "../scripts/catalog/warehouse.mjs";
+import {
+  archiveCounts,
+  ensureLocalArchiveIdentity,
+  readLocalArchive,
+  resolveWarehouseConnectionString
+} from "../scripts/catalog/warehouse.mjs";
+
+assert.equal(resolveWarehouseConnectionString({
+  PUZZLE_WAREHOUSE_URL: "postgres://explicit",
+  PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED: "postgres://neon"
+}), "postgres://explicit", "the provider-neutral override must take precedence");
+assert.equal(resolveWarehouseConnectionString({
+  PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED: "postgres://neon"
+}), "postgres://neon", "Vercel Marketplace Neon credentials must work without remapping");
+assert.equal(resolveWarehouseConnectionString({}), undefined, "missing warehouse credentials must remain detectable");
 
 const directory = await mkdtemp(path.join(tmpdir(), "sudoku-warehouse-"));
 const database = new DatabaseSync(path.join(directory, "catalog.sqlite"));

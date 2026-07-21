@@ -135,7 +135,9 @@ PUZZLE_WAREHOUSE_URL=postgres://... npm run catalog:warehouse:sync
 PUZZLE_WAREHOUSE_URL=postgres://... npm run catalog:warehouse:inspect
 ```
 
-When `PUZZLE_WAREHOUSE_URL` is configured, catalog builds sync automatically after compilation and before a destructive rebuild. Without it, `catalog:rebuild` refuses to erase an existing local archive unless `--allow-unarchived-reset` is explicitly supplied.
+The production warehouse is a private Neon database provisioned through Vercel Marketplace as `sudoku-puzzle-warehouse`. It is connected to this Vercel project in Development, Preview, and Production with the `PUZZLE_WAREHOUSE_` prefix. The scripts automatically use Neon's generated `PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED`; `PUZZLE_WAREHOUSE_URL` remains available as a provider-neutral explicit override.
+
+When either warehouse URL is configured, catalog builds sync automatically after compilation and before a destructive rebuild. Without one, `catalog:rebuild` refuses to erase an existing local archive unless `--allow-unarchived-reset` is explicitly supplied.
 
 The pipeline, warehouse schema, quality gates, provenance policy, and recovery workflow are documented in [resources/catalog-pipeline.md](resources/catalog-pipeline.md).
 

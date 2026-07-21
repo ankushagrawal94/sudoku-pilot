@@ -8,7 +8,7 @@ import { getSudoku } from "sudoku-gen";
 import { certifyPuzzle, DIFFICULTY_ORDER, findGenuinelyRequiredTechniques, ratePuzzle } from "../../src/difficulty.js";
 import { ALL_TECHNIQUES } from "../../src/puzzles.js";
 import { EXTREME_BASES } from "./extreme-bases.mjs";
-import { ensureLocalArchiveIdentity, syncLocalArchive } from "./warehouse.mjs";
+import { ensureLocalArchiveIdentity, resolveWarehouseConnectionString, syncLocalArchive } from "./warehouse.mjs";
 
 const ROOT = new URL("../../", import.meta.url);
 const options = parseOptions(process.argv.slice(2));
@@ -26,7 +26,7 @@ if (options.reset && existsSync(stateUrl)) {
       previous.close();
     }
   } else if (!options.allowUnarchivedReset) {
-    throw new Error("Refusing to delete the local puzzle archive without PUZZLE_WAREHOUSE_URL. Sync it first or pass --allow-unarchived-reset to intentionally discard it.");
+    throw new Error("Refusing to delete the local puzzle archive without a warehouse connection. Sync it first or pass --allow-unarchived-reset to intentionally discard it.");
   }
   await rm(stateUrl, { force: true });
 }
@@ -466,7 +466,7 @@ function parseOptions(args) {
     state: value("--state", ".catalog-build/catalog.sqlite"),
     reset: args.includes("--reset"),
     compileOnly: args.includes("--compile-only"),
-    warehouseUrl: value("--warehouse-url", process.env.PUZZLE_WAREHOUSE_URL),
+    warehouseUrl: value("--warehouse-url", resolveWarehouseConnectionString()),
     allowUnarchivedReset: args.includes("--allow-unarchived-reset")
   };
 }

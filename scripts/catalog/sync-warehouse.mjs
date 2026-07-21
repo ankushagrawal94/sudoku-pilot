@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { inspectWarehouse, syncLocalArchive } from "./warehouse.mjs";
+import { inspectWarehouse, resolveWarehouseConnectionString, syncLocalArchive } from "./warehouse.mjs";
 
 const options = parseOptions(process.argv.slice(2));
-if (!options.connectionString) throw new Error("PUZZLE_WAREHOUSE_URL is required to sync the durable puzzle warehouse.");
+if (!options.connectionString) throw new Error("PUZZLE_WAREHOUSE_URL or PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED is required to sync the durable puzzle warehouse.");
 if (!existsSync(options.state)) throw new Error(`Local catalog archive does not exist: ${options.state}`);
 const database = new DatabaseSync(options.state);
 try {
@@ -25,7 +25,7 @@ function parseOptions(args) {
   };
   return {
     state: value("--state", ".catalog-build/catalog.sqlite"),
-    connectionString: value("--url", process.env.PUZZLE_WAREHOUSE_URL),
+    connectionString: value("--url", resolveWarehouseConnectionString()),
     solverVersion: value("--solver-version", process.env.PUZZLE_SOLVER_VERSION),
     sourceLabel: value("--source-label", "catalog-build")
   };

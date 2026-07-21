@@ -8,6 +8,11 @@ const BATCH_SIZE = 250;
 
 export const DEFAULT_SOLVER_VERSION = "sudoku-pilot-solver-v1";
 
+export function resolveWarehouseConnectionString(environment = process.env) {
+  return environment.PUZZLE_WAREHOUSE_URL
+    || environment.PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED;
+}
+
 export function ensureLocalArchiveIdentity(database) {
   database.exec(`CREATE TABLE IF NOT EXISTS archive_metadata (
     key TEXT PRIMARY KEY,
@@ -117,11 +122,11 @@ export function readLocalArchive(database, {
 }
 
 export async function syncLocalArchive(database, {
-  connectionString = process.env.PUZZLE_WAREHOUSE_URL,
+  connectionString = resolveWarehouseConnectionString(),
   solverVersion,
   sourceLabel
 } = {}) {
-  if (!connectionString) throw new Error("PUZZLE_WAREHOUSE_URL is required to sync the durable puzzle warehouse.");
+  if (!connectionString) throw new Error("PUZZLE_WAREHOUSE_URL or PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED is required to sync the durable puzzle warehouse.");
   const records = readLocalArchive(database, { solverVersion, sourceLabel });
   const client = new Client({ connectionString });
   await client.connect();
@@ -155,8 +160,8 @@ export async function syncLocalArchive(database, {
   }
 }
 
-export async function inspectWarehouse(connectionString = process.env.PUZZLE_WAREHOUSE_URL) {
-  if (!connectionString) throw new Error("PUZZLE_WAREHOUSE_URL is required to inspect the durable puzzle warehouse.");
+export async function inspectWarehouse(connectionString = resolveWarehouseConnectionString()) {
+  if (!connectionString) throw new Error("PUZZLE_WAREHOUSE_URL or PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED is required to inspect the durable puzzle warehouse.");
   const client = new Client({ connectionString });
   await client.connect();
   try {
