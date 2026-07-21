@@ -27,13 +27,14 @@ If the requested branch already exists, do not reuse, reset, delete, or overwrit
 
 - Install dependencies inside the worktree when needed. The ignored `node_modules/` directory is worktree-local.
 - Use a distinct dev-server port when another worktree may already be running, for example `npm run dev -- --port 5174`.
-- Run the verification appropriate to the change in the task worktree. The full standard suite is:
+- Run the verification appropriate to the change in the task worktree. The standard suite is:
 
   ```sh
   npm run build
   npm test
-  npm run catalog:verify
   ```
+
+- `npm run catalog:verify` is an optional, expensive verification of all 500 shipped puzzles. Do not run it for ordinary application, content, configuration, or test changes. Run it when a catalog build or rebuild generates changes under `src/catalog/`, or when intentionally changing the catalog verifier itself.
 
 - Record which checks passed and which were not run. Generated changes produced by required build steps must be reviewed and committed with the source change when the repository tracks them.
 - Before integration, ensure the task worktree is clean and all intended changes are committed.

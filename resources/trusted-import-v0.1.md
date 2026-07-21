@@ -344,8 +344,9 @@ The standard repository suite remains required:
 ```sh
 npm run build
 npm test
-npm run catalog:verify
 ```
+
+The expensive `npm run catalog:verify` check is separate from the standard suite. Run it only when puzzle generation produces changes under `src/catalog/` or when the verifier itself changes.
 
 ## Milestone sequence
 

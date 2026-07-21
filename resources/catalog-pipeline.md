@@ -49,7 +49,7 @@ The collector retains a pool larger than the final catalog. A deterministic gree
 ```sh
 npm run catalog:build    # resume existing SQLite state
 npm run catalog:rebuild  # discard state and rebuild
-npm run catalog:verify   # independently verify every shipped entry
+npm run catalog:verify   # optional: independently verify every shipped entry
 ```
 
-The compiler writes `src/catalog/{easy,medium,hard,expert,extreme}.json` and `output/catalog-audit.json`. A stopped build can be resumed with `npm run catalog:build`; already evaluated grids are never regenerated or silently reclassified. Run `npm run catalog:audit` to refresh the checked audit directly from the shipped shards.
+The compiler writes `src/catalog/{easy,medium,hard,expert,extreme}.json` and `output/catalog-audit.json`. A stopped build can be resumed with `npm run catalog:build`; already evaluated grids are never regenerated or silently reclassified. Run `npm run catalog:verify` when generation changes one or more shipped catalog shards; it is not part of the standard application test suite. Run `npm run catalog:audit` to refresh the checked audit directly from the shipped shards.

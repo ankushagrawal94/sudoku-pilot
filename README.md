@@ -65,13 +65,15 @@ Run `npm run build` to create a production build in `dist/`. Build and review ou
 Verification commands:
 
 ```sh
+# Standard suite
 npm run build
 npm test
+
+# Focused checks
 npm run test:solver
 npm run test:coaching
 npm run test:learning-practice
 npm run test:functional
-npm run catalog:verify
 npm run review:coaching
 npm run measure:learning-practice
 npm run review:learning-practice
@@ -90,7 +92,8 @@ npm run catalog:build
 # Rebuild from a fresh SQLite state
 npm run catalog:rebuild
 
-# Independently re-rate and canonicalize all 500 shipped entries
+# Optional and expensive: independently re-rate and canonicalize all 500
+# shipped entries. Run after generation changes files in src/catalog/.
 npm run catalog:verify
 
 # Refresh the checked audit from the shipped catalog
