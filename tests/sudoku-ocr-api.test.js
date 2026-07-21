@@ -74,6 +74,26 @@ await assert.rejects(
 assert.equal(JSON.stringify(failedLogLines).includes("provider body with puzzle data"), false, "logs must never contain provider response bodies");
 assert.equal(failedLogLines.filter((line) => line.event === "sudoku_ocr_provider_call").length, 1);
 
+const cancelledController = new AbortController();
+cancelledController.abort();
+await assert.rejects(
+  scanSudokuImage({
+    bytes: new Uint8Array([1, 2, 3]),
+    contentType: "image/png",
+    apiKey: "test-key-never-logged",
+    requestId: "cancelled-test-request",
+    signal: cancelledController.signal,
+    logger: { info() {}, error() {} },
+    fetchImpl: async (_url, options) => {
+      assert.equal(options.signal.aborted, true);
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    }
+  }),
+  (error) => error.code === "CANCELLED"
+);
+
 const originalApiKey = process.env.RAPIDAPI_KEY;
 const originalOcrEnabled = process.env.SUDOKU_OCR_ENABLED;
 process.env.RAPIDAPI_KEY = "route-test-key";

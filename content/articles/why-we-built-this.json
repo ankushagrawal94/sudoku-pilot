@@ -73,7 +73,7 @@
         },
         {
           "type": "paragraph",
-          "text": "The importer reads the large digits and puts them in an editable grid. I still check the grid before starting because OCR makes mistakes. When I start online recognition, the selected image is sent to Sudoku OCR through RapidAPI."
+          "text": "The importer drafts the visible digits and pencil notes in an editable grid. I still check every cell before starting because OCR makes mistakes. When I start online recognition, the selected image is sent to Sudoku OCR through RapidAPI."
         }
       ]
     },

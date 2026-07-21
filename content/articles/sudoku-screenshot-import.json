@@ -1,11 +1,11 @@
 {
   "path": "sudoku-screenshot-import",
   "title": "Import a Sudoku Puzzle From a Screenshot",
-  "description": "Use optional online OCR to read filled digits and pencil notes from a Sudoku screenshot, review the grid, and continue solving with step-by-step coaching.",
+  "description": "Use optional online OCR to draft filled digits and pencil notes from a Sudoku screenshot, review the grid, and continue solving with step-by-step coaching.",
   "published": "2026-07-12",
   "updated": "2026-07-20",
   "eyebrow": "Screenshot import",
-  "intro": "Upload a screenshot of one Sudoku grid. Sudoku Pilot reads the filled digits and pencil notes and puts them in an editable review screen. Check the grid, fix any OCR errors, and start solving.",
+  "intro": "Upload a screenshot of one Sudoku grid. Sudoku Pilot drafts the filled digits and pencil notes in an editable review screen. Check every cell, fix any OCR errors, and start solving.",
   "related": [
     "sudoku-coach",
     "sudoku-hints-that-explain",

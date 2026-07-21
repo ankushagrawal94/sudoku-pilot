@@ -25,6 +25,8 @@ assert.equal(headers["x-content-type-options"], "nosniff");
 assert.equal(headers["referrer-policy"], "strict-origin-when-cross-origin");
 assert.match(headers["permissions-policy"] || "", /camera=\(\)/);
 assert.match(headers["permissions-policy"] || "", /microphone=\(\)/);
+assert.equal(vercel.functions?.["api/sudoku-ocr.js"]?.maxDuration, 30, "OCR must have an explicit function duration above its provider timeout.");
+assert.equal(vercel.functions?.["api/sudoku-ocr.js"]?.supportsCancellation, true, "OCR must opt into Vercel request cancellation.");
 
 assert.doesNotMatch(appSource, /https?:\/\//i, "Application source must not load remote runtime scripts.");
 assert.doesNotMatch(appSource, /createElement\(["']script["']\)/, "OCR must not inject a script element.");
@@ -35,6 +37,7 @@ assert.match(appSource, /body: imageFile/, "The selected image must be sent as r
 assert.match(appSource, /new AbortController\(\)/, "Online OCR requests must be cancellable.");
 assert.doesNotMatch(appSource, /import\(["']tesseract\.js["']\)/, "The browser must not run a second local OCR engine.");
 assert.doesNotMatch(appSource, /\/ocr\//, "The browser must not reference legacy local OCR assets.");
+assert.doesNotMatch(appSource, /X-Sudoku-Image-Name/i, "The original image filename must not be forwarded.");
 assert.doesNotMatch(appSource, /cdn\.|jsdelivr|unpkg/i, "OCR must not reference third-party CDNs.");
 assert.equal(packageConfig.dependencies["tesseract.js"], undefined, "The replaced browser OCR engine must not remain a production dependency.");
 assert.equal(packageConfig.dependencies["@tesseract.js-data/eng"], undefined, "Legacy browser OCR language data must not remain a production dependency.");

@@ -52,7 +52,7 @@ Requirements:
 
 - The RapidAPI key remains server-only and is never embedded in a `VITE_` variable or browser bundle.
 - The provider client never retries implicitly.
-- Cancellation aborts the browser request and discards late results.
+- Cancellation aborts the browser request and discards late results. The Vercel function opts into request cancellation and forwards the abort signal to the provider request, but a provider attempt that has already started may still consume quota.
 - A failed or cancelled request preserves the selected image and any existing review edits.
 - Quota exhaustion and temporary unavailability produce a specific manual-review fallback message.
 - Responses use `Cache-Control: no-store`.
@@ -92,7 +92,7 @@ Logs and product analytics must not contain the image, recognized grid, cell val
 
 Every provider attempt emits exactly one structured `sudoku_ocr_provider_call` event with `provider_calls: 1` immediately before the external request. Count that event for application-originated usage; RapidAPI's subscription dashboard and response quota headers remain the billing source of truth.
 
-The initial free plan has a hard request limit, which prevents request overage charges but can make recognition unavailable after exhaustion. Before moving to any plan with paid overages, Sudoku Pilot must add a durable cross-instance rate limit or authenticated entitlement. An in-memory serverless counter is not a sufficient billing control.
+Production recognition must remain disabled until the RapidAPI subscription dashboard confirms a provider-side hard request cap. Quota headers are monitoring data, not proof that overages are disabled. Before using any plan without a confirmed hard cap, Sudoku Pilot must add a durable cross-instance rate limit or authenticated entitlement. An in-memory serverless counter is not a sufficient billing control.
 
 The browser must prevent accidental duplicate scans while a request is running and make rescanning the same selected file a deliberate action.
 
@@ -127,4 +127,4 @@ Report at least:
 
 Local development stores `RAPIDAPI_KEY` only in ignored `.env.local`. Vercel deployments store it as a Sensitive environment variable, scoped only to environments that should offer online OCR. Preview deployments should not receive the production key by default.
 
-Deployment is incomplete until the key is configured in Vercel, the committed branch is merged to `origin/main`, and production runtime logs confirm the expected usage and response events without sensitive content.
+Deployment is incomplete until the key is configured in Vercel, a provider-side hard cap and relevant vendor data terms have been verified, the committed branch is merged to `origin/main`, and production runtime logs confirm the expected usage and response events without sensitive content.

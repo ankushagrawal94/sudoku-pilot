@@ -3,6 +3,12 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "cleanUrls": true,
+  "functions": {
+    "api/sudoku-ocr.js": {
+      "maxDuration": 30,
+      "supportsCancellation": true
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

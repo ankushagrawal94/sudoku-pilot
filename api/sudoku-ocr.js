@@ -110,15 +110,15 @@ export default async function handler(request, response) {
       return sendJson(response, 429, { error: "This connection has reached the temporary online OCR usage limit. Review the grid manually or try again later." });
     }
 
-    const filename = String(request.headers["x-sudoku-image-name"] || "sudoku").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
     const result = await scanSudokuImage({
       bytes: body,
       contentType,
-      filename,
+      filename: "sudoku-image",
       apiKey: process.env.RAPIDAPI_KEY,
-      requestId
+      requestId,
+      signal: request.signal
     });
-    return sendJson(response, 200, result);
+    return sendJson(response, 200, { puzzle: result.puzzle });
   } catch (error) {
     if (error?.message === "IMAGE_TOO_LARGE") {
       return sendJson(response, 413, { error: "Image must be 4 MB or smaller" });
@@ -133,6 +133,10 @@ export default async function handler(request, response) {
       provider_status: error instanceof SudokuOcrProviderError ? error.providerStatus : null
     }));
     if (error instanceof SudokuOcrProviderError) {
+      if (error.code === "CANCELLED") {
+        if (request.signal?.aborted) return;
+        return sendJson(response, 499, { error: "Online OCR request was cancelled" });
+      }
       if (error.code === "TIMEOUT") {
         return sendJson(response, 504, { error: "Online OCR took too long. Review the grid manually or try again later." });
       }

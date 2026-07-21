@@ -2329,12 +2329,10 @@ async function runOcr() {
 }
 
 async function requestSudokuOcr(imageFile, signal) {
-  const filename = imageFile.name.replace(/[^\x20-\x7e]/g, "_").slice(0, 100);
   const response = await fetch("/api/sudoku-ocr", {
     method: "POST",
     headers: {
-      "Content-Type": imageFile.type,
-      "X-Sudoku-Image-Name": filename
+      "Content-Type": imageFile.type
     },
     body: imageFile,
     signal
@@ -2382,7 +2380,7 @@ function cancelOcr() {
   state.ocrLoading = false;
   state.ocrAbortController = null;
   state.importError = "";
-  state.importStatus = "Online scan cancelled. You can try again or complete the review grid manually.";
+  state.importStatus = "Online scan cancelled. Sudoku Pilot stopped waiting; a scan already sent may still count against the shared quota.";
   abortController?.abort();
   render();
 }

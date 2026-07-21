@@ -1147,7 +1147,7 @@ test("uploads raw image bytes to same-origin OCR and preserves detected values a
   await page.route("**/api/sudoku-ocr", async (route) => {
     expect(route.request().method()).toBe("POST");
     expect(route.request().headers()["content-type"]).toBe("image/png");
-    expect(route.request().headers()["x-sudoku-image-name"]).toBe("puzzle.png");
+    expect(route.request().headers()["x-sudoku-image-name"]).toBeUndefined();
     expect(route.request().postDataBuffer()).toEqual(Buffer.from("raw-image-bytes"));
     await route.fulfill({
       status: 200,

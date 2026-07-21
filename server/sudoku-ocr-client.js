@@ -79,15 +79,19 @@ export async function scanSudokuImage({
   requestId,
   fetchImpl = fetch,
   logger = console,
-  timeoutMs = PROVIDER_TIMEOUT_MS
+  timeoutMs = PROVIDER_TIMEOUT_MS,
+  signal
 }) {
   if (!apiKey) throw new Error("RAPIDAPI_KEY is not configured");
   if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0) throw new Error("Image bytes are required");
 
   const formData = new FormData();
   formData.append("file", new Blob([bytes], { type: contentType }), filename);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutController = new AbortController();
+  const requestSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
+  const timeout = setTimeout(() => timeoutController.abort(), timeoutMs);
   const startedAt = Date.now();
 
   // This is the canonical usage event. Count this event to count provider calls.
@@ -111,7 +115,7 @@ export async function scanSudokuImage({
         "x-rapidapi-host": PROVIDER_HOST
       },
       body: formData,
-      signal: controller.signal
+      signal: requestSignal
     });
     const quota = quotaFromHeaders(response.headers);
 
@@ -139,6 +143,9 @@ export async function scanSudokuImage({
     return { puzzle: normalizeSudokuOcrResponse(payload), quota };
   } catch (error) {
     if (error?.name === "AbortError") {
+      if (signal?.aborted) {
+        throw new SudokuOcrProviderError("Sudoku OCR request was cancelled", { code: "CANCELLED" });
+      }
       throw new SudokuOcrProviderError(`Sudoku OCR timed out after ${timeoutMs} ms`, { code: "TIMEOUT" });
     }
     throw error;
