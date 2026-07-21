@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { Worker } from "node:worker_threads";
-import { certifyPuzzle, DIFFICULTY_ORDER, findGenuinelyRequiredTechniques, ratePuzzle } from "../../src/difficulty.js";
+import { certifyPuzzle, DIFFICULTY_ORDER, evaluateHardGates, findGenuinelyRequiredTechniques, ratePuzzle } from "../../src/difficulty.js";
+import { PRODUCTION_GATE_THRESHOLDS } from "./quality.mjs";
 
 const root = new URL("../../", import.meta.url);
 const entries = [];
@@ -31,6 +32,14 @@ for (let index = 0; index < entries.length; index += 1) {
   assert.deepEqual(first.techniqueCounts, second.techniqueCounts, `${puzzle.id} technique metadata must be stable`);
   assert.deepEqual(findGenuinelyRequiredTechniques(puzzle.grid), puzzle.required, `${puzzle.id} required techniques must be disablement-certified`);
   assert.equal(certifyPuzzle(puzzle.grid, { requiredTechniques: puzzle.required }).certified, true, `${puzzle.id} required techniques must certify`);
+  const gateThreshold = PRODUCTION_GATE_THRESHOLDS[puzzle.expectedLevel];
+  if (gateThreshold) {
+    const gates = evaluateHardGates(puzzle.grid, { level: puzzle.expectedLevel });
+    assert.equal(gates.status, "solved", `${puzzle.id} must solve within its hard-gate ceiling`);
+    assert.ok(gates.gateCount >= gateThreshold, `${puzzle.id} must retain at least ${gateThreshold} hard gates`);
+    assert.equal(gates.gateCount, puzzle.gates, `${puzzle.id} hard-gate metadata must remain stable`);
+    assert.deepEqual(gates.gateTechniques, puzzle.gateTechniques, `${puzzle.id} gate techniques must remain stable`);
+  }
 }
 console.log(`catalog verification passed: ${entries.length} puzzles, ${ids.size} canonical identities`);
 

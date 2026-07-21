@@ -6,7 +6,7 @@ const { Client } = pg;
 const SCHEMA_URL = new URL("../../resources/puzzle-warehouse-schema.sql", import.meta.url);
 const BATCH_SIZE = 250;
 
-export const DEFAULT_SOLVER_VERSION = "sudoku-pilot-solver-v1";
+export const DEFAULT_SOLVER_VERSION = "sudoku-pilot-solver-v2-hard-gates";
 
 export function resolveWarehouseConnectionString(environment = process.env) {
   return environment.PUZZLE_WAREHOUSE_URL
@@ -52,6 +52,10 @@ export function readLocalArchive(database, {
     const techniqueCounts = parseJson(row.technique_metadata, {});
     const requiredTechniques = parseJson(row.required_techniques, []);
     const fullTrace = parseJson(row.full_trace, []);
+    const hardGateTechniques = parseJson(row.gate_techniques, []);
+    const hardGatePositions = parseJson(row.gate_positions, []);
+    const effortMetadata = parseJson(row.gate_effort, {});
+    const evaluationMetadata = parseJson(row.evaluation_metadata, {});
     const evaluationKey = fingerprint("evaluation", eventKey, solverVersion, stableJson({
       status: row.status,
       rejectionReason: row.rejection_reason,
@@ -60,6 +64,11 @@ export function readLocalArchive(database, {
       techniqueCounts,
       requiredTechniques,
       fullTrace,
+      hardGateCount: row.gate_count,
+      hardGateTechniques,
+      hardGatePositions,
+      effortMetadata,
+      evaluationMetadata,
       solution: row.solution
     }));
     puzzles.push({
@@ -96,7 +105,12 @@ export function readLocalArchive(database, {
       technique_counts: techniqueCounts,
       required_techniques: requiredTechniques,
       full_trace: fullTrace,
-      evaluated_solution: normalizeSolution(row.solution)
+      evaluated_solution: normalizeSolution(row.solution),
+      hard_gate_count: row.gate_count,
+      hard_gate_techniques: hardGateTechniques,
+      hard_gate_positions: hardGatePositions,
+      effort_metadata: effortMetadata,
+      evaluation_metadata: evaluationMetadata
     });
     const accepted = acceptedByCandidate.get(row.id);
     if (accepted) memberships.push({
@@ -230,10 +244,13 @@ async function insertEvents(client, rows) {
 async function insertEvaluations(client, rows) {
   if (!rows.length) return;
   await client.query(`INSERT INTO puzzle_warehouse.evaluations
-      (evaluation_key,event_key,solver_version,candidate_status,rejection_reason,rated_level,step_count,technique_counts,required_techniques,full_trace,evaluated_solution)
-    SELECT evaluation_key,event_key,solver_version,candidate_status,rejection_reason,rated_level,step_count,technique_counts,required_techniques,full_trace,evaluated_solution
+      (evaluation_key,event_key,solver_version,candidate_status,rejection_reason,rated_level,step_count,technique_counts,required_techniques,full_trace,evaluated_solution,
+       hard_gate_count,hard_gate_techniques,hard_gate_positions,effort_metadata,evaluation_metadata)
+    SELECT evaluation_key,event_key,solver_version,candidate_status,rejection_reason,rated_level,step_count,technique_counts,required_techniques,full_trace,evaluated_solution,
+      hard_gate_count,hard_gate_techniques,hard_gate_positions,effort_metadata,evaluation_metadata
     FROM jsonb_to_recordset($1::jsonb) AS x(evaluation_key text,event_key text,solver_version text,candidate_status text,
-      rejection_reason text,rated_level text,step_count integer,technique_counts jsonb,required_techniques jsonb,full_trace jsonb,evaluated_solution char(81))
+      rejection_reason text,rated_level text,step_count integer,technique_counts jsonb,required_techniques jsonb,full_trace jsonb,evaluated_solution char(81),
+      hard_gate_count integer,hard_gate_techniques jsonb,hard_gate_positions jsonb,effort_metadata jsonb,evaluation_metadata jsonb)
     ON CONFLICT (evaluation_key) DO NOTHING`, [JSON.stringify(rows)]);
 }
 

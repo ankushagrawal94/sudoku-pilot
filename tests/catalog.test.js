@@ -24,7 +24,11 @@ const allIds = Object.values(CATALOG_BY_DIFFICULTY).flat().map((puzzle) => puzzl
 assert.equal(new Set(allIds).size, allIds.length, "catalog IDs must be unique across shards");
 for (const [level, shard] of Object.entries(CATALOG_BY_DIFFICULTY)) assert.ok(shard.every((puzzle) => puzzle.level === level), `${level} shard must only contain ${level} puzzles`);
 for (const puzzle of Object.values(CATALOG_BY_DIFFICULTY).flat()) {
-  assert.match(puzzle.provenance, /^(?:npm:sudoku-gen@1\.0\.2|local:sudoku-pilot-(?:augmentation|extreme)@1)$/, `${puzzle.id} must use approved catalog metadata`);
+  assert.match(puzzle.provenance, /^(?:npm:sudoku-gen@1\.0\.2|local:sudoku-pilot-(?:augmentation|extreme|hard-gate-search)@1)$/, `${puzzle.id} must use approved catalog metadata`);
+  if (["expert", "extreme"].includes(puzzle.level)) {
+    assert.ok(puzzle.gates >= 5, `${puzzle.id} must ship with at least five hard gates`);
+    assert.equal(puzzle.gateTechniques.length, puzzle.gates, `${puzzle.id} must retain one technique label per gate`);
+  }
 }
 
 const historyPool = CATALOG_BY_DIFFICULTY.easy.slice(0, 2);

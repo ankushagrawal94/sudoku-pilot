@@ -1,0 +1,28 @@
+{
+  "commit": "a261637dbbbeb9a4f02ab5eb14aa3d77fa323280",
+  "measuredWith": "deterministic-certified-path-v1",
+  "warehouseInventory": {
+    "puzzles": 3209,
+    "catalogMemberships": 500,
+    "expert": { "evaluated": 777, "strictQualifying": 46, "canonicalQualifying": 13 },
+    "extreme": { "evaluated": 508, "strictQualifying": 0, "canonicalQualifying": 0 }
+  },
+  "levels": {
+    "expert": {
+      "count": 100,
+      "gateCountDistribution": { "1": 23, "2": 16, "3": 33, "4": 8, "5": 18, "6": 2 },
+      "gateTechniques": { "Hidden Pair": 248, "Hidden Triple": 26, "Hidden Quadruple": 14 },
+      "techniqueCoverage": { "Naked Single": 100, "Hidden Single": 100, "Pointing Candidates": 100, "Claiming Candidates": 91, "Hidden Pair": 99, "Last Digit": 100, "Hidden Triple": 17, "Hidden Quadruple": 14 },
+      "clueCounts": { "min": 22, "median": 25, "max": 28, "distribution": { "22": 2, "23": 6, "24": 38, "25": 50, "26": 3, "28": 1 } },
+      "steps": { "min": 55, "median": 66, "max": 72, "distribution": { "55": 1, "59": 1, "61": 17, "62": 9, "63": 4, "64": 3, "65": 13, "66": 9, "67": 5, "68": 7, "69": 13, "70": 15, "71": 1, "72": 2 } }
+    },
+    "extreme": {
+      "count": 100,
+      "gateCountDistribution": { "1": 84, "2": 16 },
+      "gateTechniques": { "XY-Wing": 25, "W-Wing": 18, "XYZ-Wing": 20, "X-Wing": 20, "Skyscraper": 4, "2-String Kite": 18, "Simple Colouring": 7, "Jellyfish": 3, "Swordfish": 1 },
+      "techniqueCoverage": { "Naked Single": 100, "Last Digit": 100, "Hidden Single": 100, "XY-Wing": 25, "W-Wing": 20, "XYZ-Wing": 20, "X-Wing": 20, "Skyscraper": 4, "Crane": 15, "Pointing Candidates": 9, "Simple Colouring": 7, "Hidden Pair": 9, "Jellyfish": 3, "Hidden Triple": 2, "Hidden Quadruple": 1, "Swordfish": 1 },
+      "clueCounts": { "min": 23, "median": 27, "max": 28, "distribution": { "23": 1, "24": 15, "25": 29, "26": 1, "27": 41, "28": 13 } },
+      "steps": { "min": 54, "median": 57, "max": 61, "distribution": { "54": 10, "55": 33, "56": 3, "57": 20, "58": 30, "59": 3, "61": 1 } }
+    }
+  }
+}

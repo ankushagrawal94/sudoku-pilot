@@ -1,5 +1,6 @@
 import {
   applyMove,
+  clonePuzzle,
   createPuzzle,
   fillAllNotes,
   findAllMoves,
@@ -12,6 +13,8 @@ export const DIFFICULTY_ORDER = ["easy", "medium", "hard", "expert", "extreme"];
 
 const SINGLES = ["Last Digit", "Naked Single", "Hidden Single"];
 const LOCKED_CANDIDATES = [...SINGLES, "Pointing Candidates", "Claiming Candidates"];
+
+export const HARD_GATE_LEVELS = ["expert", "extreme"];
 
 export const DIFFICULTY_DEFINITIONS = {
   easy: {
@@ -75,6 +78,158 @@ export function ratePuzzle(grid, { checkUniqueness = true, stepLimit = 500 } = {
 export function solveWithTechniques(grid, techniques, { stepLimit = 500 } = {}) {
   const allowed = normalizeTechniqueCollection(techniques, "techniques");
   return solveTrace(grid, allowed, stepLimit);
+}
+
+// This certifies one deterministic solving path. It does not claim that the
+// returned count is the mathematical minimum across every possible move order.
+export function evaluateHardGates(grid, { level, stepLimit = 500 } = {}) {
+  if (!HARD_GATE_LEVELS.includes(level)) {
+    throw new Error(`Hard gates are only defined for: ${HARD_GATE_LEVELS.join(", ")}.`);
+  }
+  const values = parseGrid(grid);
+  if (!isValidGrid(values)) return buildGateResult({ level, status: "invalid" });
+
+  const lowerLevel = level === "expert" ? "hard" : "expert";
+  const ceiling = TECHNIQUE_LEVELS[level];
+  const lowerTechniques = TECHNIQUE_LEVELS[lowerLevel];
+  const tierTechniques = ceiling.filter((technique) => !lowerTechniques.includes(technique));
+  const aboveCeiling = level === "expert"
+    ? TECHNIQUE_LEVELS.extreme.filter((technique) => !ceiling.includes(technique))
+    : [];
+  const puzzle = createPuzzle(grid);
+  fillAllNotes(puzzle);
+  const trace = [];
+  const gates = [];
+  const techniqueCounts = {};
+  let lowerStepsSinceGate = 0;
+  let lowerTierSteps = 0;
+
+  while (trace.length < stepLimit && !isSolved(puzzle.values)) {
+    const lowerMove = findAllMoves(puzzle, lowerTechniques)[0];
+    if (lowerMove) {
+      trace.push(snapshotMove(lowerMove));
+      techniqueCounts[lowerMove.technique] = (techniqueCounts[lowerMove.technique] || 0) + 1;
+      lowerStepsSinceGate += 1;
+      lowerTierSteps += 1;
+      applyMove(puzzle, lowerMove);
+      continue;
+    }
+
+    const gateMove = findAllMoves(puzzle, tierTechniques)[0];
+    if (!gateMove) {
+      const status = aboveCeiling.length && findAllMoves(puzzle, aboveCeiling).length
+        ? "ceiling-exceeded"
+        : "unsupported";
+      return buildGateResult({
+        level, status, gates, trace, techniqueCounts, lowerTierSteps,
+        solution: puzzle.values, tierTechniques
+      });
+    }
+
+    gates.push({
+      gate: gates.length + 1,
+      technique: gateMove.technique,
+      traceIndex: trace.length,
+      tracePosition: trace.length + 1,
+      lowerStepsBeforeGate: lowerStepsSinceGate,
+      unsolvedCellsBeforeGate: puzzle.values.filter((value) => !value).length
+    });
+    trace.push(snapshotMove(gateMove));
+    techniqueCounts[gateMove.technique] = (techniqueCounts[gateMove.technique] || 0) + 1;
+    applyMove(puzzle, gateMove);
+    lowerStepsSinceGate = 0;
+  }
+
+  return buildGateResult({
+    level,
+    status: isSolved(puzzle.values) ? "solved" : "step-limit",
+    gates,
+    trace,
+    techniqueCounts,
+    lowerTierSteps,
+    solution: puzzle.values,
+    tierTechniques
+  });
+}
+
+// This bounded search asks a stronger question than evaluateHardGates: what is
+// the fewest gates across every supported move order that obeys the same
+// lower-tier-exhaustion rule? It only reports an exact minimum after proving it;
+// otherwise the deterministic path remains an observed upper bound.
+export function analyzeMinimumHardGates(grid, { level, nodeLimit = 50_000 } = {}) {
+  if (!HARD_GATE_LEVELS.includes(level)) {
+    throw new Error(`Hard gates are only defined for: ${HARD_GATE_LEVELS.join(", ")}.`);
+  }
+  if (!Number.isInteger(nodeLimit) || nodeLimit < 1) throw new Error("nodeLimit must be a positive integer.");
+  const deterministic = evaluateHardGates(grid, { level });
+  const values = parseGrid(grid);
+  if (!isValidGrid(values)) {
+    return { status: "invalid", level, nodeLimit, nodesVisited: 0, exactMinimum: null, deterministicGateCount: 0 };
+  }
+
+  const lowerLevel = level === "expert" ? "hard" : "expert";
+  const ceiling = TECHNIQUE_LEVELS[level];
+  const lowerTechniques = TECHNIQUE_LEVELS[lowerLevel];
+  const tierTechniques = ceiling.filter((technique) => !lowerTechniques.includes(technique));
+  const puzzle = createPuzzle(grid);
+  fillAllNotes(puzzle);
+  const memo = new Map();
+  let nodesVisited = 0;
+  let exhausted = false;
+
+  const search = (state) => {
+    if (nodesVisited >= nodeLimit) {
+      exhausted = true;
+      return { complete: false, minimum: Infinity };
+    }
+    nodesVisited += 1;
+    if (isSolved(state.values)) return { complete: true, minimum: 0 };
+    const key = hardGateStateKey(state);
+    if (memo.has(key)) return { complete: true, minimum: memo.get(key) };
+
+    const lowerMoves = findAllMoves(state, lowerTechniques);
+    const moves = lowerMoves.length ? lowerMoves : findAllMoves(state, tierTechniques);
+    const gateCost = lowerMoves.length ? 0 : 1;
+    if (!moves.length) {
+      memo.set(key, Infinity);
+      return { complete: true, minimum: Infinity };
+    }
+
+    let minimum = Infinity;
+    let complete = true;
+    const childStates = new Set();
+    for (const move of moves) {
+      const child = clonePuzzle(state);
+      applyMove(child, move);
+      const childKey = hardGateStateKey(child);
+      if (childStates.has(childKey)) continue;
+      childStates.add(childKey);
+      const result = search(child);
+      complete &&= result.complete;
+      minimum = Math.min(minimum, gateCost + result.minimum);
+      // Zero is the absolute minimum after a lower move; one is the absolute
+      // minimum at a state where a tier-level move is already required.
+      if (minimum === gateCost) {
+        complete = true;
+        break;
+      }
+      if (exhausted) break;
+    }
+    if (complete) memo.set(key, minimum);
+    return { complete, minimum };
+  };
+
+  const result = search(puzzle);
+  const exactMinimum = result.complete && Number.isFinite(result.minimum) ? result.minimum : null;
+  return {
+    status: exactMinimum == null ? "inconclusive" : "proven",
+    level,
+    nodeLimit,
+    nodesVisited,
+    exactMinimum,
+    deterministicGateCount: deterministic.gateCount,
+    deterministicStatus: deterministic.status
+  };
 }
 
 export function certifyPuzzle(grid, {
@@ -160,12 +315,7 @@ function solveTrace(grid, techniques, stepLimit) {
   for (let index = 0; index < stepLimit && !isSolved(puzzle.values); index += 1) {
     const move = findAllMoves(puzzle, techniques)[0];
     if (!move) break;
-    trace.push({
-      technique: move.technique,
-      title: move.title,
-      fills: move.fills.map((fill) => ({ ...fill })),
-      eliminations: move.eliminations.map((elimination) => ({ ...elimination }))
-    });
+    trace.push(snapshotMove(move));
     techniqueCounts[move.technique] = (techniqueCounts[move.technique] || 0) + 1;
     applyMove(puzzle, move);
   }
@@ -175,6 +325,50 @@ function solveTrace(grid, techniques, stepLimit) {
   ), null);
 
   return { solved: isSolved(puzzle.values), steps: trace, trace, techniqueCounts, hardestTechnique, solution: [...puzzle.values] };
+}
+
+function snapshotMove(move) {
+  return {
+    technique: move.technique,
+    title: move.title,
+    fills: move.fills.map((fill) => ({ ...fill })),
+    eliminations: move.eliminations.map((elimination) => ({ ...elimination }))
+  };
+}
+
+function hardGateStateKey(puzzle) {
+  return `${puzzle.values.join("")}|${puzzle.eliminated
+    .map((digits) => [...digits].sort((a, b) => a - b).join(""))
+    .join(",")}`;
+}
+
+function buildGateResult({
+  level,
+  status,
+  gates = [],
+  trace = [],
+  techniqueCounts = {},
+  lowerTierSteps = 0,
+  solution = [],
+  tierTechniques = []
+}) {
+  return {
+    metric: "deterministic-certified-path-v1",
+    level,
+    status,
+    solved: status === "solved",
+    gateCount: gates.length,
+    gateTechniques: gates.map((gate) => gate.technique),
+    gateTracePositions: gates.map((gate) => gate.tracePosition),
+    gates,
+    steps: trace.length,
+    lowerTierSteps,
+    tierSteps: gates.length,
+    techniqueCounts,
+    tierTechniques,
+    trace,
+    solution: [...solution]
+  };
 }
 
 function normalizeTechniqueCollection(value, field) {

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-21T10:13:29.955Z",
+  "purpose": "Bounded feasibility probe for proving a minimum hard-gate count across all supported move orders.",
+  "caveat": "Only status=proven establishes an exact minimum. Inconclusive results preserve the deterministic count solely as an observed upper bound.",
+  "nodeLimit": 10000,
+  "sampleSize": 3,
+  "results": {
+    "expert": [
+      {
+        "id": "c1-011356e6a0918ff52715773d1629baf6cc88c66c77904f78d4c918da8378577e",
+        "status": "proven",
+        "level": "expert",
+        "nodeLimit": 10000,
+        "nodesVisited": 4163,
+        "exactMinimum": 2,
+        "deterministicGateCount": 5,
+        "deterministicStatus": "solved"
+      },
+      {
+        "id": "c1-88251d6a649353b2f7352256b62b7636b3d471173a6d61945d540e67f1d0a3a3",
+        "status": "proven",
+        "level": "expert",
+        "nodeLimit": 10000,
+        "nodesVisited": 1218,
+        "exactMinimum": 2,
+        "deterministicGateCount": 5,
+        "deterministicStatus": "solved"
+      },
+      {
+        "id": "c1-fc566f313bb4282754b0b8407051317052052e08c1123ce3a8aaa22ae3f65b4e",
+        "status": "proven",
+        "level": "expert",
+        "nodeLimit": 10000,
+        "nodesVisited": 1421,
+        "exactMinimum": 2,
+        "deterministicGateCount": 5,
+        "deterministicStatus": "solved"
+      }
+    ],
+    "extreme": [
+      {
+        "id": "c1-04fcaab607540f1e230c04a6545eb6bca66735eef07760ca15b4dafd8b0493b8",
+        "status": "inconclusive",
+        "level": "extreme",
+        "nodeLimit": 10000,
+        "nodesVisited": 10000,
+        "exactMinimum": null,
+        "deterministicGateCount": 5,
+        "deterministicStatus": "solved"
+      },
+      {
+        "id": "c1-80de25b6e75c1c5a5341af67ba675becfe20592fe4f1e73ab66a39657f950b3b",
+        "status": "inconclusive",
+        "level": "extreme",
+        "nodeLimit": 10000,
+        "nodesVisited": 10000,
+        "exactMinimum": null,
+        "deterministicGateCount": 5,
+        "deterministicStatus": "solved"
+      },
+      {
+        "id": "c1-fd56e8080815afd51a6cb9eae7d44d4eea48adfb578b78df25b2b2ec68683e13",
+        "status": "inconclusive",
+        "level": "extreme",
+        "nodeLimit": 10000,
+        "nodesVisited": 10000,
+        "exactMinimum": null,
+        "deterministicGateCount": 5,
+        "deterministicStatus": "solved"
+      }
+    ]
+  }
+}

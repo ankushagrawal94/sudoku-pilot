@@ -10,6 +10,7 @@ The resumable working state is `.catalog-build/catalog.sqlite`. It records:
 - requested and rated difficulty;
 - producer, version, configuration, parent seed, and provenance record;
 - clue count, step count, stable technique counts, and full logical trace;
+- deterministic hard-gate count, gate techniques, trace positions, effort metadata, and lineage root;
 - rejection status and exact rejection reason;
 - the exact canonical grid and its SHA-256 canonical ID for selected candidates; and
 - accepted inventory with unique constraints on canonical ID and canonical grid.
@@ -28,7 +29,9 @@ The durable warehouse is a private Neon database provisioned through Vercel Mark
 
 `sudoku-gen` 1.0.2 supplies fresh offline candidates. Sudoku Pilot does not trust the producer's label or solution without checking both.
 
-For Extreme inventory, the local pipeline starts with newly generated Expert puzzles that exceed Sudoku Pilot's supported logical profile. It adds solution-consistent clues until each resulting base is uniquely solvable at Extreme, then derives canonically distinct variants by adding further solution-consistent clues while retaining that rating. The source difficulty, added positions, parent canonical ID, and tool versions are recorded. The generator and augmenter are candidate producers only; Sudoku Pilot's uniqueness checker and supported logical solver are final authority.
+The earlier clue-augmentation producers remain in the warehouse as historical provenance. Adding solution-consistent clues can preserve or reduce difficulty, so it is not used to manufacture the richer Expert and Extreme inventory. `sudoku-pilot-hard-gate-search@1` instead performs seeded clue removal, addition, and swap mutations, keeps a scored frontier, and records every unique attempt, parent, lineage, seed, cursor, mutation, evaluation, and rejection. SQLite cursors and periodic Neon checkpoints make long searches resumable. The producer is never final authority: Sudoku Pilot independently checks uniqueness, solution agreement, logical completion, rating stability, distribution, hard gates, and canonical identity.
+
+QQWing was evaluated from its official site: version 1.3.4 is available as GPL-2.0-or-later source and can generate quickly, but its published difficulty model includes guesses and does not optimize Sudoku Pilot hard gates. HoDoKu's official SourceForge project exposes a strong human-style analyzer and source archives, but the current official project metadata did not provide a sufficiently explicit license statement for importing or adapting it here. Neither tool nor any third-party puzzle corpus is incorporated in the shipped inventory.
 
 ## Quality and certification
 
@@ -42,6 +45,8 @@ Every accepted puzzle must:
 6. contain 17 to 45 clues, 1 to 200 logical steps, and at least one clue in every row, column, and box; and
 7. have a unique exact canonical identity.
 
+Expert and Extreme also require at least five deterministic tier-level hard gates. For Expert, the evaluator exhausts techniques through Hard; when stuck, it applies exactly one Expert subset move, counts a gate, and exhausts lower techniques again. A puzzle that needs an Extreme move fails the Expert ceiling. For Extreme, the evaluator similarly exhausts techniques through Expert before counting one Extreme move. The stored result is one stable, certified deterministic path, not a claim about the mathematical minimum across every possible move order. `catalog:gates:analyze-minimum` runs an optional bounded all-move-order proof search and labels a minimum only when the search completes.
+
 Required techniques use disablement certification. A technique is listed as genuinely required only if the full profile solves the puzzle and removing that technique from the same profile prevents completion. An excluded-technique request is eligible only when a complete path exists with every excluded technique disabled.
 
 ## Exact equivalence
@@ -50,7 +55,7 @@ Canonicalization enumerates the complete Sudoku equivalence group used by the pr
 
 ## Coverage selection
 
-The collector retains a pool larger than the final catalog. A deterministic greedy pass then favors underrepresented clue-count ranges, step-count ranges, opening clue masks, locked-candidate mixes, and named subset/advanced techniques. The audit report records actual counts and exact gaps; the compiler does not relabel an easier pattern to fill a rare-technique bucket.
+The collector retains a pool larger than the final catalog. A deterministic greedy pass then favors underrepresented clue-count ranges, step-count ranges, opening clue masks, hard-gate bands, gate positions, gate techniques, and named subset/advanced techniques. Expert and Extreme selection defaults to at most ten entries from one ancestry root. The audit report records actual counts and exact gaps; the compiler does not lower the five-gate threshold or relabel an easier pattern to fill a rare-technique bucket.
 
 ## Commands and recovery
 
@@ -60,12 +65,16 @@ npm run catalog:rebuild  # archive existing state, then rebuild
 npm run catalog:verify   # optional: independently verify every shipped entry
 npm run catalog:warehouse:sync     # migrate/sync local SQLite into Postgres
 npm run catalog:warehouse:inspect  # report durable archive counts
+npm run catalog:quality:reevaluate # resumably apply the current quality evaluator
+npm run catalog:quality:generate   # resumably search for richer Expert/Extreme candidates
+npm run catalog:quality:audit      # write before/after inventory evidence
+npm run catalog:gates:analyze-minimum # bounded stronger-path feasibility probe
 ```
 
-The warehouse commands require `PUZZLE_WAREHOUSE_URL` or `PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED`. `PUZZLE_SOLVER_VERSION` defaults to `sudoku-pilot-solver-v1` and must be incremented when rating behavior changes materially. The first sync applies the checked schema automatically.
+The warehouse commands require `PUZZLE_WAREHOUSE_URL` or `PUZZLE_WAREHOUSE_DATABASE_URL_UNPOOLED`. For the linked Vercel project, run them with `vercel env run -e production -- ...`; credentials must never be printed or committed. `PUZZLE_SOLVER_VERSION` defaults to `sudoku-pilot-solver-v2-hard-gates` and must be incremented when evaluation semantics change materially. The first sync applies the checked schema automatically.
 
 The warehouse lives in a private `puzzle_warehouse` schema, revokes public schema access, and enables row-level security without public policies. Use a secret owner-level Postgres connection string only in trusted local or CI environments; never expose it to the static browser app.
 
-The compiler writes `src/catalog/{easy,medium,hard,expert,extreme}.json` and `output/catalog-audit.json`. A stopped build can be resumed with `npm run catalog:build`; already evaluated grids are never regenerated or silently reclassified. Run `npm run catalog:verify` when generation changes one or more shipped catalog shards; it is not part of the standard application test suite. Run `npm run catalog:audit` to refresh the checked audit directly from the shipped shards.
+The compiler can update only selected levels with `--levels expert,extreme`; unaffected shards remain byte-for-byte unchanged. Hard-gate thresholds are configurable for research (`--min-expert-gates` and `--min-extreme-gates`) but production defaults are five. A stopped build can be resumed; startup recovery evaluates any crash-left `pending` attempt before continuing. Run `npm run catalog:verify` when generation changes one or more shipped catalog shards. `catalog:audit` refreshes shipped metadata, while `catalog:quality:audit` records the baseline, replacement distributions, lineage diversity, acceptance rate, and rejection reasons.
 
 A destructive rebuild first syncs the existing SQLite archive when either supported warehouse URL is present. Without a warehouse connection, it stops rather than deleting unsynced data. `node scripts/catalog/build-catalog.mjs --reset --allow-unarchived-reset` is the explicit data-loss escape hatch for disposable test state only.

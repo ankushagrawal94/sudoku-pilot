@@ -7,6 +7,9 @@ const root = new URL("../../", import.meta.url);
 const counts = {};
 const techniques = {};
 const requiredTechniques = {};
+const hardGates = {};
+const clueCounts = {};
+const steps = {};
 const sizes = {};
 const rowsByLevel = {};
 
@@ -18,6 +21,12 @@ for (const level of DIFFICULTY_ORDER) {
   counts[level] = rows.length;
   techniques[level] = countTechniques(rows);
   requiredTechniques[level] = countRequiredTechniques(rows);
+  hardGates[level] = {
+    countDistribution: countValues(rows.map((row) => row.gates || 0)),
+    techniques: countValues(rows.flatMap((row) => row.gateTechniques || []))
+  };
+  clueCounts[level] = distributionSummary(rows.map((row) => [...row.grid].filter((cell) => cell !== "0").length));
+  steps[level] = distributionSummary(rows.map((row) => row.steps));
   sizes[level] = { bytes: Buffer.byteLength(json), gzipBytes: gzipSync(json).byteLength };
 }
 
@@ -34,6 +43,9 @@ const audit = {
     counts,
     techniques,
     requiredTechniques,
+    hardGates,
+    clueCounts,
+    steps,
     hardLockedCoverage: lockedCoverage(rowsByLevel.hard),
     sizes,
     totalBytes: Object.values(sizes).reduce((sum, item) => sum + item.bytes, 0),
@@ -42,6 +54,7 @@ const audit = {
   metadata: [
     { id: "local:sudoku-pilot-augmentation@1", producer: "Sudoku Pilot clue augmentation", version: "1" },
     { id: "local:sudoku-pilot-extreme@1", producer: "Sudoku Pilot Extreme clue augmentation", version: "1" },
+    { id: "local:sudoku-pilot-hard-gate-search@1", producer: "Sudoku Pilot hard-gate search", version: "1" },
     { id: "npm:sudoku-gen@1.0.2", producer: "sudoku-gen", version: "1.0.2" }
   ],
   knownCoverageGaps: gaps
@@ -60,6 +73,17 @@ function countRequiredTechniques(rows) {
   const result = {};
   for (const row of rows) for (const technique of row.required) result[technique] = (result[technique] || 0) + 1;
   return result;
+}
+
+function countValues(values) {
+  const result = {};
+  for (const value of values) result[value] = (result[value] || 0) + 1;
+  return Object.fromEntries(Object.entries(result).sort((a, b) => Number(a[0]) - Number(b[0])));
+}
+
+function distributionSummary(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return { min: sorted[0], median: sorted[Math.floor((sorted.length - 1) / 2)], max: sorted.at(-1), distribution: countValues(sorted) };
 }
 
 function lockedCoverage(rows) {

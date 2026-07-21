@@ -29,7 +29,9 @@ try {
       producer TEXT NOT NULL, producer_version TEXT NOT NULL, configuration TEXT NOT NULL,
       provenance_id TEXT NOT NULL, parent_id TEXT, status TEXT NOT NULL, rejection_reason TEXT,
       rated_level TEXT, clue_count INTEGER, step_count INTEGER, technique_metadata TEXT,
-      required_techniques TEXT, canonical_id TEXT, canonical_grid TEXT, full_trace TEXT, created_at TEXT NOT NULL
+      required_techniques TEXT, canonical_id TEXT, canonical_grid TEXT, full_trace TEXT, created_at TEXT NOT NULL,
+      gate_count INTEGER, gate_techniques TEXT, gate_positions TEXT, gate_effort TEXT,
+      evaluation_metadata TEXT, lineage_root_id INTEGER
     );
     CREATE TABLE accepted (
       canonical_id TEXT PRIMARY KEY, canonical_grid TEXT NOT NULL UNIQUE,
@@ -39,11 +41,15 @@ try {
   database.prepare("INSERT INTO provenance VALUES (?,?,?,?,?)").run("test:generator@1", "Test generator", "1", null, "{}");
   const grid = `${"0".repeat(80)}1`;
   const solution = "123456789".repeat(9);
-  database.prepare(`INSERT INTO candidates VALUES
-    (1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  database.prepare(`INSERT INTO candidates
+    (id,grid,solution,requested_level,producer,producer_version,configuration,provenance_id,parent_id,
+     status,rejection_reason,rated_level,clue_count,step_count,technique_metadata,required_techniques,
+     canonical_id,canonical_grid,full_trace,created_at,gate_count,gate_techniques,gate_positions,gate_effort,evaluation_metadata,lineage_root_id)
+    VALUES (1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     grid, solution, "extreme", "test-generator", "1", "{\"seed\":7}", "test:generator@1", null,
     "accepted", null, "extreme", 1, 2, "{\"XY-Wing\":2}", "[\"XY-Wing\"]", "c1-test", grid,
-    "[{\"technique\":\"XY-Wing\"}]", "2026-07-20 12:00:00"
+    "[{\"technique\":\"XY-Wing\"}]", "2026-07-20 12:00:00", 2, "[\"XY-Wing\",\"W-Wing\"]", "[1,4]",
+    "{\"lowerTierSteps\":7}", "{\"metricVersion\":\"test\"}", 1
   );
   database.prepare("INSERT INTO accepted VALUES (?,?,?,?,?)").run("c1-test", grid, 1, "extreme", "2026-07-20 12:01:00");
 
@@ -57,6 +63,11 @@ try {
   assert.equal(first.evaluations[0].evaluation_key, repeated.evaluations[0].evaluation_key, "unchanged evaluations must be idempotent");
   assert.deepEqual(first.evaluations[0].technique_counts, { "XY-Wing": 2 });
   assert.deepEqual(first.evaluations[0].required_techniques, ["XY-Wing"]);
+  assert.equal(first.evaluations[0].hard_gate_count, 2);
+  assert.deepEqual(first.evaluations[0].hard_gate_techniques, ["XY-Wing", "W-Wing"]);
+  assert.deepEqual(first.evaluations[0].hard_gate_positions, [1, 4]);
+  assert.equal(first.evaluations[0].effort_metadata.lowerTierSteps, 7);
+  assert.equal(first.evaluations[0].evaluation_metadata.metricVersion, "test");
   assert.equal(first.memberships[0].snapshot_key, first.snapshot.snapshot_key);
 
   database.prepare("UPDATE candidates SET status='rejected', rejection_reason='new-solver-result'").run();

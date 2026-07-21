@@ -11,6 +11,8 @@ node_modules/
 dist/
 output/*
 !output/catalog-audit.json
+!output/catalog-quality-audit.json
+!output/hard-gate-minimum-audit.json
 test-results/
 playwright-report/
 .catalog-build/

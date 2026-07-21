@@ -8,9 +8,11 @@
     "dev": "vite --host 0.0.0.0",
     "build": "node scripts/build-content.mjs && vite build && node scripts/build-sw.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node tests/analytics.test.js && node tests/solver.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/warehouse.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && node tests/sudoku-ocr-api.test.js && playwright test",
+    "test": "node tests/analytics.test.js && node tests/solver.test.js && node tests/hard-gates.test.js && node tests/catalog-quality.test.js && node tests/rich-generator.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/warehouse.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && node tests/sudoku-ocr-api.test.js && playwright test",
     "test:analytics": "node tests/analytics.test.js && playwright test tests/functional/analytics.spec.js",
     "test:solver": "node tests/solver.test.js",
+    "test:hard-gates": "node tests/hard-gates.test.js",
+    "test:rich-generator": "node tests/rich-generator.test.js",
     "test:coaching": "node tests/coaching.test.js",
     "test:learning-practice": "node tests/learning-practice.test.js",
     "test:trusted-import-corpus": "node tests/trusted-import-corpus.test.js",
@@ -30,6 +32,10 @@
     "catalog:verify": "node --no-warnings scripts/catalog/verify-catalog.mjs",
     "catalog:warehouse:sync": "node --no-warnings scripts/catalog/sync-warehouse.mjs",
     "catalog:warehouse:inspect": "node --no-warnings scripts/catalog/inspect-warehouse.mjs",
+    "catalog:quality:reevaluate": "node --no-warnings scripts/catalog/reevaluate-quality.mjs",
+    "catalog:quality:generate": "node --no-warnings scripts/catalog/generate-rich-candidates.mjs",
+    "catalog:quality:audit": "node --no-warnings scripts/catalog/audit-quality-inventory.mjs",
+    "catalog:gates:analyze-minimum": "node --no-warnings scripts/catalog/analyze-gate-minimum.mjs",
     "test:warehouse": "node tests/warehouse.test.js"
   },
   "dependencies": {

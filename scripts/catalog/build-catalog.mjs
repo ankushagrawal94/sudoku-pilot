@@ -1,14 +1,21 @@
-import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { availableParallelism } from "node:os";
 import { Worker } from "node:worker_threads";
 import { DatabaseSync } from "node:sqlite";
 import { getSudoku } from "sudoku-gen";
-import { certifyPuzzle, DIFFICULTY_ORDER, findGenuinelyRequiredTechniques, ratePuzzle } from "../../src/difficulty.js";
+import { DIFFICULTY_ORDER } from "../../src/difficulty.js";
 import { ALL_TECHNIQUES } from "../../src/puzzles.js";
 import { EXTREME_BASES } from "./extreme-bases.mjs";
 import { ensureLocalArchiveIdentity, resolveWarehouseConnectionString, syncLocalArchive } from "./warehouse.mjs";
+import {
+  ensureQualityColumns,
+  ensureLineageRoots,
+  evaluateCatalogCandidate,
+  persistCandidateEvaluation,
+  PRODUCTION_GATE_THRESHOLDS
+} from "./quality.mjs";
 
 const ROOT = new URL("../../", import.meta.url);
 const options = parseOptions(process.argv.slice(2));
@@ -37,11 +44,13 @@ await mkdir(new URL("output/", ROOT), { recursive: true });
 const db = new DatabaseSync(stateUrl.pathname);
 db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 createSchema(db);
+ensureQualityColumns(db);
+ensureLineageRoots(db);
 seedProvenance(db);
 ensureLocalArchiveIdentity(db);
 
 if (!options.compileOnly) {
-  for (const level of DIFFICULTY_ORDER) {
+  for (const level of options.levels) {
     await collectLevel(level, level === "extreme" ? options.extremePool : options.pool);
     if (options.warehouseUrl) {
       const counts = await syncLocalArchive(db, { connectionString: options.warehouseUrl, sourceLabel: `catalog-build:${level}` });
@@ -62,6 +71,9 @@ db.close();
 
 async function collectLevel(level, poolTarget) {
   let eligible = eligibleCount(level);
+  if (["expert", "extreme"].includes(level) && eligible < poolTarget) {
+    throw new Error(`${level} has only ${eligible}/${poolTarget} qualifying hard-gate candidates. Run catalog:quality:generate; clue augmentation is not a richness producer.`);
+  }
   let attempts = 0;
   const maxAttempts = poolTarget * (level === "extreme" ? 80 : 30);
   while (eligible < poolTarget && attempts < maxAttempts) {
@@ -75,20 +87,8 @@ async function collectLevel(level, poolTarget) {
     );
     if (!inserted.changes) continue;
     const id = Number(inserted.lastInsertRowid);
-    const evaluation = evaluateCandidate(candidate.grid, candidate.solution, level);
-    db.prepare(`UPDATE candidates SET status=?, rejection_reason=?, rated_level=?, clue_count=?, step_count=?,
-      technique_metadata=?, required_techniques=?, solution=?, full_trace=? WHERE id=?`).run(
-      evaluation.status,
-      evaluation.reason,
-      evaluation.rating?.level || null,
-      evaluation.clueCount,
-      evaluation.rating?.steps || null,
-      JSON.stringify(evaluation.rating?.techniqueCounts || {}),
-      JSON.stringify(evaluation.requiredTechniques || []),
-      evaluation.solution || candidate.solution,
-      JSON.stringify(evaluation.rating?.trace || []),
-      id
-    );
+    const evaluation = evaluateCatalogCandidate(candidate.grid, candidate.solution, level, { gateThresholds: options.gateThresholds });
+    persistCandidateEvaluation(db, id, evaluation, candidate.solution);
     if (evaluation.status === "eligible") eligible += 1;
     if (attempts % 25 === 0 || eligible === poolTarget) console.log(`${level}: ${eligible}/${poolTarget} eligible (${attempts} new attempts)`);
   }
@@ -149,42 +149,29 @@ function nextCandidate(level) {
   };
 }
 
-function evaluateCandidate(grid, suppliedSolution, requestedLevel) {
-  const clueCount = [...grid].filter((cell) => cell !== "0").length;
-  const certification = certifyPuzzle(grid);
-  const rating = certification.rating;
-  if (!certification.certified) return { status: "rejected", reason: certification.reason, rating, clueCount };
-  if (rating.level !== requestedLevel) return { status: "rejected", reason: `difficulty-mismatch:${rating.level}`, rating, clueCount };
-  if (rating.solutionCount !== 1) return { status: "rejected", reason: "not-unique", rating, clueCount };
-  const solution = rating.solution.join("");
-  if (suppliedSolution && suppliedSolution.replace(/[^1-9]/g, "") !== solution) return { status: "rejected", reason: "solution-mismatch", rating, clueCount };
-  if (clueCount < 17 || clueCount > 45) return { status: "rejected", reason: "clue-count-out-of-range", rating, clueCount };
-  if (rating.steps < 1 || rating.steps > 200) return { status: "rejected", reason: "step-count-out-of-range", rating, clueCount };
-  if (!hasReasonableDistribution(grid)) return { status: "rejected", reason: "empty-row-column-or-box", rating, clueCount };
-
-  const repeat = ratePuzzle(grid);
-  const stableFields = (value) => JSON.stringify([value.status, value.level, value.solutionCount, value.steps, value.hardestTechnique, value.techniqueCounts, value.solution]);
-  if (stableFields(rating) !== stableFields(repeat)) return { status: "rejected", reason: "unstable-rating", rating, clueCount };
-  return { status: "eligible", reason: null, rating, clueCount, solution, requiredTechniques: findGenuinelyRequiredTechniques(grid) };
-}
-
 function selectBalancedCandidates(database, target) {
   const rows = database.prepare("SELECT * FROM candidates WHERE status IN ('eligible','selected','accepted','coverage-not-selected') ORDER BY id").all();
   const selected = [];
-  for (const level of DIFFICULTY_ORDER) {
-    const pool = rows.filter((row) => row.requested_level === level).map(decodeCandidate).map((candidate) => ({ ...candidate, coverageFeatures: coverageFeatures(candidate) }));
+  for (const level of options.levels) {
+    const threshold = options.gateThresholds[level] || 0;
+    const pool = rows.filter((row) => row.requested_level === level && (!threshold || row.gate_count >= threshold))
+      .map(decodeCandidate).map((candidate) => ({ ...candidate, coverageFeatures: coverageFeatures(candidate) }));
     const levelSelected = [];
     const featureCounts = new Map();
+    const lineageCounts = new Map();
     const selectionTarget = Math.min(pool.length, target + 100);
     while (levelSelected.length < selectionTarget && pool.length) {
-      let bestIndex = 0;
+      let bestIndex = -1;
       let bestScore = -1;
       for (let index = 0; index < pool.length; index += 1) {
+        if ((lineageCounts.get(pool[index].lineageRootId) || 0) >= options.maxPerLineage) continue;
         const score = pool[index].coverageFeatures.reduce((sum, feature) => sum + 1 / (1 + (featureCounts.get(feature) || 0)), 0);
-        if (score > bestScore || (score === bestScore && pool[index].id < pool[bestIndex].id)) { bestIndex = index; bestScore = score; }
+        if (score > bestScore || (score === bestScore && (bestIndex < 0 || pool[index].id < pool[bestIndex].id))) { bestIndex = index; bestScore = score; }
       }
+      if (bestIndex < 0) break;
       const [chosen] = pool.splice(bestIndex, 1);
       levelSelected.push(chosen);
+      lineageCounts.set(chosen.lineageRootId, (lineageCounts.get(chosen.lineageRootId) || 0) + 1);
       for (const feature of chosen.coverageFeatures) featureCounts.set(feature, (featureCounts.get(feature) || 0) + 1);
     }
     if (levelSelected.length < target) throw new Error(`Only ${levelSelected.length}/${target} ${level} candidates were available for balanced selection.`);
@@ -207,7 +194,13 @@ function coverageFeatures(candidate) {
     const claiming = used.includes("Claiming Candidates");
     features.push(`locked:${pointing && claiming ? "mixed" : pointing ? "pointing" : "claiming"}`);
   }
-  if (["expert", "extreme"].includes(candidate.requestedLevel)) features.push(...used.map((technique) => `technique:${technique}`));
+  if (["expert", "extreme"].includes(candidate.requestedLevel)) {
+    features.push(...used.map((technique) => `technique:${technique}`));
+    features.push(`gates:${Math.min(candidate.gateCount, 8)}`);
+    features.push(...[...new Set(candidate.gateTechniques)].map((technique) => `gate-technique:${technique}`));
+    features.push(...candidate.gatePositions.map((position) => `gate-position:${Math.floor(position / 10)}`));
+    features.push(`lineage:${candidate.lineageRootId}`);
+  }
   return features;
 }
 
@@ -248,16 +241,20 @@ async function canonicalizeInParallel(candidates) {
 }
 
 function persistCanonicalResults(database, candidates, target) {
-  database.exec("DELETE FROM accepted; UPDATE candidates SET status='coverage-not-selected' WHERE status IN ('selected','accepted');");
-  const seen = new Set();
-  const counts = Object.fromEntries(DIFFICULTY_ORDER.map((level) => [level, 0]));
+  for (const level of options.levels) {
+    database.prepare("DELETE FROM accepted WHERE difficulty=?").run(level);
+    database.prepare(`UPDATE candidates SET status='coverage-not-selected'
+      WHERE requested_level=? AND status IN ('selected','accepted')`).run(level);
+  }
+  const seen = new Set(database.prepare("SELECT canonical_id FROM accepted").all().map((row) => row.canonical_id));
+  const counts = Object.fromEntries(options.levels.map((level) => [level, 0]));
   for (const candidate of candidates) {
     database.prepare("UPDATE candidates SET canonical_id=?, canonical_grid=? WHERE id=?").run(candidate.canonicalId, candidate.canonicalGrid, candidate.id);
     if (seen.has(candidate.canonicalId) || database.prepare("SELECT 1 FROM accepted WHERE canonical_id=?").get(candidate.canonicalId)) {
       database.prepare("UPDATE candidates SET status='rejected', rejection_reason='canonical-duplicate' WHERE id=?").run(candidate.id);
       continue;
     }
-    if (counts[candidate.requestedLevel] >= target) continue;
+    if (!options.levels.includes(candidate.requestedLevel) || counts[candidate.requestedLevel] >= target) continue;
     seen.add(candidate.canonicalId);
     counts[candidate.requestedLevel] += 1;
     database.prepare(`INSERT INTO accepted
@@ -288,11 +285,14 @@ async function compileShardsAndAudit(database, target) {
       techniques: Object.keys(row.techniqueMetadata),
       required: row.requiredTechniques,
       steps: row.stepCount,
+      gates: row.gateCount || undefined,
+      gateTechniques: row.gateTechniques.length ? row.gateTechniques : undefined,
       provenance: row.provenanceId
     }));
     const json = `${JSON.stringify(compact)}\n`;
-    await writeFile(new URL(`${level}.json`, shardUrl), json);
-    sizes[level] = { bytes: Buffer.byteLength(json), gzipBytes: gzipSync(json).byteLength };
+    if (options.levels.includes(level)) await writeFile(new URL(`${level}.json`, shardUrl), json);
+    const shippedJson = options.levels.includes(level) ? json : await readFile(new URL(`${level}.json`, shardUrl), "utf8");
+    sizes[level] = { bytes: Buffer.byteLength(shippedJson), gzipBytes: gzipSync(shippedJson).byteLength };
     techniques[level] = countTechniques(compact);
     requiredTechniques[level] = countRequiredTechniques(compact);
   }
@@ -337,7 +337,8 @@ function createSchema(database) {
       provenance_id TEXT NOT NULL REFERENCES provenance(id), parent_id TEXT, status TEXT NOT NULL,
       rejection_reason TEXT, rated_level TEXT, clue_count INTEGER, step_count INTEGER,
       technique_metadata TEXT, required_techniques TEXT, canonical_id TEXT, canonical_grid TEXT,
-      full_trace TEXT, created_at TEXT NOT NULL
+      full_trace TEXT, gate_count INTEGER, gate_techniques TEXT, gate_positions TEXT,
+      gate_effort TEXT, evaluation_metadata TEXT, lineage_root_id INTEGER, created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS candidates_status_level ON candidates(status, requested_level);
     CREATE UNIQUE INDEX IF NOT EXISTS candidates_canonical_unique ON candidates(canonical_id) WHERE canonical_id IS NOT NULL AND status='accepted';
@@ -362,6 +363,12 @@ function seedProvenance(database) {
     "local:sudoku-pilot-extreme@1", "Sudoku Pilot Extreme clue augmentation", "1", null,
     JSON.stringify({ derivation: "Adds solution-consistent clues while retaining an Extreme rating", finalAuthority: "Sudoku Pilot solver and uniqueness checker" })
   );
+  database.prepare(`INSERT INTO provenance VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET producer=excluded.producer, version=excluded.version,
+    source_url=excluded.source_url, configuration=excluded.configuration`).run(
+    "local:sudoku-pilot-hard-gate-search@1", "Sudoku Pilot hard-gate search", "1", null,
+    JSON.stringify({ derivation: "Mutates solution-consistent clue sets while optimizing deterministic hard gates", finalAuthority: "Sudoku Pilot solver and uniqueness checker" })
+  );
 }
 
 function incrementState(key) {
@@ -371,7 +378,10 @@ function incrementState(key) {
 }
 
 function eligibleCount(level) {
-  return db.prepare("SELECT COUNT(*) count FROM candidates WHERE requested_level=? AND status IN ('eligible','selected','accepted','coverage-not-selected')").get(level).count;
+  const threshold = options.gateThresholds[level] || 0;
+  return db.prepare(`SELECT COUNT(*) count FROM candidates WHERE requested_level=?
+    AND status IN ('eligible','selected','accepted','coverage-not-selected')
+    AND (?=0 OR gate_count>=?)`).get(level, threshold, threshold).count;
 }
 
 function combinationFor(index, values) {
@@ -425,7 +435,11 @@ function decodeCandidate(row) {
     clueCount: row.clue_count, stepCount: row.step_count, canonicalId: row.canonical_id,
     canonicalGrid: row.canonical_grid,
     techniqueMetadata: JSON.parse(row.technique_metadata || "{}"),
-    requiredTechniques: JSON.parse(row.required_techniques || "[]")
+    requiredTechniques: JSON.parse(row.required_techniques || "[]"),
+    gateCount: row.gate_count || 0,
+    gateTechniques: JSON.parse(row.gate_techniques || "[]"),
+    gatePositions: JSON.parse(row.gate_positions || "[]"),
+    lineageRootId: row.lineage_root_id || row.id
   };
 }
 
@@ -459,14 +473,22 @@ function parseOptions(args) {
     return index >= 0 ? args[index + 1] : fallback;
   };
   const target = Number(value("--target", 100));
+  const levels = value("--levels", DIFFICULTY_ORDER.join(",")).split(",").map((item) => item.trim()).filter(Boolean);
+  if (levels.some((level) => !DIFFICULTY_ORDER.includes(level))) throw new Error(`--levels must use: ${DIFFICULTY_ORDER.join(", ")}`);
   return {
     target,
+    levels,
+    maxPerLineage: Number(value("--max-per-lineage", 10)),
     pool: Number(value("--pool", Math.max(target + 50, Math.ceil(target * 1.5)))),
     extremePool: Number(value("--extreme-pool", Math.max(target + 50, Math.ceil(target * 1.5)))),
     state: value("--state", ".catalog-build/catalog.sqlite"),
     reset: args.includes("--reset"),
     compileOnly: args.includes("--compile-only"),
     warehouseUrl: value("--warehouse-url", resolveWarehouseConnectionString()),
-    allowUnarchivedReset: args.includes("--allow-unarchived-reset")
+    allowUnarchivedReset: args.includes("--allow-unarchived-reset"),
+    gateThresholds: {
+      expert: Number(value("--min-expert-gates", PRODUCTION_GATE_THRESHOLDS.expert)),
+      extreme: Number(value("--min-extreme-gates", PRODUCTION_GATE_THRESHOLDS.extreme))
+    }
   };
 }

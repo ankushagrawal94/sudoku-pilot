@@ -1,0 +1,453 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-21T10:14:10.895Z",
+  "metric": {
+    "id": "deterministic-certified-path-v1",
+    "interpretation": "Observed hard gates on Sudoku Pilot's stable deterministic certified path; not a mathematical minimum over every possible solving path.",
+    "productionThresholds": {
+      "expert": 5,
+      "extreme": 5
+    }
+  },
+  "baseline": {
+    "commit": "a261637dbbbeb9a4f02ab5eb14aa3d77fa323280",
+    "measuredWith": "deterministic-certified-path-v1",
+    "warehouseInventory": {
+      "puzzles": 3209,
+      "catalogMemberships": 500,
+      "expert": {
+        "evaluated": 777,
+        "strictQualifying": 46,
+        "canonicalQualifying": 13
+      },
+      "extreme": {
+        "evaluated": 508,
+        "strictQualifying": 0,
+        "canonicalQualifying": 0
+      }
+    },
+    "levels": {
+      "expert": {
+        "count": 100,
+        "gateCountDistribution": {
+          "1": 23,
+          "2": 16,
+          "3": 33,
+          "4": 8,
+          "5": 18,
+          "6": 2
+        },
+        "gateTechniques": {
+          "Hidden Pair": 248,
+          "Hidden Triple": 26,
+          "Hidden Quadruple": 14
+        },
+        "techniqueCoverage": {
+          "Naked Single": 100,
+          "Hidden Single": 100,
+          "Pointing Candidates": 100,
+          "Claiming Candidates": 91,
+          "Hidden Pair": 99,
+          "Last Digit": 100,
+          "Hidden Triple": 17,
+          "Hidden Quadruple": 14
+        },
+        "clueCounts": {
+          "min": 22,
+          "median": 25,
+          "max": 28,
+          "distribution": {
+            "22": 2,
+            "23": 6,
+            "24": 38,
+            "25": 50,
+            "26": 3,
+            "28": 1
+          }
+        },
+        "steps": {
+          "min": 55,
+          "median": 66,
+          "max": 72,
+          "distribution": {
+            "55": 1,
+            "59": 1,
+            "61": 17,
+            "62": 9,
+            "63": 4,
+            "64": 3,
+            "65": 13,
+            "66": 9,
+            "67": 5,
+            "68": 7,
+            "69": 13,
+            "70": 15,
+            "71": 1,
+            "72": 2
+          }
+        }
+      },
+      "extreme": {
+        "count": 100,
+        "gateCountDistribution": {
+          "1": 84,
+          "2": 16
+        },
+        "gateTechniques": {
+          "XY-Wing": 25,
+          "W-Wing": 18,
+          "XYZ-Wing": 20,
+          "X-Wing": 20,
+          "Skyscraper": 4,
+          "2-String Kite": 18,
+          "Simple Colouring": 7,
+          "Jellyfish": 3,
+          "Swordfish": 1
+        },
+        "techniqueCoverage": {
+          "Naked Single": 100,
+          "Last Digit": 100,
+          "Hidden Single": 100,
+          "XY-Wing": 25,
+          "W-Wing": 20,
+          "XYZ-Wing": 20,
+          "X-Wing": 20,
+          "Skyscraper": 4,
+          "Crane": 15,
+          "Pointing Candidates": 9,
+          "Simple Colouring": 7,
+          "Hidden Pair": 9,
+          "Jellyfish": 3,
+          "Hidden Triple": 2,
+          "Hidden Quadruple": 1,
+          "Swordfish": 1
+        },
+        "clueCounts": {
+          "min": 23,
+          "median": 27,
+          "max": 28,
+          "distribution": {
+            "23": 1,
+            "24": 15,
+            "25": 29,
+            "26": 1,
+            "27": 41,
+            "28": 13
+          }
+        },
+        "steps": {
+          "min": 54,
+          "median": 57,
+          "max": 61,
+          "distribution": {
+            "54": 10,
+            "55": 33,
+            "56": 3,
+            "57": 20,
+            "58": 30,
+            "59": 3,
+            "61": 1
+          }
+        }
+      }
+    }
+  },
+  "replacement": {
+    "levels": {
+      "expert": {
+        "count": 100,
+        "canonicalIdentities": 100,
+        "gateCountDistribution": {
+          "5": 80,
+          "6": 19,
+          "7": 1
+        },
+        "gateTechniques": {
+          "Hidden Pair": 376,
+          "Hidden Triple": 117,
+          "Hidden Quadruple": 28
+        },
+        "gatePositionBands": {
+          "1-10": 215,
+          "11-20": 284,
+          "21-30": 22
+        },
+        "techniqueCoverage": {
+          "Hidden Single": 100,
+          "Claiming Candidates": 100,
+          "Hidden Pair": 100,
+          "Pointing Candidates": 100,
+          "Naked Single": 100,
+          "Last Digit": 100,
+          "Hidden Triple": 52,
+          "Hidden Quadruple": 25
+        },
+        "clueCounts": {
+          "min": 22,
+          "median": 25,
+          "max": 28,
+          "distribution": {
+            "22": 1,
+            "23": 12,
+            "24": 21,
+            "25": 37,
+            "26": 17,
+            "27": 9,
+            "28": 3
+          }
+        },
+        "steps": {
+          "min": 62,
+          "median": 66,
+          "max": 72,
+          "distribution": {
+            "62": 3,
+            "63": 1,
+            "64": 12,
+            "65": 17,
+            "66": 18,
+            "67": 12,
+            "68": 8,
+            "69": 10,
+            "70": 7,
+            "71": 10,
+            "72": 2
+          }
+        },
+        "lineages": {
+          "count": 13,
+          "maximumContribution": 10,
+          "contributions": {
+            "50": 10,
+            "1094": 8,
+            "1138": 10,
+            "1174": 5,
+            "1188": 8,
+            "1200": 10,
+            "1220": 8,
+            "1222": 6,
+            "1370": 9,
+            "1396": 8,
+            "1442": 10,
+            "1444": 7,
+            "1456": 1
+          }
+        }
+      },
+      "extreme": {
+        "count": 100,
+        "canonicalIdentities": 100,
+        "gateCountDistribution": {
+          "5": 67,
+          "6": 21,
+          "7": 10,
+          "8": 2
+        },
+        "gateTechniques": {
+          "2-String Kite": 124,
+          "Skyscraper": 114,
+          "Crane": 7,
+          "Empty Rectangle": 15,
+          "X-Wing": 58,
+          "XY-Wing": 92,
+          "Swordfish": 31,
+          "W-Wing": 83,
+          "XYZ-Wing": 22,
+          "Simple Colouring": 1
+        },
+        "gatePositionBands": {
+          "21-30": 302,
+          "11-20": 199,
+          "31-40": 41,
+          "1-10": 2,
+          "41-50": 3
+        },
+        "techniqueCoverage": {
+          "Hidden Single": 100,
+          "Pointing Candidates": 86,
+          "Claiming Candidates": 47,
+          "Hidden Pair": 48,
+          "2-String Kite": 83,
+          "Skyscraper": 82,
+          "Crane": 7,
+          "Empty Rectangle": 15,
+          "Naked Single": 100,
+          "X-Wing": 58,
+          "Last Digit": 100,
+          "XY-Wing": 69,
+          "Swordfish": 31,
+          "W-Wing": 50,
+          "Hidden Triple": 10,
+          "XYZ-Wing": 22,
+          "Hidden Quadruple": 3,
+          "Simple Colouring": 1
+        },
+        "clueCounts": {
+          "min": 25,
+          "median": 33,
+          "max": 34,
+          "distribution": {
+            "25": 1,
+            "26": 2,
+            "27": 1,
+            "28": 6,
+            "29": 2,
+            "30": 2,
+            "31": 8,
+            "32": 22,
+            "33": 21,
+            "34": 35
+          }
+        },
+        "steps": {
+          "min": 52,
+          "median": 57,
+          "max": 72,
+          "distribution": {
+            "52": 9,
+            "53": 3,
+            "54": 10,
+            "55": 5,
+            "56": 13,
+            "57": 13,
+            "58": 15,
+            "59": 15,
+            "60": 4,
+            "64": 8,
+            "65": 2,
+            "71": 2,
+            "72": 1
+          }
+        },
+        "lineages": {
+          "count": 10,
+          "maximumContribution": 10,
+          "contributions": {
+            "66": 10,
+            "1462": 10,
+            "1508": 10,
+            "1553": 10,
+            "1560": 10,
+            "1581": 10,
+            "1602": 10,
+            "1613": 10,
+            "1760": 10,
+            "2839": 10
+          }
+        }
+      }
+    }
+  },
+  "originalWarehouseReevaluation": {
+    "expert": [
+      {
+        "status": "rejected",
+        "reason": "insufficient-expert-gates",
+        "count": 290
+      },
+      {
+        "status": "rejected",
+        "reason": "difficulty-mismatch:medium",
+        "count": 216
+      },
+      {
+        "status": "rejected",
+        "reason": "difficulty-mismatch:hard",
+        "count": 204
+      },
+      {
+        "status": "rejected",
+        "reason": "canonical-duplicate",
+        "count": 33
+      },
+      {
+        "status": "rejected",
+        "reason": "difficulty-mismatch:extreme",
+        "count": 19
+      },
+      {
+        "status": "coverage-not-selected",
+        "reason": "qualifying",
+        "count": 7
+      },
+      {
+        "status": "accepted",
+        "reason": "qualifying",
+        "count": 4
+      },
+      {
+        "status": "eligible",
+        "reason": "qualifying",
+        "count": 2
+      },
+      {
+        "status": "rejected",
+        "reason": "empty-row-column-or-box",
+        "count": 2
+      }
+    ],
+    "extreme": [
+      {
+        "status": "rejected",
+        "reason": "insufficient-extreme-gates",
+        "count": 277
+      },
+      {
+        "status": "rejected",
+        "reason": "difficulty-mismatch:medium",
+        "count": 204
+      },
+      {
+        "status": "rejected",
+        "reason": "difficulty-mismatch:hard",
+        "count": 17
+      },
+      {
+        "status": "rejected",
+        "reason": "difficulty-mismatch:expert",
+        "count": 10
+      }
+    ]
+  },
+  "producer": {
+    "expert": {
+      "attempts": 4743,
+      "qualifying": 161,
+      "qualifyingRate": 0.03394476069997892,
+      "results": {
+        "rejected:unsupported": 2400,
+        "rejected:difficulty-mismatch:extreme": 1575,
+        "rejected:difficulty-mismatch:medium": 263,
+        "rejected:insufficient-expert-gates": 259,
+        "accepted:qualifying": 96,
+        "rejected:difficulty-mismatch:hard": 63,
+        "coverage-not-selected:qualifying": 42,
+        "eligible:qualifying": 23,
+        "rejected:empty-row-column-or-box": 13,
+        "rejected:canonical-duplicate": 9
+      }
+    },
+    "extreme": {
+      "attempts": 27477,
+      "qualifying": 240,
+      "qualifyingRate": 0.008734578010699857,
+      "results": {
+        "rejected:unsupported": 23715,
+        "rejected:difficulty-mismatch:medium": 2263,
+        "rejected:insufficient-extreme-gates": 1153,
+        "accepted:qualifying": 100,
+        "coverage-not-selected:qualifying": 90,
+        "rejected:difficulty-mismatch:hard": 79,
+        "eligible:qualifying": 50,
+        "rejected:difficulty-mismatch:expert": 14,
+        "rejected:empty-row-column-or-box": 13
+      }
+    }
+  },
+  "resumeCommands": {
+    "reevaluate": "vercel env run -e production -- npm run catalog:quality:reevaluate -- --levels expert,extreme",
+    "generateExpert": "vercel env run -e production -- npm run catalog:quality:generate -- --levels expert --pool 120 --max-per-lineage 10 --max-empty-lineage-attempts 2000",
+    "generateExtreme": "vercel env run -e production -- npm run catalog:quality:generate -- --levels extreme --pool 120 --max-per-lineage 10 --max-empty-lineage-attempts 2000",
+    "select": "vercel env run -e production -- npm run catalog:build -- --levels expert,extreme --pool 150 --extreme-pool 150 --max-per-lineage 10"
+  }
+}

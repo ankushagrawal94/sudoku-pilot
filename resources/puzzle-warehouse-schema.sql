@@ -72,9 +72,20 @@ CREATE TABLE IF NOT EXISTS puzzle_warehouse.evaluations (
   required_techniques jsonb NOT NULL DEFAULT '[]'::jsonb,
   full_trace jsonb NOT NULL DEFAULT '[]'::jsonb,
   evaluated_solution char(81),
+  hard_gate_count integer,
+  hard_gate_techniques jsonb NOT NULL DEFAULT '[]'::jsonb,
+  hard_gate_positions jsonb NOT NULL DEFAULT '[]'::jsonb,
+  effort_metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  evaluation_metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   recorded_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT evaluation_solution_format CHECK (evaluated_solution IS NULL OR evaluated_solution ~ '^[1-9]{81}$')
 );
+
+ALTER TABLE puzzle_warehouse.evaluations ADD COLUMN IF NOT EXISTS hard_gate_count integer;
+ALTER TABLE puzzle_warehouse.evaluations ADD COLUMN IF NOT EXISTS hard_gate_techniques jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE puzzle_warehouse.evaluations ADD COLUMN IF NOT EXISTS hard_gate_positions jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE puzzle_warehouse.evaluations ADD COLUMN IF NOT EXISTS effort_metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE puzzle_warehouse.evaluations ADD COLUMN IF NOT EXISTS evaluation_metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE INDEX IF NOT EXISTS evaluations_event_idx
   ON puzzle_warehouse.evaluations (event_key, recorded_at);
@@ -106,6 +117,10 @@ CREATE TABLE IF NOT EXISTS puzzle_warehouse.sync_runs (
 
 INSERT INTO puzzle_warehouse.schema_migrations(version)
 VALUES (1)
+ON CONFLICT (version) DO NOTHING;
+
+INSERT INTO puzzle_warehouse.schema_migrations(version)
+VALUES (2)
 ON CONFLICT (version) DO NOTHING;
 
 ALTER TABLE puzzle_warehouse.schema_migrations ENABLE ROW LEVEL SECURITY;

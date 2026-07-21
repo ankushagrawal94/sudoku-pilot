@@ -112,7 +112,7 @@ npm run review:learning-practice
 
 The production catalog contains 100 canonically distinct, certified puzzles at each of Easy, Medium, Hard, Expert, and Extreme. Runtime selection starts with an unplayed canonical seed when possible, then applies a visual Sudoku transformation. Transformed copies retain the seed's canonical ID and do not count as new logical puzzles.
 
-Catalog generation is an offline, resumable build. Its SQLite working state and full solution traces live under `.catalog-build/` and are not shipped. A provider-neutral Postgres warehouse durably retains puzzle identities, generation events, versioned evaluations, and catalog snapshots. Compact runtime shards live in `src/catalog/`; the checked audit report lives at `output/catalog-audit.json`.
+Catalog generation is an offline, resumable build. Its SQLite working state and full solution traces live under `.catalog-build/` and are not shipped. A provider-neutral Postgres warehouse durably retains puzzle identities, generation events, versioned evaluations, and catalog snapshots. Compact runtime shards live in `src/catalog/`; checked shipped and before/after quality audits live under `output/`. Expert and Extreme production entries must each demonstrate at least five deterministic tier-level unblocking gates while remaining within their technique ceiling.
 
 ```sh
 # Resume until the 100-per-level catalog is compiled
@@ -127,6 +127,9 @@ npm run catalog:verify
 
 # Refresh the checked audit from the shipped catalog
 npm run catalog:audit
+
+# Refresh the before/after hard-gate and generation-inventory audit
+npm run catalog:quality:audit
 
 # Archive all local candidates in Postgres (accepted and rejected)
 PUZZLE_WAREHOUSE_URL=postgres://... npm run catalog:warehouse:sync
