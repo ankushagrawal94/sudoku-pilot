@@ -8,7 +8,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "node scripts/build-content.mjs && vite build && node scripts/build-sw.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node tests/analytics.test.js && node tests/solver.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && node tests/sudoku-ocr-api.test.js && playwright test",
+    "test": "node tests/analytics.test.js && node tests/solver.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/warehouse.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && node tests/sudoku-ocr-api.test.js && playwright test",
     "test:analytics": "node tests/analytics.test.js && playwright test tests/functional/analytics.spec.js",
     "test:solver": "node tests/solver.test.js",
     "test:coaching": "node tests/coaching.test.js",
@@ -27,11 +27,15 @@
     "catalog:build": "node --no-warnings scripts/catalog/build-catalog.mjs",
     "catalog:rebuild": "node --no-warnings scripts/catalog/build-catalog.mjs --reset",
     "catalog:audit": "node --no-warnings scripts/catalog/audit-shipped-catalog.mjs",
-    "catalog:verify": "node --no-warnings scripts/catalog/verify-catalog.mjs"
+    "catalog:verify": "node --no-warnings scripts/catalog/verify-catalog.mjs",
+    "catalog:warehouse:sync": "node --no-warnings scripts/catalog/sync-warehouse.mjs",
+    "catalog:warehouse:inspect": "node --no-warnings scripts/catalog/inspect-warehouse.mjs",
+    "test:warehouse": "node tests/warehouse.test.js"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
     "posthog-js": "^1.280.1",
+    "pg": "^8.22.0",
     "sudoku-gen": "^1.0.2",
     "vite": "8.1.4"
   },

@@ -2,9 +2,9 @@
 
 Sudoku Pilot builds its browser catalog offline. The browser receives compact puzzle records, not generator state or full solving traces.
 
-## Source of truth
+## Working state and durable source of truth
 
-The resumable build state is `.catalog-build/catalog.sqlite`. It records:
+The resumable working state is `.catalog-build/catalog.sqlite`. It records:
 
 - every candidate grid and supplied solution;
 - requested and rated difficulty;
@@ -14,7 +14,15 @@ The resumable build state is `.catalog-build/catalog.sqlite`. It records:
 - the exact canonical grid and its SHA-256 canonical ID for selected candidates; and
 - accepted inventory with unique constraints on canonical ID and canonical grid.
 
-The directory is gitignored because it is transient build and audit state. Keep it to resume a long build. Remove it only for an intentional clean rebuild.
+The directory is gitignored because it is transient build and audit state. The durable source of truth is a provider-neutral Postgres database using `resources/puzzle-warehouse-schema.sql`. It retains:
+
+- one stable identity per exact puzzle grid;
+- every generation event, including repeated generation of the same grid in different archive runs;
+- append-only, solver-versioned evaluations and complete traces;
+- provenance metadata; and
+- immutable catalog snapshots and their memberships.
+
+Set `PUZZLE_WAREHOUSE_URL` to sync automatically after each completed difficulty and after catalog compilation. The sync is transactional and idempotent: repeating it does not duplicate puzzles, events, evaluations, or snapshots. A changed result or solver version creates a new evaluation rather than overwriting history.
 
 ## Candidate producers
 
@@ -48,8 +56,16 @@ The collector retains a pool larger than the final catalog. A deterministic gree
 
 ```sh
 npm run catalog:build    # resume existing SQLite state
-npm run catalog:rebuild  # discard state and rebuild
+npm run catalog:rebuild  # archive existing state, then rebuild
 npm run catalog:verify   # optional: independently verify every shipped entry
+npm run catalog:warehouse:sync     # migrate/sync local SQLite into Postgres
+npm run catalog:warehouse:inspect  # report durable archive counts
 ```
 
+The warehouse commands require `PUZZLE_WAREHOUSE_URL`. `PUZZLE_SOLVER_VERSION` defaults to `sudoku-pilot-solver-v1` and must be incremented when rating behavior changes materially. The first sync applies the checked schema automatically.
+
+The warehouse lives in a private `puzzle_warehouse` schema, revokes public schema access, and enables row-level security without public policies. Use a secret owner-level Postgres connection string only in trusted local or CI environments; never expose it to the static browser app.
+
 The compiler writes `src/catalog/{easy,medium,hard,expert,extreme}.json` and `output/catalog-audit.json`. A stopped build can be resumed with `npm run catalog:build`; already evaluated grids are never regenerated or silently reclassified. Run `npm run catalog:verify` when generation changes one or more shipped catalog shards; it is not part of the standard application test suite. Run `npm run catalog:audit` to refresh the checked audit directly from the shipped shards.
+
+A destructive rebuild first syncs the existing SQLite archive when `PUZZLE_WAREHOUSE_URL` is present. Without a warehouse connection, it stops rather than deleting unsynced data. `node scripts/catalog/build-catalog.mjs --reset --allow-unarchived-reset` is the explicit data-loss escape hatch for disposable test state only.

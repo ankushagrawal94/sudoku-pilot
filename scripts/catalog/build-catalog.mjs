@@ -1,4 +1,5 @@
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { availableParallelism } from "node:os";
 import { Worker } from "node:worker_threads";
@@ -7,6 +8,7 @@ import { getSudoku } from "sudoku-gen";
 import { certifyPuzzle, DIFFICULTY_ORDER, findGenuinelyRequiredTechniques, ratePuzzle } from "../../src/difficulty.js";
 import { ALL_TECHNIQUES } from "../../src/puzzles.js";
 import { EXTREME_BASES } from "./extreme-bases.mjs";
+import { ensureLocalArchiveIdentity, syncLocalArchive } from "./warehouse.mjs";
 
 const ROOT = new URL("../../", import.meta.url);
 const options = parseOptions(process.argv.slice(2));
@@ -14,7 +16,20 @@ const stateUrl = new URL(options.state, ROOT);
 const shardUrl = new URL("src/catalog/", ROOT);
 const auditUrl = new URL("output/catalog-audit.json", ROOT);
 
-if (options.reset) await rm(stateUrl, { force: true });
+if (options.reset && existsSync(stateUrl)) {
+  if (options.warehouseUrl) {
+    const previous = new DatabaseSync(stateUrl.pathname);
+    try {
+      const counts = await syncLocalArchive(previous, { connectionString: options.warehouseUrl, sourceLabel: "catalog-build-pre-reset" });
+      console.log(`archived pre-reset catalog state: ${counts.generationEvents} generation events`);
+    } finally {
+      previous.close();
+    }
+  } else if (!options.allowUnarchivedReset) {
+    throw new Error("Refusing to delete the local puzzle archive without PUZZLE_WAREHOUSE_URL. Sync it first or pass --allow-unarchived-reset to intentionally discard it.");
+  }
+  await rm(stateUrl, { force: true });
+}
 await mkdir(new URL("./", stateUrl), { recursive: true });
 await mkdir(shardUrl, { recursive: true });
 await mkdir(new URL("output/", ROOT), { recursive: true });
@@ -23,16 +38,26 @@ const db = new DatabaseSync(stateUrl.pathname);
 db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 createSchema(db);
 seedProvenance(db);
+ensureLocalArchiveIdentity(db);
 
 if (!options.compileOnly) {
-  for (const level of DIFFICULTY_ORDER) await collectLevel(level, level === "extreme" ? options.extremePool : options.pool);
+  for (const level of DIFFICULTY_ORDER) {
+    await collectLevel(level, level === "extreme" ? options.extremePool : options.pool);
+    if (options.warehouseUrl) {
+      const counts = await syncLocalArchive(db, { connectionString: options.warehouseUrl, sourceLabel: `catalog-build:${level}` });
+      console.log(`archived ${level} checkpoint: ${counts.generationEvents} total generation events`);
+    }
+  }
   const selected = selectBalancedCandidates(db, options.target);
   const canonicalized = await canonicalizeInParallel(selected);
   persistCanonicalResults(db, canonicalized, options.target);
 }
 const audit = await compileShardsAndAudit(db, options.target);
 await writeFile(auditUrl, `${JSON.stringify(audit, null, 2)}\n`);
-console.log(JSON.stringify({ state: stateUrl.pathname, audit: auditUrl.pathname, counts: audit.catalog.counts }, null, 2));
+const warehouse = options.warehouseUrl
+  ? await syncLocalArchive(db, { connectionString: options.warehouseUrl, sourceLabel: "catalog-build" })
+  : null;
+console.log(JSON.stringify({ state: stateUrl.pathname, audit: auditUrl.pathname, counts: audit.catalog.counts, warehouse }, null, 2));
 db.close();
 
 async function collectLevel(level, poolTarget) {
@@ -440,6 +465,8 @@ function parseOptions(args) {
     extremePool: Number(value("--extreme-pool", Math.max(target + 50, Math.ceil(target * 1.5)))),
     state: value("--state", ".catalog-build/catalog.sqlite"),
     reset: args.includes("--reset"),
-    compileOnly: args.includes("--compile-only")
+    compileOnly: args.includes("--compile-only"),
+    warehouseUrl: value("--warehouse-url", process.env.PUZZLE_WAREHOUSE_URL),
+    allowUnarchivedReset: args.includes("--allow-unarchived-reset")
   };
 }

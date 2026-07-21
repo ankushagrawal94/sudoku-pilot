@@ -112,7 +112,7 @@ npm run review:learning-practice
 
 The production catalog contains 100 canonically distinct, certified puzzles at each of Easy, Medium, Hard, Expert, and Extreme. Runtime selection starts with an unplayed canonical seed when possible, then applies a visual Sudoku transformation. Transformed copies retain the seed's canonical ID and do not count as new logical puzzles.
 
-Catalog generation is an offline, resumable build. Its SQLite state and full solution traces live under `.catalog-build/` and are not shipped. Compact runtime shards live in `src/catalog/`; the checked audit report lives at `output/catalog-audit.json`.
+Catalog generation is an offline, resumable build. Its SQLite working state and full solution traces live under `.catalog-build/` and are not shipped. A provider-neutral Postgres warehouse durably retains puzzle identities, generation events, versioned evaluations, and catalog snapshots. Compact runtime shards live in `src/catalog/`; the checked audit report lives at `output/catalog-audit.json`.
 
 ```sh
 # Resume until the 100-per-level catalog is compiled
@@ -127,9 +127,17 @@ npm run catalog:verify
 
 # Refresh the checked audit from the shipped catalog
 npm run catalog:audit
+
+# Archive all local candidates in Postgres (accepted and rejected)
+PUZZLE_WAREHOUSE_URL=postgres://... npm run catalog:warehouse:sync
+
+# Inspect durable warehouse counts
+PUZZLE_WAREHOUSE_URL=postgres://... npm run catalog:warehouse:inspect
 ```
 
-The pipeline, schema, quality gates, provenance policy, and recovery workflow are documented in [resources/catalog-pipeline.md](resources/catalog-pipeline.md).
+When `PUZZLE_WAREHOUSE_URL` is configured, catalog builds sync automatically after compilation and before a destructive rebuild. Without it, `catalog:rebuild` refuses to erase an existing local archive unless `--allow-unarchived-reset` is explicitly supplied.
+
+The pipeline, warehouse schema, quality gates, provenance policy, and recovery workflow are documented in [resources/catalog-pipeline.md](resources/catalog-pipeline.md).
 
 ## Publish an article
 
