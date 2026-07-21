@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [vercelConfig, appSource, browserAnalyticsSource, envExample, gitignore, readme] = await Promise.all([
+const [vercelConfig, appSource, browserAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient] = await Promise.all([
   readFile(new URL("../vercel.json", import.meta.url), "utf8"),
   readFile(new URL("../src/app.js", import.meta.url), "utf8"),
   readFile(new URL("../src/browserAnalytics.js", import.meta.url), "utf8"),
   readFile(new URL("../.env.example", import.meta.url), "utf8"),
   readFile(new URL("../.gitignore", import.meta.url), "utf8"),
-  readFile(new URL("../README.md", import.meta.url), "utf8")
+  readFile(new URL("../README.md", import.meta.url), "utf8"),
+  readFile(new URL("../server/sudoku-ocr-client.js", import.meta.url), "utf8")
 ]);
 const vercel = JSON.parse(vercelConfig);
 const packageConfig = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -35,7 +36,8 @@ assert.match(appSource, /workerPath:/, "OCR worker must be an app-controlled ass
 assert.doesNotMatch(appSource, /cdn\.|jsdelivr|unpkg/i, "OCR must not reference third-party CDNs.");
 assert.match(envExample, /^VITE_POSTHOG_KEY=\s*$/m);
 assert.match(envExample, /^VITE_POSTHOG_HOST=https:\/\/us\.i\.posthog\.com$/m);
-assert.match(gitignore, /^\.env\*$/m);
+assert.match(envExample, /^RAPIDAPI_KEY=\s*$/m);
+assert.match(gitignore, /^\.env\.\*$/m);
 assert.match(gitignore, /^!\.env\.example$/m);
 assert.match(readme, /VITE_POSTHOG_KEY/);
 assert.match(readme, /VITE_POSTHOG_HOST/);
@@ -43,5 +45,9 @@ assert.doesNotMatch(browserAnalyticsSource, /phc_[A-Za-z0-9]/, "Production sourc
 assert.match(browserAnalyticsSource, /posthog-js\/dist\/module\.full\.no-external\.js/, "The bundled full SDK must include replay, surveys, and other optional product modules.");
 assert.doesNotMatch(appSource, /board-frame analytics-block/, "Session replay should include puzzle interactions.");
 assert.match(appSource, /import-panel analytics-image-block/, "Session replay must continue excluding the imported image itself.");
+assert.doesNotMatch(packageConfig.scripts.test, /sudoku-ocr-live/, "The quota-consuming live OCR check must not run in the default test suite.");
+assert.doesNotMatch(sudokuOcrClient, /VITE_RAPIDAPI_KEY/, "The RapidAPI key must remain server-only.");
+assert.match(sudokuOcrClient, /event: "sudoku_ocr_provider_call"/, "Every provider call must emit a countable usage event.");
+assert.match(sudokuOcrClient, /retry: false/, "The OCR provider client must not silently spend quota on retries.");
 
 console.log("security configuration tests passed");

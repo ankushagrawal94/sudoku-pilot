@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="756" height="756" viewBox="0 0 756 756">
+  <rect width="756" height="756" fill="white"/>
+  <g stroke="#111827" fill="none">
+    <path d="M54 54H702V702H54Z M270 54V702 M486 54V702 M54 270H702 M54 486H702" stroke-width="6"/>
+    <path d="M126 54V702 M198 54V702 M342 54V702 M414 54V702 M558 54V702 M630 54V702 M54 126H702 M54 198H702 M54 342H702 M54 414H702 M54 558H702 M54 630H702" stroke-width="2"/>
+  </g>
+  <g fill="#111827" font-family="Arial, sans-serif" font-size="54" text-anchor="middle">
+    <text x="90" y="108">5</text><text x="162" y="108">3</text><text x="378" y="108">7</text>
+    <text x="90" y="180">6</text><text x="306" y="180">1</text><text x="378" y="180">9</text><text x="450" y="180">5</text>
+    <text x="162" y="252">9</text><text x="234" y="252">8</text><text x="594" y="252">6</text>
+    <text x="90" y="324">8</text><text x="378" y="324">6</text><text x="666" y="324">3</text>
+    <text x="90" y="396">4</text><text x="306" y="396">8</text><text x="450" y="396">3</text><text x="666" y="396">1</text>
+    <text x="90" y="468">7</text><text x="378" y="468">2</text><text x="666" y="468">6</text>
+    <text x="162" y="540">6</text><text x="522" y="540">2</text><text x="594" y="540">8</text>
+    <text x="306" y="612">4</text><text x="378" y="612">1</text><text x="450" y="612">9</text><text x="666" y="612">5</text>
+    <text x="378" y="684">8</text><text x="594" y="684">7</text><text x="666" y="684">9</text>
+  </g>
+  <g fill="#1d4ed8" font-family="Arial, sans-serif" font-size="17" text-anchor="middle">
+    <text x="216" y="76">1</text><text x="234" y="76">2</text><text x="216" y="98">4</text>
+    <text x="306" y="76">2</text><text x="324" y="98">6</text>
+    <text x="450" y="76">2</text><text x="432" y="98">4</text><text x="468" y="98">6</text><text x="450" y="120">8</text>
+    <text x="504" y="76">1</text><text x="504" y="98">4</text><text x="522" y="120">8</text><text x="540" y="120">9</text>
+    <text x="162" y="148">2</text><text x="144" y="170">4</text><text x="144" y="192">7</text>
+    <text x="234" y="148">2</text><text x="216" y="170">4</text><text x="216" y="192">7</text>
+    <text x="72" y="220">1</text><text x="90" y="220">2</text>
+    <text x="306" y="220">2</text><text x="324" y="220">3</text>
+    <text x="378" y="386">5</text>
+    <text x="72" y="652">1</text><text x="90" y="652">2</text><text x="108" y="652">3</text>
+  </g>
+</svg>

@@ -15,6 +15,8 @@
     "test:learning-practice": "node tests/learning-practice.test.js",
     "test:trusted-import-corpus": "node tests/trusted-import-corpus.test.js",
     "test:content": "node tests/content.test.js",
+    "test:sudoku-ocr-api": "node tests/sudoku-ocr-api.test.js",
+    "test:sudoku-ocr-live": "node --env-file=.env.local scripts/test-sudoku-ocr-live.mjs",
     "test:functional": "playwright test",
     "review:coaching": "npm run build && node scripts/capture-coaching-review.mjs",
     "review:learning-practice": "npm run build && node scripts/capture-learning-practice-review.mjs",
