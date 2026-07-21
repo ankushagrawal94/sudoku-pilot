@@ -1410,7 +1410,7 @@ function fillNotesWithHistory() {
   pushHistory(clonePuzzle(state.puzzle));
   fillAllNotes(state.puzzle);
   state.runMessage = "Filled all legal pencil notes.";
-  showTechniqueHint();
+  closeHintDetails();
 }
 
 function clearNotesWithHistory() {

@@ -120,6 +120,7 @@ test("fill notes is undoable", async ({ page }) => {
 
   await page.locator("[data-action='fill-notes']").click();
   await expect(page.locator(".notes .on")).not.toHaveCount(0);
+  await expect(page.getByTestId("hint-panel")).toHaveCount(0);
 
   await page.locator("[data-action='undo']").click();
   await expect(page.locator(".notes .on")).toHaveCount(0);
