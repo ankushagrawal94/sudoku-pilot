@@ -63,6 +63,35 @@ test("loads without a selected cell, prefilled notes, or visible spoilers", asyn
   await expect(page.locator(".app-header")).not.toContainText(/available moves?|In progress|Solved/);
 });
 
+test("puts a save offline button at the bottom of the homepage", async ({ page }) => {
+  await page.goto("/");
+
+  const saveOffline = page.getByRole("button", { name: "Save offline", exact: true });
+  await expect(saveOffline).toBeVisible();
+  await expect(saveOffline).toHaveAttribute("data-testid", "save-offline");
+  await expect.poll(() => saveOffline.evaluate((button) => button.closest(".shell")?.lastElementChild?.contains(button))).toBe(true);
+});
+
+test("save offline opens install instructions on iPhone", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      get: () => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 Version/18.5 Mobile/15E148 Safari/604.1"
+    });
+  });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Save offline", exact: true }).click();
+  await expect(page.getByTestId("install-prompt").getByRole("heading", { name: "Play offline from your Home Screen" })).toBeVisible();
+});
+
+test("save offline links desktop browsers to the setup guide", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Save offline", exact: true }).click();
+  await expect(page).toHaveURL(/\/offline-sudoku-app\/$/);
+});
+
 test("renders starting digits black and player-entered digits blue", async ({ page }) => {
   await page.goto("/");
 
@@ -239,6 +268,7 @@ test("does not promote installation when already running from the Home Screen", 
     });
   });
   await page.goto("/");
+  await expect(page.getByRole("button", { name: "Save offline", exact: true })).toHaveCount(0);
   await importGrid(page, NEARLY_SOLVED_GRID);
   await page.getByTestId("cell-80").click();
   await page.locator("[data-digit='9']").click();
