@@ -75,6 +75,19 @@ test("renders starting digits black and player-entered digits blue", async ({ pa
   await expect(emptyCell.locator(".value")).toHaveCSS("color", "rgb(63, 124, 196)");
 });
 
+test("entering the same digit twice only creates one undo step", async ({ page }) => {
+  await page.goto("/");
+
+  const emptyCell = page.locator(".cell:not(.given)").first();
+  await emptyCell.click();
+  await page.locator("[data-digit='1']").click();
+  await page.locator("[data-digit='1']").click();
+  await expect(emptyCell.locator(".value")).toHaveText("1");
+
+  await page.locator("[data-action='undo']").click();
+  await expect(emptyCell.locator(".value")).toHaveCount(0);
+});
+
 test("tap controls disable double-tap zoom while preserving page zoom", async ({ page }) => {
   await page.goto("/");
 

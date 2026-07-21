@@ -1287,20 +1287,20 @@ function enterDigit(digit) {
     return;
   }
   if (state.selected === null || state.puzzle.givens[state.selected]) return;
+  if (state.numberMode === "note" && state.puzzle.values[state.selected]) return;
+  if (state.numberMode === "value" && state.puzzle.values[state.selected] === digit) return;
   state.runMessage = "";
   pushHistory(clonePuzzle(state.puzzle));
   if (state.numberMode === "note") {
-    if (state.puzzle.values[state.selected]) return;
     const notes = state.puzzle.notes[state.selected];
     if (notes.has(digit)) notes.delete(digit);
     else notes.add(digit);
     puzzleJourney.recordInteraction();
   } else {
-    const changed = state.puzzle.values[state.selected] !== digit;
-    if (changed) state.puzzleMoveCount += 1;
+    state.puzzleMoveCount += 1;
     state.puzzle.values[state.selected] = digit;
     state.puzzle.notes[state.selected].clear();
-    if (changed) puzzleJourney.recordMove(state.puzzleMoveCount);
+    puzzleJourney.recordMove(state.puzzleMoveCount);
     for (let index = 0; index < 81; index += 1) {
       if (sameBox(index, state.selected) || rowOf(index) === rowOf(state.selected) || colOf(index) === colOf(state.selected)) {
         state.puzzle.notes[index].delete(digit);
