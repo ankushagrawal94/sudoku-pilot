@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 
-const [vercelConfig, appSource, browserAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient] = await Promise.all([
+const [vercelConfig, appSource, browserAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient, sudokuOcrRoute] = await Promise.all([
   readFile(new URL("../vercel.json", import.meta.url), "utf8"),
   readFile(new URL("../src/app.js", import.meta.url), "utf8"),
   readFile(new URL("../src/browserAnalytics.js", import.meta.url), "utf8"),
   readFile(new URL("../.env.example", import.meta.url), "utf8"),
   readFile(new URL("../.gitignore", import.meta.url), "utf8"),
   readFile(new URL("../README.md", import.meta.url), "utf8"),
-  readFile(new URL("../server/sudoku-ocr-client.js", import.meta.url), "utf8")
+  readFile(new URL("../server/sudoku-ocr-client.js", import.meta.url), "utf8"),
+  readFile(new URL("../api/sudoku-ocr.js", import.meta.url), "utf8")
 ]);
 const vercel = JSON.parse(vercelConfig);
 const packageConfig = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -28,15 +29,27 @@ assert.match(headers["permissions-policy"] || "", /microphone=\(\)/);
 assert.doesNotMatch(appSource, /https?:\/\//i, "Application source must not load remote runtime scripts.");
 assert.doesNotMatch(appSource, /createElement\(["']script["']\)/, "OCR must not inject a script element.");
 assert.match(appSource, /ALLOWED_IMAGE_TYPES/);
-assert.match(appSource, /MAX_IMAGE_BYTES = 5 \* 1024 \* 1024/);
-assert.equal(packageConfig.dependencies["tesseract.js"], "5.1.1", "OCR engine must be npm-pinned.");
-assert.match(appSource, /import\(["']tesseract\.js["']\)/, "OCR engine must be dynamically imported.");
-assert.match(appSource, /langPath: "\/ocr"/, "OCR language data must be served from this origin.");
-assert.match(appSource, /workerPath:/, "OCR worker must be an app-controlled asset.");
+assert.match(appSource, /MAX_IMAGE_BYTES = 4 \* 1024 \* 1024/);
+assert.match(appSource, /fetch\("\/api\/sudoku-ocr"/, "OCR images must be sent only through the same-origin proxy.");
+assert.match(appSource, /body: imageFile/, "The selected image must be sent as raw request bytes.");
+assert.match(appSource, /new AbortController\(\)/, "Online OCR requests must be cancellable.");
+assert.doesNotMatch(appSource, /import\(["']tesseract\.js["']\)/, "The browser must not run a second local OCR engine.");
+assert.doesNotMatch(appSource, /\/ocr\//, "The browser must not reference legacy local OCR assets.");
 assert.doesNotMatch(appSource, /cdn\.|jsdelivr|unpkg/i, "OCR must not reference third-party CDNs.");
+assert.equal(packageConfig.dependencies["tesseract.js"], undefined, "The replaced browser OCR engine must not remain a production dependency.");
+assert.equal(packageConfig.dependencies["@tesseract.js-data/eng"], undefined, "Legacy browser OCR language data must not remain a production dependency.");
+for (const asset of ["eng.traineddata.gz", "tesseract-core.wasm", "tesseract-core.wasm.js", "worker.min.js"]) {
+  await assert.rejects(
+    access(new URL(`../public/ocr/${asset}`, import.meta.url)),
+    { code: "ENOENT" },
+    `Legacy browser OCR asset must stay removed: public/ocr/${asset}`
+  );
+}
 assert.match(envExample, /^VITE_POSTHOG_KEY=\s*$/m);
 assert.match(envExample, /^VITE_POSTHOG_HOST=https:\/\/us\.i\.posthog\.com$/m);
 assert.match(envExample, /^RAPIDAPI_KEY=\s*$/m);
+assert.match(envExample, /^SUDOKU_OCR_ENABLED=false$/m);
+assert.match(envExample, /^SUDOKU_OCR_MAX_CALLS_PER_IP_PER_HOUR=3$/m);
 assert.match(gitignore, /^\.env\.\*$/m);
 assert.match(gitignore, /^!\.env\.example$/m);
 assert.match(readme, /VITE_POSTHOG_KEY/);
@@ -49,5 +62,10 @@ assert.doesNotMatch(packageConfig.scripts.test, /sudoku-ocr-live/, "The quota-co
 assert.doesNotMatch(sudokuOcrClient, /VITE_RAPIDAPI_KEY/, "The RapidAPI key must remain server-only.");
 assert.match(sudokuOcrClient, /event: "sudoku_ocr_provider_call"/, "Every provider call must emit a countable usage event.");
 assert.match(sudokuOcrClient, /retry: false/, "The OCR provider client must not silently spend quota on retries.");
+assert.match(sudokuOcrRoute, /hasExpectedImageSignature/, "The OCR proxy must validate image signatures before spending provider quota.");
+assert.match(sudokuOcrRoute, /SUDOKU_OCR_ENABLED/, "The OCR proxy must have an operator kill switch.");
+assert.match(sudokuOcrRoute, /takeClientQuota/, "The OCR proxy must throttle repeated calls before spending provider quota.");
+assert.doesNotMatch(sudokuOcrClient, /providerMessage/, "Provider response bodies must not be retained in OCR errors.");
+assert.doesNotMatch(sudokuOcrRoute, /error:\s*error(?:\?\.message|\.message)/, "OCR request logs must not include exception messages.");
 
 console.log("security configuration tests passed");
