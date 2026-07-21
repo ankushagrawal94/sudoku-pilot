@@ -128,6 +128,7 @@ function render() {
         </section>
       `}
       ${state.completionSummary ? renderCompletionCelebration() : ""}
+      ${renderSaveOfflineButton()}
       ${state.installPromptOpen ? renderInstallPrompt() : ""}
     </section>
   `;
@@ -227,6 +228,18 @@ function renderInstallPrompt() {
   `;
 }
 
+function renderSaveOfflineButton() {
+  if (installPlatform().standalone) return "";
+  return `
+    <footer class="save-offline-footer">
+      <button class="save-offline-button" data-action="save-offline" data-testid="save-offline">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+        <span>Save offline</span>
+      </button>
+    </footer>
+  `;
+}
+
 function renderIosInstallVisuals() {
   const steps = [
     ["/images/ios-install-1-open-share.webp", "Open Safari's menu", "Tap Share.", "Safari menu with the Share action at the top"],
@@ -265,6 +278,14 @@ function openInstallPrompt() {
   state.completionSummary = null;
   state.installPromptOpen = true;
   render();
+}
+
+function saveOffline() {
+  if (canOpenInstallPrompt()) {
+    openInstallPrompt();
+    return;
+  }
+  window.location.assign("/offline-sudoku-app/");
 }
 
 function dismissInstallPrompt() {
@@ -1196,6 +1217,10 @@ function handleAction(action) {
   if (action === "cancel-ocr") cancelOcr();
   if (action === "restore-previous") restorePreviousPuzzle();
   if (action === "clear-local-data") clearLocalData();
+  if (action === "save-offline") {
+    saveOffline();
+    return;
+  }
   if (action === "open-install-prompt") {
     openInstallPrompt();
     return;

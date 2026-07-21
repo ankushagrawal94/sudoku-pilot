@@ -1674,6 +1674,38 @@ button:hover,
   line-height: 1.35;
 }
 
+.save-offline-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 48px;
+  padding-top: 22px;
+  border-top: 1px solid #dbe4ef;
+}
+
+.save-offline-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 190px;
+  border-color: #b9d3ec;
+  border-radius: 999px;
+  padding: 0 20px;
+  background: #f7fbff;
+  color: #245f9f;
+  font-weight: 800;
+}
+
+.save-offline-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .content-links {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1874,6 +1906,14 @@ button:hover,
 
   .offline-install-box > :last-child {
     grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .save-offline-footer {
+    margin-top: 36px;
+  }
+
+  .save-offline-button {
     width: 100%;
   }
 
