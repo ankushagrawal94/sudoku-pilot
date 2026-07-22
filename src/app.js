@@ -52,11 +52,14 @@ const MAX_PERSISTED_HISTORY = 12;
 const FEEDBACK_EMAIL = "hello@sudokupilot.com";
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const PRIMARY_VIEWS = new Set(["play", "learn", "practice", "import"]);
+const PLAY_PANELS = new Set(["more", "about"]);
 let timerInterval = null;
 const viewedLessons = new Set();
 let deferredInstallPrompt = null;
 
 const state = createInitialState();
+initializeNavigation();
 const puzzleJourney = createPuzzleJourney((event, properties) => productAnalytics.capture(event, properties));
 const hasSavedProgress = hasPlayerProgress() || state.hintRequested;
 puzzleJourney.resume(puzzleAnalyticsContext(), state.puzzleMoveCount, hasSavedProgress);
@@ -74,8 +77,88 @@ if (hasSavedProgress) {
 
 registerInstallEvents();
 registerServiceWorker();
+window.addEventListener("popstate", handlePopState);
 render();
 startTimer();
+
+function routeFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const requestedView = params.get("view") || "play";
+  const view = PRIMARY_VIEWS.has(requestedView) ? requestedView : "play";
+  const requestedPanel = params.get("panel");
+  const panel = view === "play" && PLAY_PANELS.has(requestedPanel) ? requestedPanel : null;
+  return { view, panel };
+}
+
+function navigationUrl({ view, panel }) {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("view");
+  url.searchParams.delete("panel");
+  if (view !== "play" || panel) url.searchParams.set("view", view);
+  if (view === "play" && panel) url.searchParams.set("panel", panel);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function initializeNavigation() {
+  const route = routeFromLocation();
+  state.view = route.view;
+  state.panel = route.panel;
+  state.focusRoute = false;
+  const depth = Number(window.history.state?.sudokuPilotDepth) || 0;
+  window.history.replaceState({ sudokuPilot: true, sudokuPilotDepth: depth, ...route }, "", navigationUrl(route));
+}
+
+function navigateTo(view, { panel = null, replace = false, analyticsEntryPoint = "navigation" } = {}) {
+  const route = {
+    view: PRIMARY_VIEWS.has(view) ? view : "play",
+    panel: view === "play" && PLAY_PANELS.has(panel) ? panel : null
+  };
+  if (state.view === route.view && state.panel === route.panel) return false;
+  if (state.view === "import" && route.view !== "import") silentlyCancelOcr();
+  state.view = route.view;
+  state.panel = route.panel;
+  state.practiceError = "";
+  state.focusRoute = true;
+  closeHintDetails();
+  if (state.view === "learn") trackLessonViewed(analyticsEntryPoint);
+  const currentDepth = Number(window.history.state?.sudokuPilotDepth) || 0;
+  const nextState = { sudokuPilot: true, sudokuPilotDepth: replace ? currentDepth : currentDepth + 1, ...route };
+  window.history[replace ? "replaceState" : "pushState"](nextState, "", navigationUrl(route));
+  productAnalytics.capture("app_view_changed", {
+    view: route.view,
+    panel: route.panel || "none",
+    entry_point: analyticsEntryPoint
+  });
+  return true;
+}
+
+function navigateBack(fallback = { view: "play", panel: null }) {
+  const depth = Number(window.history.state?.sudokuPilotDepth) || 0;
+  if (depth > 0) {
+    window.history.back();
+    return;
+  }
+  navigateTo(fallback.view, { panel: fallback.panel, replace: true, analyticsEntryPoint: "close" });
+  render();
+}
+
+function handlePopState() {
+  const route = routeFromLocation();
+  if (state.view === "import" && route.view !== "import") silentlyCancelOcr();
+  state.view = route.view;
+  state.panel = route.panel;
+  state.practiceError = "";
+  state.focusRoute = true;
+  closeHintDetails();
+  if (state.view === "learn") trackLessonViewed("browser_history");
+  render();
+}
+
+function focusRequestedRoute() {
+  if (!state.focusRoute) return;
+  state.focusRoute = false;
+  (app.querySelector("[data-route-heading]") || app.querySelector(".primary-nav button.active"))?.focus();
+}
 
 function render() {
   state.moves = findAllMoves(state.puzzle, activeHintTechniques());
@@ -95,9 +178,9 @@ function render() {
           <a class="icon-button header-about-link" href="/about/">About</a>
         </div>
         <nav class="primary-nav" aria-label="Sudoku Pilot sections">
-          ${[["play", "Play"], ["learn", "Learn"], ["practice", "Practice"]].map(([view, label]) => `<button class="${state.view === view ? "active" : ""}" data-view="${view}" aria-current="${state.view === view ? "page" : "false"}">${label}</button>`).join("")}
+          ${[["play", "Play"], ["learn", "Learn"], ["practice", "Practice"], ["import", "Import"]].map(([view, label]) => `<button class="${state.view === view ? "active" : ""}" data-view="${view}" aria-current="${state.view === view ? "page" : "false"}">${label}</button>`).join("")}
         </nav>
-        ${state.view === "play" ? `
+        ${state.view === "play" && !state.panel ? `
           <nav class="difficulty-tabs" aria-label="Difficulty">
             ${DIFFICULTY_ORDER.map((level) => `<button class="${state.difficulty === level ? "active" : ""}" data-difficulty="${level}">${titleCase(level)}</button>`).join("")}
           </nav>
@@ -105,10 +188,7 @@ function render() {
         ` : ""}
       </header>
 
-      ${state.view === "learn" ? renderLessonBrowser() : state.view === "practice" ? renderPracticeBrowser() : `
-        ${state.importOpen ? renderImportPanel() : ""}
-        ${state.moreOpen ? renderMorePanel() : ""}
-        ${state.aboutOpen ? renderAboutPanel() : ""}
+      ${state.view === "learn" ? renderLessonBrowser() : state.view === "practice" ? renderPracticeBrowser() : state.view === "import" ? renderImportPanel() : state.panel === "more" ? renderMorePanel() : state.panel === "about" ? renderAboutPanel() : `
         ${state.showMistakes && check.status !== "ok" ? renderCheckPanel(check) : ""}
         <section class="game-layout">
           <section class="play-area">
@@ -127,6 +207,7 @@ function render() {
   bindEvents();
   saveState();
   focusRequestedHint();
+  focusRequestedRoute();
   activateCompletionDialog();
   activateInstallDialog();
 }
@@ -349,7 +430,7 @@ function renderLessonBrowser() {
       </aside>
       <article class="lesson-content panel" data-technique="${lesson.technique}">
         <header class="lesson-heading">
-          <h2>${lesson.technique}</h2>
+          <h2 tabindex="-1" data-route-heading>${lesson.technique}</h2>
         </header>
 
         ${renderLessonVisual(example)}
@@ -421,7 +502,7 @@ function renderPracticeBrowser() {
   return `
     <main class="practice-shell" data-testid="practice-browser">
       <section class="practice-controls panel">
-        <div><p class="eyebrow">Deliberate practice</p><h2>${state.practiceTechnique}</h2><p>${activeMode.description}</p></div>
+        <div><p class="eyebrow">Deliberate practice</p><h2 tabindex="-1" data-route-heading>${state.practiceTechnique}</h2><p>${activeMode.description}</p></div>
         <label for="practice-technique-select">Technique</label>
         <select id="practice-technique-select" data-practice-technique>${renderTechniqueOptions(state.practiceTechnique)}</select>
         <div class="practice-mode-tabs" role="tablist" aria-label="Practice modes">
@@ -600,7 +681,7 @@ function renderKeypad() {
         <button class="tool-button" data-action="undo"><span>Undo</span></button>
         <button class="tool-button" data-action="erase"><span>Erase</span></button>
         <button class="tool-button primary-tool ${isHintOpen() ? "active" : ""}" data-action="hint" data-testid="hint-button"><span>Hint</span></button>
-        <button class="tool-button ${state.moreOpen ? "active" : ""}" data-action="toggle-more"><span>More</span></button>
+        <button class="tool-button" data-action="toggle-more"><span>More</span></button>
       </div>
       ${state.previousPuzzle ? `<button data-action="restore-previous">Restore previous puzzle</button>` : ""}
       <div class="keypad-control-groups">
@@ -624,10 +705,9 @@ function renderMorePanel() {
   return `
     <section class="panel more-panel" data-testid="more-panel">
       <div class="panel-title">
-        <h2>More</h2>
+        <h2 tabindex="-1" data-route-heading>More</h2>
         <button class="primary" data-action="toggle-more">Close</button>
       </div>
-      ${renderNewPuzzle()}
       ${renderPreferencesPanel()}
       ${renderAutomationPanel()}
       ${renderTechniqueFilters()}
@@ -655,21 +735,6 @@ function renderPreferencesPanel() {
           <option value="digit-first" ${state.entryMethod === "digit-first" ? "selected" : ""}>Digit first</option>
         </select>
       </label>
-      <p class="caption">You can still check the board when requesting a hint. These choices are saved on this device.</p>
-    </section>
-  `;
-}
-
-function renderNewPuzzle() {
-  return `
-    <section class="sub-panel new-panel">
-      <div class="panel-title">
-        <h2>Start</h2>
-      </div>
-      <div class="action-stack">
-        <button class="primary" data-action="new-puzzle" data-testid="new-puzzle">New generated puzzle</button>
-        <button data-action="toggle-import">Import screenshot</button>
-      </div>
     </section>
   `;
 }
@@ -706,7 +771,7 @@ function renderAutomationPanel() {
       <div class="panel-title">
         <h2>Run techniques</h2>
       </div>
-      <p class="caption">Run every checked technique repeatedly until none of them can move the board forward.</p>
+      <p class="caption automation-description">Run every checked technique repeatedly until none of them can move the board forward.</p>
       <button class="primary wide" data-action="run-selected" data-testid="run-selected">Run selected techniques</button>
     </section>
   `;
@@ -746,7 +811,7 @@ function renderAboutPanel() {
   return `
     <section class="panel about-panel" data-testid="about-panel">
       <div class="panel-title">
-        <h2>About Sudoku Pilot</h2>
+        <h2 tabindex="-1" data-route-heading>About Sudoku Pilot</h2>
         <button data-action="toggle-about">Close</button>
       </div>
           <p>Sudoku Pilot is a practice-first Sudoku trainer that helps you recognize logical techniques and understand each move.</p>
@@ -1059,36 +1124,64 @@ function relationshipLabel(kind) {
 }
 
 function renderImportPanel() {
+  const screenshotMode = state.importMode === "screenshot";
   return `
-    <section class="panel import-panel analytics-image-block">
+    <section class="panel import-panel analytics-image-block" data-testid="import-view" aria-labelledby="import-title">
       <div class="panel-title">
-        <h2>Import screenshot</h2>
-        <button data-action="toggle-import">Close</button>
+        <h2 id="import-title" tabindex="-1" data-route-heading>Import a puzzle</h2>
+        <button data-action="close-import">Back</button>
       </div>
-      <input type="file" accept="image/png,image/jpeg,image/webp" data-import-file ${state.ocrLoading ? "disabled" : ""} />
-      ${state.importedImage ? `<img class="import-preview" src="${state.importedImage}" alt="Uploaded Sudoku screenshot preview" />` : ""}
+      <p class="caption import-intro">Upload a screenshot for online recognition, or enter a board yourself. Review every cell before starting.</p>
+      <div class="import-mode-options" role="group" aria-label="Import method">
+        <button type="button" data-import-mode="screenshot" aria-pressed="${screenshotMode}" class="${screenshotMode ? "active" : ""}" ${state.ocrLoading ? "disabled" : ""}>Upload screenshot</button>
+        <button type="button" data-import-mode="manual" aria-pressed="${!screenshotMode}" class="${!screenshotMode ? "active" : ""}" ${state.ocrLoading ? "disabled" : ""}>Enter manually</button>
+      </div>
+      <section class="import-source-panel" aria-label="${screenshotMode ? "Screenshot import" : "Manual puzzle entry"}">
+        ${screenshotMode ? `
+          <label class="import-file-label"><span>Sudoku screenshot</span><input type="file" accept="image/png,image/jpeg,image/webp" data-import-file ${state.ocrLoading ? "disabled" : ""} /></label>
+          ${state.importedImage ? `<img class="import-preview" src="${state.importedImage}" alt="Uploaded Sudoku screenshot preview" />` : ""}
+          <p class="caption">Crop closely to one straight-on 9 by 9 grid for best results. Always review every detected filled digit and pencil note.</p>
+          <p class="caption import-disclosure"><strong>Before you scan:</strong> Sudoku Pilot uploads your puzzle image to a paid third-party recognition API. You are never charged. Online scans use a limited shared quota, so recognition may not always be available.</p>
+          <div class="tool-row import-scan-actions">
+            ${state.ocrLoading
+              ? `<button data-action="cancel-ocr">Cancel online scan</button>`
+              : `<button data-action="ocr-import" ${state.importedFile && !state.ocrScanComplete ? "" : "disabled"}>${state.ocrScanComplete ? "Scan complete" : "Scan online"}</button>`}
+          </div>
+        ` : `
+          <p class="caption">Select a cell and type 1–9, use the keypad, or paste an 81-character puzzle containing digits, zeroes, or periods.</p>
+        `}
+      </section>
       ${state.importError ? `<p class="caption" data-testid="import-error" role="alert">${escapeHtml(state.importError)}</p>` : ""}
-      <p class="caption">Crop closely to one straight-on 9 by 9 grid for best results. Always review every detected filled digit and pencil note before applying the import. Select a review cell, then use Filled value or Pencil notes to correct its type.</p>
-      <p class="caption import-disclosure"><strong>Before you scan:</strong> Sudoku Pilot uploads your puzzle image to a paid third-party recognition API. You are never charged. Online scans use a limited shared quota, so recognition may not always be available.</p>
       ${state.importStatus ? `<p class="run-message" data-testid="import-status" role="status">${state.importStatus}</p>` : ""}
-      <div class="import-kind-control" role="group" aria-label="Selected review cell type">
-        <span data-import-kind-label>${cellName(state.importSelectedCell)} type</span>
-        <button type="button" data-import-kind-choice="value" aria-pressed="${state.importCellKinds[state.importSelectedCell] !== "notes"}" class="${state.importCellKinds[state.importSelectedCell] !== "notes" ? "active" : ""}">Filled value</button>
-        <button type="button" data-import-kind-choice="notes" aria-pressed="${state.importCellKinds[state.importSelectedCell] === "notes"}" class="${state.importCellKinds[state.importSelectedCell] === "notes" ? "active" : ""}">Pencil notes</button>
-      </div>
-      <div class="import-grid">
-        ${state.importCells.map((value, index) => {
-          const kind = state.importCellKinds[index] === "notes" ? "notes" : "value";
-          const description = !value ? "empty cell" : kind === "notes" ? "pencil notes" : "filled digit";
-          return `<input class="${value ? "has-import-content" : ""}" value="${escapeHtml(value)}" data-import-cell="${index}" data-import-kind="${kind}" maxlength="9" inputmode="numeric" aria-label="Import ${cellName(index)}, ${description}" />`;
-        }).join("")}
-      </div>
-      <div class="tool-row">
-        ${state.ocrLoading
-          ? `<button data-action="cancel-ocr">Cancel online scan</button>`
-          : `<button data-action="ocr-import" ${state.importedFile && !state.ocrScanComplete ? "" : "disabled"}>${state.ocrScanComplete ? "Scan complete" : "Scan online"}</button>`}
-        <button class="primary" data-action="apply-import" ${state.ocrLoading ? "disabled" : ""}>Apply Import</button>
-      </div>
+      <section class="import-review" aria-labelledby="import-review-title">
+        <div class="import-review-header">
+          <h3 id="import-review-title">Review board</h3>
+          ${screenshotMode ? `<p class="caption">Select a cell, then mark it as a filled value or pencil notes.</p>` : ""}
+        </div>
+        ${screenshotMode ? `
+          <div class="import-kind-control" role="group" aria-label="Selected review cell type">
+            <span data-import-kind-label>${cellName(state.importSelectedCell)} type</span>
+            <button type="button" data-import-kind-choice="value" aria-pressed="${state.importCellKinds[state.importSelectedCell] !== "notes"}" class="${state.importCellKinds[state.importSelectedCell] !== "notes" ? "active" : ""}">Filled value</button>
+            <button type="button" data-import-kind-choice="notes" aria-pressed="${state.importCellKinds[state.importSelectedCell] === "notes"}" class="${state.importCellKinds[state.importSelectedCell] === "notes" ? "active" : ""}">Pencil notes</button>
+          </div>
+        ` : ""}
+        <div class="import-grid" role="group" aria-label="Puzzle review grid">
+          ${state.importCells.map((value, index) => {
+            const kind = state.importCellKinds[index] === "notes" ? "notes" : "value";
+            const description = !value ? "empty cell" : kind === "notes" ? "pencil notes" : "filled digit";
+            return `<input class="${value ? "has-import-content" : ""}" value="${escapeHtml(value)}" data-import-cell="${index}" data-import-kind="${kind}" maxlength="${screenshotMode ? 9 : 1}" inputmode="numeric" autocomplete="off" aria-label="Import ${cellName(index)}, ${description}" />`;
+          }).join("")}
+        </div>
+        ${screenshotMode ? "" : `
+          <div class="import-keypad" aria-label="Manual entry keypad">
+            ${[1,2,3,4,5,6,7,8,9].map((digit) => `<button type="button" data-import-digit="${digit}">${digit}</button>`).join("")}
+            <button type="button" data-import-erase>Erase</button>
+          </div>
+        `}
+        <div class="tool-row import-actions">
+          <button class="primary" data-action="apply-import" ${state.ocrLoading ? "disabled" : ""}>Start puzzle</button>
+        </div>
+      </section>
     </section>
   `;
 }
@@ -1132,6 +1225,7 @@ function bindEvents() {
   app.querySelectorAll("[data-run-technique]").forEach((button) => {
     button.addEventListener("click", () => {
       runOneTechnique(button.dataset.runTechnique);
+      navigateTo("play", { replace: true, analyticsEntryPoint: "run_technique" });
       render();
     });
   });
@@ -1144,10 +1238,7 @@ function bindEvents() {
   });
   app.querySelectorAll("[data-view]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.view = button.dataset.view;
-      state.practiceError = "";
-      if (state.view === "learn") trackLessonViewed("navigation");
-      closeHintDetails();
+      navigateTo(button.dataset.view);
       render();
     });
   });
@@ -1171,15 +1262,31 @@ function bindEvents() {
   });
   const fileInput = app.querySelector("[data-import-file]");
   if (fileInput) fileInput.addEventListener("change", onImportFile);
+  app.querySelectorAll("[data-import-mode]").forEach((button) => {
+    button.addEventListener("click", () => setImportMode(button.dataset.importMode));
+  });
   app.querySelectorAll("[data-import-cell]").forEach((input) => {
     input.addEventListener("focus", () => selectImportReviewCell(Number(input.dataset.importCell)));
+    input.addEventListener("keydown", (event) => handleImportCellKeydown(event, Number(input.dataset.importCell)));
+    input.addEventListener("paste", (event) => handleImportPaste(event));
     input.addEventListener("input", () => {
       const index = Number(input.dataset.importCell);
       state.importCells[index] = input.value.replace(/[^1-9]/g, "");
-      if (state.importCells[index].length > 1) state.importCellKinds[index] = "notes";
+      if (state.importMode === "manual") {
+        state.importCells[index] = state.importCells[index].slice(-1);
+        state.importCellKinds[index] = "value";
+      } else if (state.importCells[index].length > 1) state.importCellKinds[index] = "notes";
       input.value = state.importCells[index];
       syncImportReviewCell(index);
+      saveState();
     });
+  });
+  app.querySelectorAll("[data-import-digit]").forEach((button) => {
+    button.addEventListener("click", () => enterImportDigit(button.dataset.importDigit));
+  });
+  app.querySelector("[data-import-erase]")?.addEventListener("click", () => {
+    eraseImportCell();
+    focusImportCell(state.importSelectedCell);
   });
   app.querySelectorAll("[data-import-kind-choice]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1214,6 +1321,128 @@ function syncImportReviewCell(index) {
   });
 }
 
+function setImportMode(mode) {
+  if (!['screenshot', 'manual'].includes(mode) || state.ocrLoading || state.importMode === mode) return;
+  if (state.importMode === "screenshot") silentlyCancelOcr();
+  state.importMode = mode;
+  state.importError = "";
+  state.importStatus = mode === "manual"
+    ? "Enter the filled digits, then review the board before starting."
+    : state.importedFile
+      ? "Screenshot ready. Review the upload disclosure, then choose Scan online."
+      : "Choose a screenshot, or fill the review grid without scanning.";
+  render();
+  app.querySelector(`[data-import-mode="${mode}"]`)?.focus();
+}
+
+function focusImportCell(index) {
+  const bounded = Math.max(0, Math.min(80, index));
+  state.importSelectedCell = bounded;
+  const input = app.querySelector(`[data-import-cell="${bounded}"]`);
+  input?.focus();
+  input?.select();
+}
+
+function moveImportSelection(dx, dy) {
+  const current = state.importSelectedCell;
+  const row = Math.max(0, Math.min(8, rowOf(current) + dy));
+  const col = Math.max(0, Math.min(8, colOf(current) + dx));
+  focusImportCell(row * 9 + col);
+}
+
+function enterImportDigit(digit, { advance = true } = {}) {
+  const value = String(digit);
+  if (!/^[1-9]$/.test(value)) return;
+  const index = state.importSelectedCell;
+  state.importCells[index] = value;
+  state.importCellKinds[index] = "value";
+  const input = app.querySelector(`[data-import-cell="${index}"]`);
+  if (input) input.value = value;
+  syncImportReviewCell(index);
+  saveState();
+  if (advance) focusImportCell(Math.min(80, index + 1));
+}
+
+function eraseImportCell() {
+  const index = state.importSelectedCell;
+  state.importCells[index] = "";
+  state.importCellKinds[index] = "value";
+  const input = app.querySelector(`[data-import-cell="${index}"]`);
+  if (input) input.value = "";
+  syncImportReviewCell(index);
+  saveState();
+}
+
+function handleImportCellKeydown(event, index) {
+  state.importSelectedCell = index;
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    moveImportSelection(-1, 0);
+    return;
+  }
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    moveImportSelection(1, 0);
+    return;
+  }
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moveImportSelection(0, -1);
+    return;
+  }
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moveImportSelection(0, 1);
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    focusImportCell(index + (event.shiftKey ? -1 : 1));
+    return;
+  }
+  if (state.importMode !== "manual") return;
+  if (/^[1-9]$/.test(event.key)) {
+    event.preventDefault();
+    enterImportDigit(event.key);
+    return;
+  }
+  if (["0", "Delete"].includes(event.key)) {
+    event.preventDefault();
+    eraseImportCell();
+    return;
+  }
+  if (event.key === "Backspace") {
+    event.preventDefault();
+    if (state.importCells[index]) eraseImportCell();
+    else {
+      focusImportCell(index - 1);
+      eraseImportCell();
+    }
+  }
+}
+
+function handleImportPaste(event) {
+  const raw = event.clipboardData?.getData("text/plain") || "";
+  const normalized = raw.replace(/\s/g, "");
+  if (normalized.length !== 81 || !/^[0-9.]{81}$/.test(normalized)) {
+    if (normalized.length >= 80) {
+      event.preventDefault();
+      state.importStatus = "Paste exactly 81 digits, using 0 or . for empty cells.";
+      render();
+    }
+    return;
+  }
+  event.preventDefault();
+  state.importCells = [...normalized].map((value) => value === "0" || value === "." ? "" : value);
+  state.importCellKinds = Array.from({ length: 81 }, () => "value");
+  state.importStatus = "Pasted 81 cells. Review the board before starting.";
+  state.importError = "";
+  const firstBlank = state.importCells.findIndex((value) => !value);
+  state.importSelectedCell = firstBlank === -1 ? 80 : firstBlank;
+  render();
+  focusImportCell(state.importSelectedCell);
+}
+
 function handleAction(action) {
   if (action === "undo") undo();
   if (action === "erase") eraseSelected();
@@ -1244,7 +1473,10 @@ function handleAction(action) {
   if (action === "select-all") selectTechniqueSet(ALL_TECHNIQUES);
   if (action === "enable-all-techniques") enableAllTechniquesInline();
   if (action === "edit-techniques") openTechniqueSettings();
-  if (action === "run-selected") runSelectedTechniques();
+  if (action === "run-selected") {
+    runSelectedTechniques();
+    navigateTo("play", { replace: true, analyticsEntryPoint: "run_techniques" });
+  }
   if (action === "hint") requestHint();
   if (action === "show-technique") showTechniqueHint();
   if (action === "show-exact-hint") state.hintStage = 4;
@@ -1256,20 +1488,23 @@ function handleAction(action) {
   if (action === "apply-hint") applyCurrentHint();
   if (action === "close-hint") closeHintDetails();
   if (action === "fix-notes") fixNotes();
-  if (action === "toggle-import") {
-    state.importOpen = !state.importOpen;
-    if (state.importOpen) state.moreOpen = false;
-  }
   if (action === "toggle-more") {
-    state.moreOpen = !state.moreOpen;
-    if (state.moreOpen) state.importOpen = false;
+    if (state.view === "play" && state.panel === "more") {
+      navigateBack();
+      return;
+    }
+    navigateTo("play", { panel: "more", analyticsEntryPoint: "more_button" });
   }
   if (action === "toggle-about") {
-    state.aboutOpen = !state.aboutOpen;
-    if (state.aboutOpen) {
-      state.moreOpen = false;
-      state.importOpen = false;
+    if (state.view === "play" && state.panel === "about") {
+      navigateBack({ view: "play", panel: "more" });
+      return;
     }
+    navigateTo("play", { panel: "about", analyticsEntryPoint: "about_button" });
+  }
+  if (action === "close-import") {
+    navigateBack();
+    return;
   }
   if (action === "apply-import") applyImport();
   if (action === "ocr-import") tryOcr();
@@ -1504,8 +1739,7 @@ function startPuzzle(difficulty = state.difficulty, { skipConfirm = false } = {}
   state.selected = null;
   state.multiSelected.clear();
   state.multiSelectMode = false;
-  state.moreOpen = false;
-  state.importOpen = false;
+  state.panel = null;
   state.runMessage = `Started a new ${difficulty} puzzle.`;
   resetPuzzleStats();
   startTrackedPuzzle("generated");
@@ -1519,7 +1753,7 @@ function hasPlayerProgress() {
 }
 
 function openPracticeBrowser() {
-  state.view = "practice";
+  navigateTo("practice", { analyticsEntryPoint: "practice_action" });
   state.practiceTechnique = [...state.allowedTechniques].find((technique) => COMMITTED_COACHING_TECHNIQUES.includes(technique)) || state.practiceTechnique;
   clearPracticeSession();
 }
@@ -1527,7 +1761,7 @@ function openPracticeBrowser() {
 function openPracticeFromLesson() {
   state.practiceTechnique = state.lessonTechnique;
   state.practiceMode = "find-pattern";
-  state.view = "practice";
+  navigateTo("practice", { analyticsEntryPoint: "lesson" });
   startCertifiedPractice(0);
 }
 
@@ -1548,8 +1782,7 @@ function startCertifiedPractice(index = 0) {
     state.selected = null;
     state.multiSelected.clear();
     state.multiSelectMode = false;
-    state.moreOpen = false;
-    state.importOpen = false;
+    state.panel = null;
     resetPuzzleStats();
     state.puzzleSource = "practice";
     productAnalytics.capture("practice_started", {
@@ -1586,9 +1819,8 @@ function selectNextPracticeTechnique() {
 function openCurrentLesson() {
   state.lessonTechnique = state.practiceTechnique;
   state.lessonStage = 1;
-  state.view = "learn";
+  navigateTo("learn", { analyticsEntryPoint: "practice_return" });
   state.practiceError = "";
-  trackLessonViewed("practice_return");
   closeHintDetails();
 }
 
@@ -1766,19 +1998,18 @@ function applyImport() {
   state.selected = null;
   state.multiSelected.clear();
   state.multiSelectMode = false;
-  state.importOpen = false;
-  state.moreOpen = false;
   state.importStatus = "";
   state.runMessage = "Imported puzzle.";
   resetPuzzleStats();
   startTrackedPuzzle("import");
   productAnalytics.capture("screenshot_review_confirmed", {
-    input_method: state.importedFile ? "screenshot" : "manual",
+    input_method: state.importMode,
     filled_cells: candidate.values.filter(Boolean).length,
     note_cells: candidate.notes.filter((notes) => notes.size).length
   });
   resetTimer();
   closeHintDetails();
+  navigateTo("play", { replace: true, analyticsEntryPoint: "import_completed" });
 }
 
 function puzzleFromImportCells() {
@@ -1848,6 +2079,7 @@ function snapshotCurrentPuzzle() {
 
 function clearLocalData() {
   try {
+    silentlyCancelOcr();
     window.localStorage.removeItem(STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
@@ -1860,6 +2092,9 @@ function clearLocalData() {
     playedCanonicalIds.clear();
     for (const key of Object.keys(state)) delete state[key];
     Object.assign(state, freshState);
+    const route = routeFromLocation();
+    state.view = route.view;
+    state.panel = route.panel;
     puzzleJourney.resume(puzzleAnalyticsContext(), 0);
     state.runMessage = "Cleared locally saved puzzle data.";
   } catch {
@@ -1984,16 +2219,18 @@ function enableAllTechniquesInline() {
 }
 
 function openTechniqueSettings() {
-  state.moreOpen = true;
-  state.importOpen = false;
+  navigateTo("play", { panel: "more", analyticsEntryPoint: "hint_recovery" });
   state.runMessage = "Technique settings are open.";
 }
 
 function onImportFile(event) {
   const file = event.target.files?.[0];
   if (!file) return;
+  const readId = Symbol("import-file");
+  state.importFileReadId = readId;
   state.importError = "";
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+    state.importFileReadId = null;
     state.importedImage = null;
     state.importedFile = null;
     state.ocrScanComplete = false;
@@ -2003,6 +2240,7 @@ function onImportFile(event) {
     return;
   }
   if (file.size > MAX_IMAGE_BYTES) {
+    state.importFileReadId = null;
     state.importedImage = null;
     state.importedFile = null;
     state.ocrScanComplete = false;
@@ -2021,6 +2259,8 @@ function onImportFile(event) {
   render();
   const reader = new FileReader();
   reader.onload = () => {
+    if (state.importFileReadId !== readId || state.view !== "import" || state.importMode !== "screenshot") return;
+    state.importFileReadId = null;
     state.importedFile = file;
     state.importedImage = reader.result;
     state.ocrScanComplete = false;
@@ -2080,13 +2320,14 @@ function createInitialState() {
     wasSolved: false,
     playerStats: loadPlayerStats(),
     focusHint: false,
-    importOpen: false,
-    aboutOpen: false,
-    moreOpen: false,
+    focusRoute: false,
+    panel: null,
     runMessage: "",
     coachMessage: "",
     importedImage: null,
     importedFile: null,
+    importFileReadId: null,
+    importMode: "screenshot",
     importError: "",
     importCells: Array.from({ length: 81 }, () => ""),
     importCellKinds: Array.from({ length: 81 }, () => "value"),
@@ -2133,6 +2374,7 @@ function createInitialState() {
       puzzlePracticeMode: PRACTICE_MODES.some(({ id }) => id === saved.puzzlePracticeMode) ? saved.puzzlePracticeMode : null,
       completionRecorded: Boolean(saved.completionRecorded),
       wasSolved: isSolved(puzzle.values),
+      importMode: saved.importMode === "manual" ? "manual" : "screenshot",
       importCells: Array.isArray(saved.importCells) && saved.importCells.length === 81 ? saved.importCells : fallback.importCells,
       importCellKinds: Array.isArray(saved.importCellKinds) && saved.importCellKinds.length === 81
         ? saved.importCellKinds.map((kind) => kind === "notes" ? "notes" : "value")
@@ -2169,6 +2411,7 @@ function saveState() {
       practiceTechnique: state.practiceTechnique,
       practiceMode: state.practiceMode,
       completionRecorded: state.completionRecorded,
+      importMode: state.importMode,
       importCells: state.importCells,
       importCellKinds: state.importCellKinds
     };
@@ -2275,7 +2518,7 @@ function registerInstallEvents() {
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredInstallPrompt = event;
-    if (state.completionSummary || state.moreOpen) render();
+    if (state.completionSummary || state.panel === "more") render();
   });
   window.addEventListener("appinstalled", () => {
     deferredInstallPrompt = null;
@@ -2396,6 +2639,7 @@ function importReviewFromOcrResponse(payload) {
 
 function cancelOcr() {
   const abortController = state.ocrAbortController;
+  state.importFileReadId = null;
   state.ocrRequestId = null;
   state.ocrLoading = false;
   state.ocrAbortController = null;
@@ -2403,6 +2647,19 @@ function cancelOcr() {
   state.importStatus = "Online scan cancelled. Sudoku Pilot stopped waiting; a scan already sent may still count against the shared quota.";
   abortController?.abort();
   render();
+}
+
+function silentlyCancelOcr() {
+  const wasScanning = state.ocrLoading;
+  const wasReadingFile = Boolean(state.importFileReadId);
+  const abortController = state.ocrAbortController;
+  state.importFileReadId = null;
+  state.ocrRequestId = null;
+  state.ocrLoading = false;
+  state.ocrAbortController = null;
+  abortController?.abort();
+  if (wasScanning) state.importStatus = "Online scan stopped when you left Import. Choose Scan online to try again.";
+  else if (wasReadingFile) state.importStatus = "Screenshot loading stopped when you left Import. Choose the image again to continue.";
 }
 
 function moveSelection(dx, dy) {

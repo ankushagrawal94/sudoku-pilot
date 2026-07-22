@@ -28,8 +28,8 @@ async function capturedEvents(page) {
 }
 
 async function importGrid(page, grid) {
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await page.locator("[data-import-mode='manual']").click();
   await page.evaluate((puzzle) => {
     document.querySelectorAll("[data-import-cell]").forEach((input, index) => {
       input.value = puzzle[index] === "0" ? "" : puzzle[index];

@@ -9,8 +9,7 @@ const SOLVED_GRID = "53467891267219534819834256785976142342685379171392485696153
 const GRID_WITH_MISSING_THREE_AND_FIVE = "004678912672195348198342567859761423426853791713924856961537284287419635345286179";
 
 async function importGrid(page, grid = KNOWN_GRID) {
-  await openMore(page);
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await openImport(page, "manual");
   await page.evaluate((puzzle) => {
     const inputs = [...document.querySelectorAll("[data-import-cell]")];
     inputs.forEach((input, index) => {
@@ -19,6 +18,14 @@ async function importGrid(page, grid = KNOWN_GRID) {
     });
   }, grid);
   await page.locator("[data-action='apply-import']").click();
+}
+
+async function openImport(page, mode) {
+  if (!await page.getByTestId("import-view").count()) {
+    await page.getByRole("button", { name: "Import", exact: true }).click();
+  }
+  const modeButton = page.locator(`[data-import-mode='${mode}']`);
+  if (await modeButton.count()) await modeButton.click();
 }
 
 async function openMore(page) {
@@ -33,6 +40,7 @@ async function setOnlyTechnique(page, technique) {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
   }, technique);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
 }
 
 async function clearTechniques(page) {
@@ -43,6 +51,7 @@ async function clearTechniques(page) {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
   });
+  await page.getByRole("button", { name: "Close", exact: true }).click();
 }
 
 async function boardSignature(page) {
@@ -174,29 +183,117 @@ test("mobile pencil notes stay clear of thick block dividers", async ({ page }, 
   expect(spacing).toBeGreaterThanOrEqual(1.5);
 });
 
-test("new puzzle generates a different board", async ({ page }) => {
+test("primary navigation has a stable order and follows browser history", async ({ page }) => {
   await page.goto("/");
 
-  await openMore(page);
-  const before = await boardSignature(page);
-  await page.getByTestId("new-puzzle").click();
-  const after = await boardSignature(page);
+  const primaryNav = page.getByRole("navigation", { name: "Sudoku Pilot sections" });
+  await expect(primaryNav.getByRole("button")).toHaveText(["Play", "Learn", "Practice", "Import"]);
 
-  expect(after).not.toEqual(before);
+  await primaryNav.getByRole("button", { name: "Learn", exact: true }).click();
+  await expect(page).toHaveURL(/\?view=learn$/);
+  await primaryNav.getByRole("button", { name: "Practice", exact: true }).click();
+  await expect(page).toHaveURL(/\?view=practice$/);
+  await primaryNav.getByRole("button", { name: "Import", exact: true }).click();
+  await expect(page).toHaveURL(/\?view=import$/);
+  await expect(page.getByTestId("import-view")).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByTestId("practice-browser")).toBeVisible();
+  await expect(primaryNav.getByRole("button", { name: "Practice", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.goBack();
+  await expect(page.getByTestId("lesson-browser")).toBeVisible();
+  await expect(primaryNav.getByRole("button", { name: "Learn", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.goForward();
+  await expect(page.getByTestId("practice-browser")).toBeVisible();
 });
 
-test("more menu prioritizes closing and keeps puzzle import with start actions", async ({ page }) => {
+test("direct import routes offer distinct screenshot and manual paths", async ({ page }) => {
+  await page.goto("/?view=import");
+
+  const importView = page.getByTestId("import-view");
+  await expect(importView).toBeVisible();
+  await expect(page.getByTestId("board")).toHaveCount(0);
+  await expect(importView.getByRole("button", { name: "Upload screenshot", exact: true })).toHaveAttribute("data-import-mode", "screenshot");
+  await expect(importView.getByRole("button", { name: "Enter manually", exact: true })).toHaveAttribute("data-import-mode", "manual");
+
+  await importView.getByRole("button", { name: "Upload screenshot", exact: true }).click();
+  await expect(page.locator("[data-import-file]")).toBeVisible();
+  await expect(page.locator("[data-action='ocr-import']")).toBeVisible();
+
+  await importView.getByRole("button", { name: "Enter manually", exact: true }).click();
+  await expect(page.locator("[data-import-cell]")).toHaveCount(81);
+  await expect(page.locator("[data-action='apply-import']")).toHaveText("Start puzzle");
+});
+
+test("direct query routes open each requested view", async ({ page }) => {
+  await page.goto("/?view=learn");
+  await expect(page.getByTestId("lesson-browser")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Learn", exact: true })).toHaveAttribute("aria-current", "page");
+
+  await page.goto("/?view=practice");
+  await expect(page.getByTestId("practice-browser")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Practice", exact: true })).toHaveAttribute("aria-current", "page");
+
+  await page.goto("/?view=play&panel=more");
+  await expect(page.getByTestId("more-panel")).toBeVisible();
+  await expect(page.getByTestId("board")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Play", exact: true })).toHaveAttribute("aria-current", "page");
+});
+
+test("manual import supports grid keyboard editing and 81-character paste", async ({ page }) => {
+  await page.goto("/?view=import");
+  await openImport(page, "manual");
+
+  const first = page.locator("[data-import-cell='0']");
+  await first.focus();
+  await first.press("5");
+  await expect(first).toHaveValue("5");
+  await expect(page.locator("[data-import-cell='1']")).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("[data-import-cell='10']")).toBeFocused();
+  await page.keyboard.press("7");
+  await expect(page.locator("[data-import-cell='10']")).toHaveValue("7");
+  await expect(page.locator("[data-import-cell='11']")).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Delete");
+  await expect(page.locator("[data-import-cell='10']")).toHaveValue("");
+
+  await first.focus();
+  await first.evaluate((input, grid) => {
+    const transfer = new DataTransfer();
+    transfer.setData("text/plain", grid);
+    input.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
+  }, KNOWN_GRID);
+  await expect(page.locator("[data-import-cell='0']")).toHaveValue("5");
+  await expect(page.locator("[data-import-cell='1']")).toHaveValue("3");
+  await expect(page.locator("[data-import-cell='2']")).toHaveValue("");
+  await expect(page.locator("[data-import-cell='80']")).toHaveValue("9");
+});
+
+test("more is a standalone panel without puzzle or start actions", async ({ page }) => {
   await page.goto("/");
   await openMore(page);
 
   const morePanel = page.getByTestId("more-panel");
+  await expect(page).toHaveURL(/\?view=play&panel=more$/);
+  await expect(page.getByRole("button", { name: "Play", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("board")).toHaveCount(0);
   await expect(morePanel.getByRole("button", { name: "Close", exact: true })).toHaveClass(/primary/);
   await expect(morePanel.getByRole("button", { name: "Practice selected technique", exact: true })).toHaveCount(0);
-  await expect(morePanel.getByRole("button", { name: "Import screenshot", exact: true })).toBeVisible();
+  await expect(morePanel.getByRole("heading", { name: "Start", exact: true })).toHaveCount(0);
+  await expect(morePanel.getByRole("button", { name: "New generated puzzle", exact: true })).toHaveCount(0);
+  await expect(morePanel.getByRole("button", { name: "Import screenshot", exact: true })).toHaveCount(0);
   await expect(morePanel).toContainText("Run every checked technique repeatedly until none of them can move the board forward.");
 
   const headings = await morePanel.getByRole("heading").allTextContents();
   expect(headings.indexOf("Run techniques")).toBeLessThan(headings.indexOf("Techniques"));
+
+  await page.goBack();
+  await expect(page.getByTestId("board")).toBeVisible();
+  await expect(page.getByTestId("more-panel")).toHaveCount(0);
+  await page.goForward();
+  await expect(page.getByTestId("more-panel")).toBeVisible();
+  await expect(page.getByTestId("board")).toHaveCount(0);
 });
 
 test("finishing a puzzle opens a whimsical celebration with durable stats", async ({ page }) => {
@@ -847,7 +944,7 @@ test("multi-select allows user-entered notes even when Sudoku rules disagree", a
   await expect(page.getByTestId("cell-3").locator(".notes .on")).toContainText("5");
 });
 
-test("multi and more buttons expose clear toggle states", async ({ page }) => {
+test("multi exposes its toggle state and More opens a closable standalone panel", async ({ page }) => {
   await page.goto("/");
   await importGrid(page);
 
@@ -864,9 +961,10 @@ test("multi and more buttons expose clear toggle states", async ({ page }) => {
 
   await page.getByRole("button", { name: "More", exact: true }).click();
   await expect(page.getByTestId("more-panel")).toBeVisible();
-  await expect(page.getByRole("button", { name: "More", exact: true })).toHaveClass(/active/);
-  await page.getByRole("button", { name: "More", exact: true }).click();
+  await expect(page.getByTestId("board")).toHaveCount(0);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByTestId("more-panel")).toHaveCount(0);
+  await expect(page.getByTestId("board")).toBeVisible();
 });
 
 test("preferences control timer, highlighting, and input order", async ({ page }) => {
@@ -877,10 +975,11 @@ test("preferences control timer, highlighting, and input order", async ({ page }
   await expect(preferences.getByText("Show mistakes as I play")).toBeVisible();
   await expect(page.getByTestId("timer")).toHaveCount(0);
   await preferences.getByText("Show timer").click();
-  await expect(page.getByTestId("timer")).toBeVisible();
+  await expect(preferences.getByText("Show timer").locator("input")).toBeChecked();
 
   await preferences.locator("[data-entry-method]").selectOption("digit-first");
   await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByTestId("timer")).toBeVisible();
   await page.locator("[data-digit='4']").click();
   await expect(page.locator("[data-digit='4']")).toHaveClass(/active/);
   const emptyCell = page.locator(".cell:not(.given)").first();
@@ -1023,8 +1122,7 @@ test("rejects unsafe and oversized screenshot uploads with a visible error", asy
     await Promise.all(registrations.map((registration) => registration.unregister()));
   });
   await page.reload();
-  await openMore(page);
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await openImport(page, "screenshot");
   await page.locator("[data-import-file]").setInputFiles({
     name: "valid.png",
     mimeType: "image/png",
@@ -1064,8 +1162,7 @@ test("works offline after first load and preserves progress", async ({ page, con
 
   const boards = [];
   for (let i = 0; i < 3; i += 1) {
-    await openMore(page);
-    await page.getByTestId("new-puzzle").click();
+    await page.getByRole("button", { name: "Extreme", exact: true }).click();
     boards.push(await page.locator(".cell.given .value").evaluateAll((values) => values.map((value) => value.textContent).join("")));
   }
   expect(new Set(boards).size).toBe(3);
@@ -1107,8 +1204,7 @@ test("typing in import fields never triggers board keyboard shortcuts", async ({
   await page.goto("/");
   await importGrid(page);
   await page.getByTestId("cell-2").click();
-  await openMore(page);
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await openImport(page, "manual");
 
   const field = page.locator("[data-import-cell='2']");
   await field.fill("");
@@ -1117,10 +1213,9 @@ test("typing in import fields never triggers board keyboard shortcuts", async ({
   await expect(page.getByTestId("cell-2").locator(".value")).toHaveCount(0);
 });
 
-test("manual review can explicitly preserve a singleton pencil note", async ({ page }) => {
+test("screenshot review can explicitly preserve a singleton pencil note", async ({ page }) => {
   await page.goto("/");
-  await openMore(page);
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await openImport(page, "screenshot");
 
   const field = page.locator("[data-import-cell='0']");
   await field.fill("4");
@@ -1136,8 +1231,7 @@ test("manual review can explicitly preserve a singleton pencil note", async ({ p
 test("import validates before replacement and allows restoring replaced progress", async ({ page }) => {
   await page.goto("/");
   await page.locator("[data-action='fill-notes']").click();
-  await openMore(page);
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await openImport(page, "manual");
   await page.locator("[data-import-cell='0']").fill("5");
   await page.locator("[data-import-cell='1']").fill("5");
   await page.locator("[data-action='apply-import']").click();
@@ -1170,8 +1264,7 @@ test("uploads raw image bytes to same-origin OCR and preserves detected values a
     });
   });
   await page.goto("/");
-  await openMore(page);
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await openImport(page, "screenshot");
   await expect(page.locator(".import-disclosure")).toContainText("paid third-party recognition API");
   await expect(page.locator(".import-disclosure")).toContainText("limited shared quota");
   await page.locator("[data-import-cell='80']").fill("9");
@@ -1199,14 +1292,14 @@ test("uploads raw image bytes to same-origin OCR and preserves detected values a
   await expect(page.getByTestId("cell-2").locator(".notes .on")).toHaveText("3");
 });
 
-test("keeps OCR online-only and aborts an in-progress upload when cancelled", async ({ page, context }) => {
+test("keeps OCR online-only and aborts an in-progress upload when cancelled or navigated away", async ({ page, context }) => {
   await page.addInitScript(() => {
     const browserFetch = window.fetch;
     window.fetch = (input, init) => {
       if (String(input).includes("/api/sudoku-ocr")) {
         return new Promise((resolve, reject) => {
           init.signal.addEventListener("abort", () => {
-            window.__ocrAborted = true;
+            window.__ocrAbortCount = (window.__ocrAbortCount || 0) + 1;
             reject(new DOMException("Aborted", "AbortError"));
           }, { once: true });
         });
@@ -1215,8 +1308,7 @@ test("keeps OCR online-only and aborts an in-progress upload when cancelled", as
     };
   });
   await page.goto("/");
-  await openMore(page);
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await openImport(page, "screenshot");
   await page.locator("[data-import-file]").setInputFiles({
     name: "puzzle.png", mimeType: "image/png", buffer: Buffer.from("not-a-real-image")
   });
@@ -1228,15 +1320,24 @@ test("keeps OCR online-only and aborts an in-progress upload when cancelled", as
   await expect(page.getByTestId("import-status")).toContainText("Uploading and reading screenshot");
   await page.getByRole("button", { name: "Cancel online scan", exact: true }).click();
   await expect(page.getByTestId("import-status")).toContainText("cancelled");
-  await expect.poll(() => page.evaluate(() => window.__ocrAborted)).toBeTruthy();
+  await expect.poll(() => page.evaluate(() => window.__ocrAbortCount || 0)).toBe(1);
+
+  await page.locator("[data-import-file]").setInputFiles({
+    name: "puzzle.png", mimeType: "image/png", buffer: Buffer.from("not-a-real-image")
+  });
+  await page.locator("[data-action='ocr-import']").click();
+  await expect(page.getByTestId("import-status")).toContainText("Uploading and reading screenshot");
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(page.getByTestId("board")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__ocrAbortCount || 0)).toBe(2);
 });
 
 test("exposes accessible board state, OCR controls, and data controls", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("cell-0")).toHaveAttribute("aria-pressed", "false");
-  await openMore(page);
-  await page.getByRole("button", { name: "Import screenshot", exact: true }).click();
+  await openImport(page, "screenshot");
   await expect(page.locator("[data-action='ocr-import']")).toHaveText("Scan online");
+  await page.getByRole("button", { name: "Play", exact: true }).click();
   await page.getByRole("button", { name: "More", exact: true }).click();
   await expect(page.getByRole("button", { name: "Clear local data", exact: true })).toBeVisible();
 });
