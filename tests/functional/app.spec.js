@@ -482,6 +482,18 @@ test("difficulty tabs start a new puzzle immediately", async ({ page }) => {
   await expect(page.getByTestId("run-message")).toContainText("Started a new medium puzzle.");
 });
 
+test("action messages do not return after reload", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Medium", exact: true }).click();
+  await expect(page.getByTestId("run-message")).toContainText("Started a new medium puzzle.");
+
+  await page.reload();
+
+  await expect(page.getByTestId("run-message")).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(window.localStorage.getItem("sudoku-pilot-state-v1")));
+  expect(saved).not.toHaveProperty("runMessage");
+});
+
 test("difficulty tabs ask before replacing a puzzle with progress", async ({ page }) => {
   await page.goto("/");
   await page.locator("[data-action='fill-notes']").click();

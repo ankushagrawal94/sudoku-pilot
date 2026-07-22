@@ -1550,7 +1550,6 @@ function startCertifiedPractice(index = 0) {
     state.multiSelectMode = false;
     state.moreOpen = false;
     state.importOpen = false;
-    state.runMessage = `${session.technique} practice example ready.`;
     resetPuzzleStats();
     state.puzzleSource = "practice";
     productAnalytics.capture("practice_started", {
@@ -2134,7 +2133,6 @@ function createInitialState() {
       puzzlePracticeMode: PRACTICE_MODES.some(({ id }) => id === saved.puzzlePracticeMode) ? saved.puzzlePracticeMode : null,
       completionRecorded: Boolean(saved.completionRecorded),
       wasSolved: isSolved(puzzle.values),
-      runMessage: saved.runMessage || "",
       importCells: Array.isArray(saved.importCells) && saved.importCells.length === 81 ? saved.importCells : fallback.importCells,
       importCellKinds: Array.isArray(saved.importCellKinds) && saved.importCellKinds.length === 81
         ? saved.importCellKinds.map((kind) => kind === "notes" ? "notes" : "value")
@@ -2171,7 +2169,6 @@ function saveState() {
       practiceTechnique: state.practiceTechnique,
       practiceMode: state.practiceMode,
       completionRecorded: state.completionRecorded,
-      runMessage: state.runMessage,
       importCells: state.importCells,
       importCellKinds: state.importCellKinds
     };

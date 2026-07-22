@@ -95,6 +95,16 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
   });
 }
 
+test("practice startup does not show a redundant ready message", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.locator("[data-practice-technique]").selectOption("Skyscraper");
+  await page.getByRole("button", { name: "Start Find the pattern", exact: true }).click();
+
+  await expect(page.getByTestId("practice-session")).toHaveAttribute("data-technique", "Skyscraper");
+  await expect(page.getByTestId("run-message")).toHaveCount(0);
+});
+
 test("practice startup failure offers useful recovery without changing the puzzle", async ({ page }) => {
   await page.addInitScript(() => { window.__SUDOKU_FORCE_PRACTICE_FAILURE__ = true; });
   await page.goto("/");
