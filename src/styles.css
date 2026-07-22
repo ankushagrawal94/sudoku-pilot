@@ -531,37 +531,28 @@ button:hover,
 }
 
 .puzzle-note-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 
 .puzzle-note-actions button {
-  min-height: 56px;
-  padding: 0 12px;
+  min-height: 36px;
+  padding: 0 clamp(4px, 1.25vw, 8px);
+  font-size: clamp(11px, 3.25vw, 14px);
+  white-space: nowrap;
+}
+
+.puzzle-note-actions button.active {
+  border-color: var(--accent);
+  background: #eff6ff;
+  color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .toggle-knob {
     transition: none;
   }
-}
-
-.view-options {
-  display: flex;
-  margin-top: 8px;
-}
-
-.view-options button {
-  min-height: 36px;
-  padding: 0 12px;
-  color: #526174;
-}
-
-.view-options button.active {
-  border-color: var(--accent);
-  background: #eff6ff;
-  color: var(--accent);
 }
 
 .primary,

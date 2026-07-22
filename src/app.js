@@ -690,11 +690,9 @@ function renderKeypad() {
           <div class="puzzle-note-actions" role="group" aria-labelledby="puzzle-notes-label">
             <button data-action="fill-notes" title="Replace notes in every empty cell with all currently legal candidates.">Fill all notes</button>
             <button data-action="clear-notes" title="Remove every pencil note from the puzzle.">Clear all notes</button>
+            <button class="${state.lineCountsVisible ? "active" : ""}" data-action="toggle-line-counts" aria-pressed="${state.lineCountsVisible}">Show line counts</button>
           </div>
         </div>
-      </div>
-      <div class="view-options" aria-label="Puzzle view options">
-        <button class="${state.lineCountsVisible ? "active" : ""}" data-action="toggle-line-counts" aria-pressed="${state.lineCountsVisible}">Line counts</button>
       </div>
       ${state.runMessage ? `<p class="run-message" data-testid="run-message">${state.runMessage}</p>` : ""}
     </section>
