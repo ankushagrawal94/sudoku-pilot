@@ -869,6 +869,18 @@ test("notes switch is explicit and separate from puzzle-wide note actions", asyn
   await expect(entryMode.getByText("Off: numbers fill cells", { exact: true })).toBeVisible();
   await expect(puzzleNotes.getByRole("button", { name: "Fill all notes", exact: true })).toBeVisible();
   await expect(puzzleNotes.getByRole("button", { name: "Clear all notes", exact: true })).toBeVisible();
+  await expect(puzzleNotes.getByRole("button", { name: "Show line counts", exact: true })).toBeVisible();
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  const buttonBoxes = await puzzleNotes.getByRole("button").evaluateAll((buttons) => buttons.map((button) => {
+    const { top, right, height } = button.getBoundingClientRect();
+    return { top, right, height };
+  }));
+  const puzzleNotesBox = await puzzleNotes.boundingBox();
+  expect(buttonBoxes).toHaveLength(3);
+  expect(new Set(buttonBoxes.map(({ top }) => Math.round(top))).size).toBe(1);
+  expect(buttonBoxes.every(({ height }) => height === 36)).toBe(true);
+  expect(buttonBoxes.at(-1).right).toBeLessThanOrEqual(puzzleNotesBox.x + puzzleNotesBox.width);
 });
 
 test("keyboard note shortcut toggles on and off", async ({ page }) => {
@@ -898,14 +910,14 @@ test("line counts label row and column appearances for the selected digit", asyn
   await page.goto("/");
   await importGrid(page);
 
-  await page.getByText("Line counts", { exact: true }).click();
+  await page.getByRole("button", { name: "Show line counts", exact: true }).click();
   await expect(page.getByTestId("row-count-0")).toHaveCount(0);
 
   await page.getByTestId("cell-0").click();
   await expect(page.getByTestId("row-count-0")).toContainText("1");
   await expect(page.getByTestId("col-count-0")).toContainText("1");
 
-  await page.getByText("Line counts", { exact: true }).click();
+  await page.getByRole("button", { name: "Show line counts", exact: true }).click();
   await expect(page.getByTestId("row-count-0")).toHaveCount(0);
 });
 
