@@ -1,0 +1,105 @@
+{
+  "path": "best-tier-2-sudoku-technique",
+  "title": "W-Wing Is the Best Tier 2 Sudoku Technique to Learn First",
+  "description": "A leave-one-out analysis ranks seven advanced Sudoku techniques by puzzle coverage, fallback value, and required completions.",
+  "published": "2026-07-21",
+  "updated": "2026-07-21",
+  "eyebrow": "Sudoku technique analysis",
+  "intro": "For Sudoku Pilot's current 500-puzzle catalog, W-Wing is the best first Tier 2 technique when the goal is to finish more puzzles. It completes 26 of 100 Extreme puzzles when added to Tier 1, compared with 10 for XY-Wing and zero for the other five Tier 2 techniques.",
+  "related": [
+    "practice-sudoku-techniques",
+    "how-we-rate-sudoku-difficulty",
+    "sudoku-without-guessing"
+  ],
+  "sections": [
+    {
+      "heading": "W-Wing unlocks the most puzzles on its own",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The analysis starts with every committed Tier 1 technique enabled. Adding W-Wing raises Extreme coverage from 0 to 26 puzzles. Adding XY-Wing raises it to 10. X-Wing, Swordfish, Skyscraper, 2-String Kite, and XYZ-Wing do not complete an Extreme puzzle without help from another Tier 2 technique."
+        },
+        {
+          "type": "paragraph",
+          "text": "W-Wing also has the highest average marginal value across all 128 possible Tier 2 portfolios. It contributes 48.36 of the 84 Extreme completions credited to the full committed Tier 2 set."
+        }
+      ]
+    },
+    {
+      "heading": "2-String Kite becomes valuable after W-Wing",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A technique can have little solo value and high portfolio value. 2-String Kite unlocks zero Extreme puzzles when it is the only Tier 2 technique. Adding it after W-Wing unlocks 35 more, taking the pair to 61 of 100 Extreme puzzles."
+        },
+        {
+          "type": "paragraph",
+          "text": "This interaction makes 2-String Kite the best second technique for catalog coverage. A single-technique ranking would miss that result."
+        }
+      ]
+    },
+    {
+      "heading": "Frequent techniques can have strong fallbacks",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "2-String Kite appears in 83 of the 100 stored Extreme solve traces. Removing it from the full committed toolkit costs zero completions because the remaining techniques provide another path. Skyscraper appears in 82 traces. Removing it costs six completions within the committed toolkit and zero when provisional techniques remain available."
+        },
+        {
+          "type": "paragraph",
+          "text": "X-Wing has a larger necessity signal. Removing it costs 13 completions within the committed toolkit and three when provisional fallbacks remain. XY-Wing and XYZ-Wing each cost three broad-profile completions. Swordfish costs one. W-Wing costs 50 in both profiles."
+        }
+      ]
+    },
+    {
+      "heading": "The coverage-first learning order starts with W-Wing",
+      "blocks": [
+        {
+          "type": "ordered-list",
+          "items": [
+            "W-Wing adds 26 Extreme completions.",
+            "2-String Kite adds 35 more after W-Wing.",
+            "X-Wing adds 13 more.",
+            "Skyscraper, XY-Wing, and XYZ-Wing add three each in the greedy portfolio order.",
+            "Swordfish adds the final one."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "This order optimizes puzzle coverage. It does not measure study time, pattern recognition difficulty, or conceptual prerequisites. A player who wants the simplest instructional sequence may choose a different order."
+        }
+      ]
+    },
+    {
+      "heading": "The analysis disables each technique and solves again",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The experiment uses all 500 shipped puzzles, with 100 at each difficulty. It solves every one of the 128 Tier 2 portfolios, then compares full profiles with leave-one-out profiles. A technique counts as required when the full profile solves the puzzle and the same profile without that technique gets stuck."
+        },
+        {
+          "type": "paragraph",
+          "text": "Two alternate move-selection policies preserve the headline result. Fresh catalog checks also reproduce every stored solution, step count, technique set, and required-technique label."
+        }
+      ]
+    },
+    {
+      "heading": "The result applies to Sudoku Pilot's shipped catalog",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Sudoku Pilot deliberately selects puzzles for technique coverage and repeated advanced gates. The 100 Extreme puzzles use two exact solution templates, with 50 puzzles from each. This concentration limits how far the ranking can travel to other Sudoku collections."
+        },
+        {
+          "type": "paragraph",
+          "text": "The solver records deterministic paths. The alternate policies test path sensitivity, while an exhaustive proof across every logical move order remains outside this analysis. A second corpus with different construction rules would provide the strongest next check."
+        },
+        {
+          "type": "link",
+          "label": "Practice Tier 2 techniques",
+          "href": "/practice-sudoku-techniques/"
+        }
+      ]
+    }
+  ]
+}

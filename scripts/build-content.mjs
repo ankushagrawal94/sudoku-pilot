@@ -144,7 +144,7 @@ function renderAboutPage() {
   const groups = [
     {
       heading: "Learn and practice Sudoku",
-      paths: ["sudoku-coach", "sudoku-hints-that-explain", "practice-sudoku-techniques", "sudoku-candidate-notes", "sudoku-input-settings"]
+      paths: ["sudoku-coach", "sudoku-hints-that-explain", "practice-sudoku-techniques", "best-tier-2-sudoku-technique", "sudoku-candidate-notes", "sudoku-input-settings"]
     },
     {
       heading: "Use Sudoku Pilot your way",

@@ -8,11 +8,13 @@
 
 .DS_Store
 node_modules/
+.venv-analysis/
 dist/
 output/*
 !output/catalog-audit.json
 !output/catalog-quality-audit.json
 !output/hard-gate-minimum-audit.json
+!output/technique-value-analysis-v0.1.json
 test-results/
 playwright-report/
 .catalog-build/

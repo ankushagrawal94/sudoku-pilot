@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A leave-one-out analysis ranks seven advanced Sudoku techniques by puzzle coverage, fallback value, and required completions." />
+    <link rel="canonical" href="https://sudokupilot.com/best-tier-2-sudoku-technique" />
+    <link rel="stylesheet" href="/content.css" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="W-Wing Is the Best Tier 2 Sudoku Technique to Learn First" />
+    <meta property="og:description" content="A leave-one-out analysis ranks seven advanced Sudoku techniques by puzzle coverage, fallback value, and required completions." />
+    <meta property="og:url" content="https://sudokupilot.com/best-tier-2-sudoku-technique" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"W-Wing Is the Best Tier 2 Sudoku Technique to Learn First","description":"A leave-one-out analysis ranks seven advanced Sudoku techniques by puzzle coverage, fallback value, and required completions.","datePublished":"2026-07-21","dateModified":"2026-07-21","author":{"@type":"Organization","name":"Sudoku Pilot Admin"},"publisher":{"@type":"Organization","name":"Sudoku Pilot"},"mainEntityOfPage":"https://sudokupilot.com/best-tier-2-sudoku-technique"}</script>
+    <title>W-Wing Is the Best Tier 2 Sudoku Technique to Learn First | Sudoku Pilot</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="wordmark" href="/">sudoku pilot</a>
+      <nav aria-label="Main navigation">
+        <a href="/sudoku-coach/">Coach</a>
+        <a href="/practice-sudoku-techniques/">Practice</a>
+        <a href="/sudoku-without-guessing/">Logic guarantee</a>
+        <a href="/sudoku-screenshot-import/">Screenshot import</a>
+        <a href="/about/">About</a>
+      </nav>
+      <a class="app-link" href="/">Open the app</a>
+    </header>
+    <main>
+      <article>
+        <header class="article-header">
+          <h1>W-Wing Is the Best Tier 2 Sudoku Technique to Learn First</h1>
+          <p class="dek">For Sudoku Pilot's current 500-puzzle catalog, W-Wing is the best first Tier 2 technique when the goal is to finish more puzzles. It completes 26 of 100 Extreme puzzles when added to Tier 1, compared with 10 for XY-Wing and zero for the other five Tier 2 techniques.</p>
+          <p class="byline">By Admin · Updated July 21, 2026</p>
+        </header>
+        <div class="article-body">
+      <section>
+        <h2>W-Wing unlocks the most puzzles on its own</h2>
+        <p>The analysis starts with every committed Tier 1 technique enabled. Adding W-Wing raises Extreme coverage from 0 to 26 puzzles. Adding XY-Wing raises it to 10. X-Wing, Swordfish, Skyscraper, 2-String Kite, and XYZ-Wing do not complete an Extreme puzzle without help from another Tier 2 technique.</p>
+<p>W-Wing also has the highest average marginal value across all 128 possible Tier 2 portfolios. It contributes 48.36 of the 84 Extreme completions credited to the full committed Tier 2 set.</p>
+      </section>
+
+      <section>
+        <h2>2-String Kite becomes valuable after W-Wing</h2>
+        <p>A technique can have little solo value and high portfolio value. 2-String Kite unlocks zero Extreme puzzles when it is the only Tier 2 technique. Adding it after W-Wing unlocks 35 more, taking the pair to 61 of 100 Extreme puzzles.</p>
+<p>This interaction makes 2-String Kite the best second technique for catalog coverage. A single-technique ranking would miss that result.</p>
+      </section>
+
+      <section>
+        <h2>Frequent techniques can have strong fallbacks</h2>
+        <p>2-String Kite appears in 83 of the 100 stored Extreme solve traces. Removing it from the full committed toolkit costs zero completions because the remaining techniques provide another path. Skyscraper appears in 82 traces. Removing it costs six completions within the committed toolkit and zero when provisional techniques remain available.</p>
+<p>X-Wing has a larger necessity signal. Removing it costs 13 completions within the committed toolkit and three when provisional fallbacks remain. XY-Wing and XYZ-Wing each cost three broad-profile completions. Swordfish costs one. W-Wing costs 50 in both profiles.</p>
+      </section>
+
+      <section>
+        <h2>The coverage-first learning order starts with W-Wing</h2>
+        <ol><li>W-Wing adds 26 Extreme completions.</li><li>2-String Kite adds 35 more after W-Wing.</li><li>X-Wing adds 13 more.</li><li>Skyscraper, XY-Wing, and XYZ-Wing add three each in the greedy portfolio order.</li><li>Swordfish adds the final one.</li></ol>
+<p>This order optimizes puzzle coverage. It does not measure study time, pattern recognition difficulty, or conceptual prerequisites. A player who wants the simplest instructional sequence may choose a different order.</p>
+      </section>
+
+      <section>
+        <h2>The analysis disables each technique and solves again</h2>
+        <p>The experiment uses all 500 shipped puzzles, with 100 at each difficulty. It solves every one of the 128 Tier 2 portfolios, then compares full profiles with leave-one-out profiles. A technique counts as required when the full profile solves the puzzle and the same profile without that technique gets stuck.</p>
+<p>Two alternate move-selection policies preserve the headline result. Fresh catalog checks also reproduce every stored solution, step count, technique set, and required-technique label.</p>
+      </section>
+
+      <section>
+        <h2>The result applies to Sudoku Pilot&#39;s shipped catalog</h2>
+        <p>Sudoku Pilot deliberately selects puzzles for technique coverage and repeated advanced gates. The 100 Extreme puzzles use two exact solution templates, with 50 puzzles from each. This concentration limits how far the ranking can travel to other Sudoku collections.</p>
+<p>The solver records deterministic paths. The alternate policies test path sensitivity, while an exhaustive proof across every logical move order remains outside this analysis. A second corpus with different construction rules would provide the strongest next check.</p>
+<p><a href="/practice-sudoku-techniques/">Practice Tier 2 techniques</a></p>
+      </section></div>
+        <aside class="try-card">
+          <h2>Try it on a puzzle</h2>
+          <p>Open Sudoku Pilot and use the same feature on a generated or imported board.</p>
+          <a class="primary-link" href="/">Open Sudoku Pilot</a>
+        </aside>
+        <aside class="related">
+          <h2>Keep reading</h2>
+          <ul><li><a href="/practice-sudoku-techniques/">Skip the Boring Part of Sudoku Practice</a></li><li><a href="/how-we-rate-sudoku-difficulty/">Rating Sudoku Difficulty</a></li><li><a href="/sudoku-without-guessing/">Every Generated Puzzle Can Be Solved Without Guessing</a></li></ul>
+        </aside>
+      </article>
+    </main>
+    <footer>
+      <span>Sudoku Pilot</span>
+      <a href="/about/">About</a>
+      <a href="/contact/">Contact</a>
+      <a href="/privacy/">Privacy</a>
+    </footer>
+  </body>
+</html>

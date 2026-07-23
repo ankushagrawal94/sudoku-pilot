@@ -1,0 +1,2918 @@
+{
+  "analysisVersion": 1,
+  "catalogFingerprint": "6975742f80c38d4e1e31f3ef96410e89812ba70e804934c46e0f15147dcaa9cc",
+  "population": {
+    "puzzles": 500,
+    "puzzlesByLevel": {
+      "easy": 100,
+      "medium": 100,
+      "hard": 100,
+      "expert": 100,
+      "extreme": 100
+    },
+    "tier1Techniques": [
+      "Last Digit",
+      "Naked Single",
+      "Hidden Single",
+      "Pointing Candidates",
+      "Claiming Candidates",
+      "Naked Pair",
+      "Hidden Pair",
+      "Naked Triple",
+      "Hidden Triple",
+      "Naked Quadruple"
+    ],
+    "tier2Techniques": [
+      "X-Wing",
+      "Swordfish",
+      "Skyscraper",
+      "2-String Kite",
+      "XY-Wing",
+      "XYZ-Wing",
+      "W-Wing"
+    ],
+    "committedTechniques": [
+      "Last Digit",
+      "Naked Single",
+      "Hidden Single",
+      "Pointing Candidates",
+      "Claiming Candidates",
+      "Naked Pair",
+      "Hidden Pair",
+      "Naked Triple",
+      "Hidden Triple",
+      "Naked Quadruple",
+      "X-Wing",
+      "Swordfish",
+      "Skyscraper",
+      "2-String Kite",
+      "XY-Wing",
+      "XYZ-Wing",
+      "W-Wing"
+    ],
+    "allSupportedTechniques": [
+      "Last Digit",
+      "Naked Single",
+      "Hidden Single",
+      "Pointing Candidates",
+      "Claiming Candidates",
+      "Hidden Pair",
+      "Hidden Triple",
+      "Hidden Quadruple",
+      "Naked Pair",
+      "Naked Triple",
+      "Naked Quadruple",
+      "X-Wing",
+      "Swordfish",
+      "Skyscraper",
+      "2-String Kite",
+      "XY-Wing",
+      "XYZ-Wing",
+      "W-Wing",
+      "Jellyfish",
+      "Crane",
+      "Simple Colouring",
+      "Empty Rectangle"
+    ],
+    "provisionalFallbackTechniques": [
+      "Hidden Quadruple",
+      "Jellyfish",
+      "Crane",
+      "Simple Colouring",
+      "Empty Rectangle"
+    ],
+    "stepLimit": 500
+  },
+  "definitions": {
+    "solved": "The app solver completed a valid grid within 500 moves using only the named profile.",
+    "soloIncrementalUnlocks": "Puzzles solved by Tier 1 plus this technique that Tier 1 alone did not solve.",
+    "committedLeaveOneOutLoss": "Puzzles solved by all 17 committed coaching techniques but not when this Tier 2 technique is disabled.",
+    "allSupportedLeaveOneOutLoss": "Puzzles solved by all 22 supported techniques but not when this Tier 2 technique is disabled; provisional detectors may act as fallbacks.",
+    "shapleyMarginalPuzzles": "Average marginal puzzle coverage contributed by the technique across every ordering of the seven Tier 2 techniques.",
+    "deterministicCaveat": "These metrics follow deterministic or explicitly named move-selection policies. They do not prove necessity across every mathematically possible move order."
+  },
+  "headlineProfiles": {
+    "tier1": {
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "allCommitted": {
+      "solved": 484,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 84
+      }
+    },
+    "allSupported": {
+      "solved": 500,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 100
+      }
+    }
+  },
+  "techniqueMetrics": [
+    {
+      "technique": "W-Wing",
+      "tier1PlusTechniqueSolved": 426,
+      "soloIncrementalUnlocks": 26,
+      "soloIncrementalExtremeUnlocks": 26,
+      "uniqueSoloUnlocks": 16,
+      "committedLeaveOneOutLoss": 50,
+      "committedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 50
+      },
+      "allSupportedLeaveOneOutLoss": 50,
+      "allSupportedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 50
+      },
+      "shapleyMarginalPuzzles": 48.36,
+      "storedTracePuzzleCount": 50,
+      "storedRequiredPuzzleCount": 50,
+      "committedTracePuzzleCount": 50,
+      "committedTraceMoveCount": 83
+    },
+    {
+      "technique": "X-Wing",
+      "tier1PlusTechniqueSolved": 400,
+      "soloIncrementalUnlocks": 0,
+      "soloIncrementalExtremeUnlocks": 0,
+      "uniqueSoloUnlocks": 0,
+      "committedLeaveOneOutLoss": 13,
+      "committedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 13
+      },
+      "allSupportedLeaveOneOutLoss": 3,
+      "allSupportedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 3
+      },
+      "shapleyMarginalPuzzles": 9.56,
+      "storedTracePuzzleCount": 58,
+      "storedRequiredPuzzleCount": 3,
+      "committedTracePuzzleCount": 43,
+      "committedTraceMoveCount": 43
+    },
+    {
+      "technique": "XY-Wing",
+      "tier1PlusTechniqueSolved": 410,
+      "soloIncrementalUnlocks": 10,
+      "soloIncrementalExtremeUnlocks": 10,
+      "uniqueSoloUnlocks": 0,
+      "committedLeaveOneOutLoss": 3,
+      "committedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 3
+      },
+      "allSupportedLeaveOneOutLoss": 3,
+      "allSupportedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 3
+      },
+      "shapleyMarginalPuzzles": 8.976,
+      "storedTracePuzzleCount": 69,
+      "storedRequiredPuzzleCount": 3,
+      "committedTracePuzzleCount": 61,
+      "committedTraceMoveCount": 84
+    },
+    {
+      "technique": "Skyscraper",
+      "tier1PlusTechniqueSolved": 400,
+      "soloIncrementalUnlocks": 0,
+      "soloIncrementalExtremeUnlocks": 0,
+      "uniqueSoloUnlocks": 0,
+      "committedLeaveOneOutLoss": 6,
+      "committedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 6
+      },
+      "allSupportedLeaveOneOutLoss": 0,
+      "allSupportedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 0
+      },
+      "shapleyMarginalPuzzles": 7.21,
+      "storedTracePuzzleCount": 82,
+      "storedRequiredPuzzleCount": 0,
+      "committedTracePuzzleCount": 75,
+      "committedTraceMoveCount": 107
+    },
+    {
+      "technique": "2-String Kite",
+      "tier1PlusTechniqueSolved": 400,
+      "soloIncrementalUnlocks": 0,
+      "soloIncrementalExtremeUnlocks": 0,
+      "uniqueSoloUnlocks": 0,
+      "committedLeaveOneOutLoss": 0,
+      "committedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 0
+      },
+      "allSupportedLeaveOneOutLoss": 0,
+      "allSupportedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 0
+      },
+      "shapleyMarginalPuzzles": 5.893,
+      "storedTracePuzzleCount": 83,
+      "storedRequiredPuzzleCount": 0,
+      "committedTracePuzzleCount": 67,
+      "committedTraceMoveCount": 97
+    },
+    {
+      "technique": "XYZ-Wing",
+      "tier1PlusTechniqueSolved": 400,
+      "soloIncrementalUnlocks": 0,
+      "soloIncrementalExtremeUnlocks": 0,
+      "uniqueSoloUnlocks": 0,
+      "committedLeaveOneOutLoss": 3,
+      "committedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 3
+      },
+      "allSupportedLeaveOneOutLoss": 3,
+      "allSupportedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 3
+      },
+      "shapleyMarginalPuzzles": 2.193,
+      "storedTracePuzzleCount": 22,
+      "storedRequiredPuzzleCount": 3,
+      "committedTracePuzzleCount": 22,
+      "committedTraceMoveCount": 22
+    },
+    {
+      "technique": "Swordfish",
+      "tier1PlusTechniqueSolved": 400,
+      "soloIncrementalUnlocks": 0,
+      "soloIncrementalExtremeUnlocks": 0,
+      "uniqueSoloUnlocks": 0,
+      "committedLeaveOneOutLoss": 1,
+      "committedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 1
+      },
+      "allSupportedLeaveOneOutLoss": 1,
+      "allSupportedLeaveOneOutLossByLevel": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "expert": 0,
+        "extreme": 1
+      },
+      "shapleyMarginalPuzzles": 1.81,
+      "storedTracePuzzleCount": 31,
+      "storedRequiredPuzzleCount": 1,
+      "committedTracePuzzleCount": 31,
+      "committedTraceMoveCount": 31
+    }
+  ],
+  "greedyLearningOrder": [
+    {
+      "position": 1,
+      "technique": "W-Wing",
+      "incrementalPuzzles": 26,
+      "incrementalExtremePuzzles": 26,
+      "cumulativeSolved": 426,
+      "cumulativeSolvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 26
+      }
+    },
+    {
+      "position": 2,
+      "technique": "2-String Kite",
+      "incrementalPuzzles": 35,
+      "incrementalExtremePuzzles": 35,
+      "cumulativeSolved": 461,
+      "cumulativeSolvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 61
+      }
+    },
+    {
+      "position": 3,
+      "technique": "X-Wing",
+      "incrementalPuzzles": 13,
+      "incrementalExtremePuzzles": 13,
+      "cumulativeSolved": 474,
+      "cumulativeSolvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 74
+      }
+    },
+    {
+      "position": 4,
+      "technique": "Skyscraper",
+      "incrementalPuzzles": 3,
+      "incrementalExtremePuzzles": 3,
+      "cumulativeSolved": 477,
+      "cumulativeSolvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 77
+      }
+    },
+    {
+      "position": 5,
+      "technique": "XY-Wing",
+      "incrementalPuzzles": 3,
+      "incrementalExtremePuzzles": 3,
+      "cumulativeSolved": 480,
+      "cumulativeSolvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 80
+      }
+    },
+    {
+      "position": 6,
+      "technique": "XYZ-Wing",
+      "incrementalPuzzles": 3,
+      "incrementalExtremePuzzles": 3,
+      "cumulativeSolved": 483,
+      "cumulativeSolvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 83
+      }
+    },
+    {
+      "position": 7,
+      "technique": "Swordfish",
+      "incrementalPuzzles": 1,
+      "incrementalExtremePuzzles": 1,
+      "cumulativeSolved": 484,
+      "cumulativeSolvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 84
+      }
+    }
+  ],
+  "pairwiseSoloOverlap": [
+    {
+      "left": "XY-Wing",
+      "right": "W-Wing",
+      "leftUnlocks": 10,
+      "rightUnlocks": 26,
+      "sharedUnlocks": 10,
+      "unionUnlocks": 26,
+      "jaccard": 0.385
+    },
+    {
+      "left": "X-Wing",
+      "right": "Swordfish",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "X-Wing",
+      "right": "Skyscraper",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "X-Wing",
+      "right": "2-String Kite",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "X-Wing",
+      "right": "XY-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 10,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 10,
+      "jaccard": 0
+    },
+    {
+      "left": "X-Wing",
+      "right": "XYZ-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "X-Wing",
+      "right": "W-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 26,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 26,
+      "jaccard": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "Skyscraper",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "2-String Kite",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "XY-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 10,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 10,
+      "jaccard": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "XYZ-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "W-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 26,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 26,
+      "jaccard": 0
+    },
+    {
+      "left": "Skyscraper",
+      "right": "2-String Kite",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "Skyscraper",
+      "right": "XY-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 10,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 10,
+      "jaccard": 0
+    },
+    {
+      "left": "Skyscraper",
+      "right": "XYZ-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "Skyscraper",
+      "right": "W-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 26,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 26,
+      "jaccard": 0
+    },
+    {
+      "left": "2-String Kite",
+      "right": "XY-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 10,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 10,
+      "jaccard": 0
+    },
+    {
+      "left": "2-String Kite",
+      "right": "XYZ-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 0,
+      "jaccard": 0
+    },
+    {
+      "left": "2-String Kite",
+      "right": "W-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 26,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 26,
+      "jaccard": 0
+    },
+    {
+      "left": "XY-Wing",
+      "right": "XYZ-Wing",
+      "leftUnlocks": 10,
+      "rightUnlocks": 0,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 10,
+      "jaccard": 0
+    },
+    {
+      "left": "XYZ-Wing",
+      "right": "W-Wing",
+      "leftUnlocks": 0,
+      "rightUnlocks": 26,
+      "sharedUnlocks": 0,
+      "unionUnlocks": 26,
+      "jaccard": 0
+    }
+  ],
+  "pairwiseSynergy": [
+    {
+      "left": "2-String Kite",
+      "right": "W-Wing",
+      "pairSolved": 461,
+      "gainOverBetterSolo": 35,
+      "interactionBeyondAdditive": 35
+    },
+    {
+      "left": "Skyscraper",
+      "right": "W-Wing",
+      "pairSolved": 453,
+      "gainOverBetterSolo": 27,
+      "interactionBeyondAdditive": 27
+    },
+    {
+      "left": "X-Wing",
+      "right": "W-Wing",
+      "pairSolved": 447,
+      "gainOverBetterSolo": 21,
+      "interactionBeyondAdditive": 21
+    },
+    {
+      "left": "Swordfish",
+      "right": "W-Wing",
+      "pairSolved": 438,
+      "gainOverBetterSolo": 12,
+      "interactionBeyondAdditive": 12
+    },
+    {
+      "left": "X-Wing",
+      "right": "XY-Wing",
+      "pairSolved": 420,
+      "gainOverBetterSolo": 10,
+      "interactionBeyondAdditive": 10
+    },
+    {
+      "left": "X-Wing",
+      "right": "Swordfish",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "X-Wing",
+      "right": "Skyscraper",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "X-Wing",
+      "right": "2-String Kite",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "X-Wing",
+      "right": "XYZ-Wing",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "Skyscraper",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "2-String Kite",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "XY-Wing",
+      "pairSolved": 410,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "Swordfish",
+      "right": "XYZ-Wing",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "Skyscraper",
+      "right": "2-String Kite",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "Skyscraper",
+      "right": "XY-Wing",
+      "pairSolved": 410,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "Skyscraper",
+      "right": "XYZ-Wing",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "2-String Kite",
+      "right": "XY-Wing",
+      "pairSolved": 410,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "2-String Kite",
+      "right": "XYZ-Wing",
+      "pairSolved": 400,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "XY-Wing",
+      "right": "XYZ-Wing",
+      "pairSolved": 410,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "XYZ-Wing",
+      "right": "W-Wing",
+      "pairSolved": 426,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": 0
+    },
+    {
+      "left": "XY-Wing",
+      "right": "W-Wing",
+      "pairSolved": 426,
+      "gainOverBetterSolo": 0,
+      "interactionBeyondAdditive": -10
+    }
+  ],
+  "sensitivity": {
+    "standard": {
+      "baselineSolved": 400,
+      "committedSolved": 484,
+      "ranking": [
+        {
+          "technique": "W-Wing",
+          "soloIncrementalUnlocks": 26,
+          "leaveOneOutLoss": 50
+        },
+        {
+          "technique": "XY-Wing",
+          "soloIncrementalUnlocks": 10,
+          "leaveOneOutLoss": 3
+        },
+        {
+          "technique": "2-String Kite",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 0
+        },
+        {
+          "technique": "Skyscraper",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 6
+        },
+        {
+          "technique": "Swordfish",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 1
+        },
+        {
+          "technique": "X-Wing",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 13
+        },
+        {
+          "technique": "XYZ-Wing",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 3
+        }
+      ]
+    },
+    "advanced-first": {
+      "baselineSolved": 400,
+      "committedSolved": 484,
+      "ranking": [
+        {
+          "technique": "W-Wing",
+          "soloIncrementalUnlocks": 26,
+          "leaveOneOutLoss": 50
+        },
+        {
+          "technique": "XY-Wing",
+          "soloIncrementalUnlocks": 10,
+          "leaveOneOutLoss": 3
+        },
+        {
+          "technique": "2-String Kite",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 0
+        },
+        {
+          "technique": "Skyscraper",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 6
+        },
+        {
+          "technique": "Swordfish",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 1
+        },
+        {
+          "technique": "X-Wing",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 13
+        },
+        {
+          "technique": "XYZ-Wing",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 3
+        }
+      ]
+    },
+    "max-impact": {
+      "baselineSolved": 400,
+      "committedSolved": 484,
+      "ranking": [
+        {
+          "technique": "W-Wing",
+          "soloIncrementalUnlocks": 26,
+          "leaveOneOutLoss": 50
+        },
+        {
+          "technique": "XY-Wing",
+          "soloIncrementalUnlocks": 10,
+          "leaveOneOutLoss": 6
+        },
+        {
+          "technique": "2-String Kite",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 0
+        },
+        {
+          "technique": "Skyscraper",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 6
+        },
+        {
+          "technique": "Swordfish",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 1
+        },
+        {
+          "technique": "X-Wing",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 13
+        },
+        {
+          "technique": "XYZ-Wing",
+          "soloIncrementalUnlocks": 0,
+          "leaveOneOutLoss": 3
+        }
+      ]
+    }
+  },
+  "portfolioCoverage": {
+    "0": {
+      "techniques": [],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "1": {
+      "techniques": [
+        "X-Wing"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "2": {
+      "techniques": [
+        "Swordfish"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "3": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "4": {
+      "techniques": [
+        "Skyscraper"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "5": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "6": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "7": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "8": {
+      "techniques": [
+        "2-String Kite"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "9": {
+      "techniques": [
+        "X-Wing",
+        "2-String Kite"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "10": {
+      "techniques": [
+        "Swordfish",
+        "2-String Kite"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "11": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "2-String Kite"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "12": {
+      "techniques": [
+        "Skyscraper",
+        "2-String Kite"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "13": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "2-String Kite"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "14": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "15": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "16": {
+      "techniques": [
+        "XY-Wing"
+      ],
+      "solved": 410,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 10
+      }
+    },
+    "17": {
+      "techniques": [
+        "X-Wing",
+        "XY-Wing"
+      ],
+      "solved": 420,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 20
+      }
+    },
+    "18": {
+      "techniques": [
+        "Swordfish",
+        "XY-Wing"
+      ],
+      "solved": 410,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 10
+      }
+    },
+    "19": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "XY-Wing"
+      ],
+      "solved": 420,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 20
+      }
+    },
+    "20": {
+      "techniques": [
+        "Skyscraper",
+        "XY-Wing"
+      ],
+      "solved": 410,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 10
+      }
+    },
+    "21": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "XY-Wing"
+      ],
+      "solved": 421,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 21
+      }
+    },
+    "22": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "XY-Wing"
+      ],
+      "solved": 411,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 11
+      }
+    },
+    "23": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "XY-Wing"
+      ],
+      "solved": 421,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 21
+      }
+    },
+    "24": {
+      "techniques": [
+        "2-String Kite",
+        "XY-Wing"
+      ],
+      "solved": 410,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 10
+      }
+    },
+    "25": {
+      "techniques": [
+        "X-Wing",
+        "2-String Kite",
+        "XY-Wing"
+      ],
+      "solved": 421,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 21
+      }
+    },
+    "26": {
+      "techniques": [
+        "Swordfish",
+        "2-String Kite",
+        "XY-Wing"
+      ],
+      "solved": 410,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 10
+      }
+    },
+    "27": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "2-String Kite",
+        "XY-Wing"
+      ],
+      "solved": 421,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 21
+      }
+    },
+    "28": {
+      "techniques": [
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing"
+      ],
+      "solved": 411,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 11
+      }
+    },
+    "29": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing"
+      ],
+      "solved": 424,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 24
+      }
+    },
+    "30": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing"
+      ],
+      "solved": 411,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 11
+      }
+    },
+    "31": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing"
+      ],
+      "solved": 424,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 24
+      }
+    },
+    "32": {
+      "techniques": [
+        "XYZ-Wing"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "33": {
+      "techniques": [
+        "X-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "34": {
+      "techniques": [
+        "Swordfish",
+        "XYZ-Wing"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "35": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "XYZ-Wing"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "36": {
+      "techniques": [
+        "Skyscraper",
+        "XYZ-Wing"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "37": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "38": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "39": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "40": {
+      "techniques": [
+        "2-String Kite",
+        "XYZ-Wing"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "41": {
+      "techniques": [
+        "X-Wing",
+        "2-String Kite",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "42": {
+      "techniques": [
+        "Swordfish",
+        "2-String Kite",
+        "XYZ-Wing"
+      ],
+      "solved": 400,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 0
+      }
+    },
+    "43": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "2-String Kite",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "44": {
+      "techniques": [
+        "Skyscraper",
+        "2-String Kite",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "45": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "2-String Kite",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "46": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "47": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XYZ-Wing"
+      ],
+      "solved": 401,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 1
+      }
+    },
+    "48": {
+      "techniques": [
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 410,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 10
+      }
+    },
+    "49": {
+      "techniques": [
+        "X-Wing",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 427,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 27
+      }
+    },
+    "50": {
+      "techniques": [
+        "Swordfish",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 410,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 10
+      }
+    },
+    "51": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 427,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 27
+      }
+    },
+    "52": {
+      "techniques": [
+        "Skyscraper",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 417,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 17
+      }
+    },
+    "53": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 428,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 28
+      }
+    },
+    "54": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 418,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 18
+      }
+    },
+    "55": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 428,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 28
+      }
+    },
+    "56": {
+      "techniques": [
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 417,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 17
+      }
+    },
+    "57": {
+      "techniques": [
+        "X-Wing",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 431,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 31
+      }
+    },
+    "58": {
+      "techniques": [
+        "Swordfish",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 417,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 17
+      }
+    },
+    "59": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 431,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 31
+      }
+    },
+    "60": {
+      "techniques": [
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 418,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 18
+      }
+    },
+    "61": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 434,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 34
+      }
+    },
+    "62": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 418,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 18
+      }
+    },
+    "63": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing"
+      ],
+      "solved": 434,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 34
+      }
+    },
+    "64": {
+      "techniques": [
+        "W-Wing"
+      ],
+      "solved": 426,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 26
+      }
+    },
+    "65": {
+      "techniques": [
+        "X-Wing",
+        "W-Wing"
+      ],
+      "solved": 447,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 47
+      }
+    },
+    "66": {
+      "techniques": [
+        "Swordfish",
+        "W-Wing"
+      ],
+      "solved": 438,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 38
+      }
+    },
+    "67": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "W-Wing"
+      ],
+      "solved": 448,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 48
+      }
+    },
+    "68": {
+      "techniques": [
+        "Skyscraper",
+        "W-Wing"
+      ],
+      "solved": 453,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 53
+      }
+    },
+    "69": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "W-Wing"
+      ],
+      "solved": 477,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 77
+      }
+    },
+    "70": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "W-Wing"
+      ],
+      "solved": 468,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 68
+      }
+    },
+    "71": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "W-Wing"
+      ],
+      "solved": 478,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 78
+      }
+    },
+    "72": {
+      "techniques": [
+        "2-String Kite",
+        "W-Wing"
+      ],
+      "solved": 461,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 61
+      }
+    },
+    "73": {
+      "techniques": [
+        "X-Wing",
+        "2-String Kite",
+        "W-Wing"
+      ],
+      "solved": 474,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 74
+      }
+    },
+    "74": {
+      "techniques": [
+        "Swordfish",
+        "2-String Kite",
+        "W-Wing"
+      ],
+      "solved": 464,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 64
+      }
+    },
+    "75": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "2-String Kite",
+        "W-Wing"
+      ],
+      "solved": 475,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 75
+      }
+    },
+    "76": {
+      "techniques": [
+        "Skyscraper",
+        "2-String Kite",
+        "W-Wing"
+      ],
+      "solved": 463,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 63
+      }
+    },
+    "77": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "2-String Kite",
+        "W-Wing"
+      ],
+      "solved": 477,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 77
+      }
+    },
+    "78": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "W-Wing"
+      ],
+      "solved": 468,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 68
+      }
+    },
+    "79": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "W-Wing"
+      ],
+      "solved": 478,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 78
+      }
+    },
+    "80": {
+      "techniques": [
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 426,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 26
+      }
+    },
+    "81": {
+      "techniques": [
+        "X-Wing",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 447,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 47
+      }
+    },
+    "82": {
+      "techniques": [
+        "Swordfish",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 438,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 38
+      }
+    },
+    "83": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 448,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 48
+      }
+    },
+    "84": {
+      "techniques": [
+        "Skyscraper",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 453,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 53
+      }
+    },
+    "85": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 480,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 80
+      }
+    },
+    "86": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 468,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 68
+      }
+    },
+    "87": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 481,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 81
+      }
+    },
+    "88": {
+      "techniques": [
+        "2-String Kite",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 461,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 61
+      }
+    },
+    "89": {
+      "techniques": [
+        "X-Wing",
+        "2-String Kite",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 474,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 74
+      }
+    },
+    "90": {
+      "techniques": [
+        "Swordfish",
+        "2-String Kite",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 464,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 64
+      }
+    },
+    "91": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "2-String Kite",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 475,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 75
+      }
+    },
+    "92": {
+      "techniques": [
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 463,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 63
+      }
+    },
+    "93": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 480,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 80
+      }
+    },
+    "94": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 468,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 68
+      }
+    },
+    "95": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "W-Wing"
+      ],
+      "solved": 481,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 81
+      }
+    },
+    "96": {
+      "techniques": [
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 426,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 26
+      }
+    },
+    "97": {
+      "techniques": [
+        "X-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 448,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 48
+      }
+    },
+    "98": {
+      "techniques": [
+        "Swordfish",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 438,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 38
+      }
+    },
+    "99": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 449,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 49
+      }
+    },
+    "100": {
+      "techniques": [
+        "Skyscraper",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 453,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 53
+      }
+    },
+    "101": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 480,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 80
+      }
+    },
+    "102": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 468,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 68
+      }
+    },
+    "103": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 481,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 81
+      }
+    },
+    "104": {
+      "techniques": [
+        "2-String Kite",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 461,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 61
+      }
+    },
+    "105": {
+      "techniques": [
+        "X-Wing",
+        "2-String Kite",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 474,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 74
+      }
+    },
+    "106": {
+      "techniques": [
+        "Swordfish",
+        "2-String Kite",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 464,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 64
+      }
+    },
+    "107": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "2-String Kite",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 475,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 75
+      }
+    },
+    "108": {
+      "techniques": [
+        "Skyscraper",
+        "2-String Kite",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 463,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 63
+      }
+    },
+    "109": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "2-String Kite",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 480,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 80
+      }
+    },
+    "110": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 468,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 68
+      }
+    },
+    "111": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 481,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 81
+      }
+    },
+    "112": {
+      "techniques": [
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 426,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 26
+      }
+    },
+    "113": {
+      "techniques": [
+        "X-Wing",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 448,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 48
+      }
+    },
+    "114": {
+      "techniques": [
+        "Swordfish",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 438,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 38
+      }
+    },
+    "115": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 449,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 49
+      }
+    },
+    "116": {
+      "techniques": [
+        "Skyscraper",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 453,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 53
+      }
+    },
+    "117": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 483,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 83
+      }
+    },
+    "118": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 468,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 68
+      }
+    },
+    "119": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 484,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 84
+      }
+    },
+    "120": {
+      "techniques": [
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 464,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 64
+      }
+    },
+    "121": {
+      "techniques": [
+        "X-Wing",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 477,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 77
+      }
+    },
+    "122": {
+      "techniques": [
+        "Swordfish",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 467,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 67
+      }
+    },
+    "123": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 478,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 78
+      }
+    },
+    "124": {
+      "techniques": [
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 466,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 66
+      }
+    },
+    "125": {
+      "techniques": [
+        "X-Wing",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 483,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 83
+      }
+    },
+    "126": {
+      "techniques": [
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 471,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 71
+      }
+    },
+    "127": {
+      "techniques": [
+        "X-Wing",
+        "Swordfish",
+        "Skyscraper",
+        "2-String Kite",
+        "XY-Wing",
+        "XYZ-Wing",
+        "W-Wing"
+      ],
+      "solved": 484,
+      "solvedByLevel": {
+        "easy": 100,
+        "medium": 100,
+        "hard": 100,
+        "expert": 100,
+        "extreme": 84
+      }
+    }
+  },
+  "dataQuality": {
+    "expectedGrain": "one row per shipped canonical puzzle",
+    "rowCount": 500,
+    "uniqueIds": 500,
+    "uniqueGrids": 500,
+    "duplicateIds": 0,
+    "duplicateGrids": 0,
+    "malformedGrids": 0,
+    "malformedSolutions": 0,
+    "levelProfileFailures": 0,
+    "stepMismatches": 0,
+    "techniqueSetMismatches": 0,
+    "solutionMismatches": 0,
+    "requiredTechniqueMismatches": 0,
+    "solutionTemplateConcentrationByLevel": {
+      "easy": {
+        "exactSolutionTemplates": 11,
+        "largestTemplateCount": 16,
+        "largestTemplateShare": 0.16
+      },
+      "medium": {
+        "exactSolutionTemplates": 8,
+        "largestTemplateCount": 18,
+        "largestTemplateShare": 0.18
+      },
+      "hard": {
+        "exactSolutionTemplates": 3,
+        "largestTemplateCount": 74,
+        "largestTemplateShare": 0.74
+      },
+      "expert": {
+        "exactSolutionTemplates": 13,
+        "largestTemplateCount": 10,
+        "largestTemplateShare": 0.1
+      },
+      "extreme": {
+        "exactSolutionTemplates": 2,
+        "largestTemplateCount": 50,
+        "largestTemplateShare": 0.5
+      }
+    },
+    "mismatchSamples": [],
+    "readyForAnalysis": true
+  }
+}
