@@ -5,15 +5,18 @@ This is the canonical repository backlog for product and engineering follow-ups.
 ## Product opportunities
 
 - [ ] **Daily personalized puzzles**
+  - Product specification: [Daily Personalized Puzzles v0.1](daily-personalized-puzzles-v0.1.md).
   - Define which local signals should shape the daily puzzle, such as techniques being learned, recent mistakes, difficulty, and practice history.
   - Decide how a daily puzzle remains useful offline and for people who never create an account.
 
 - [ ] **Optional login**
+  - The account, sync, and purchase-recovery boundary for personalized learning is defined in [Daily Personalized Puzzles v0.1](daily-personalized-puzzles-v0.1.md#local-first-and-account-behavior).
   - Keep sign-in optional and preserve the current local-first experience.
   - Identify benefits that justify an account, such as cross-device progress, personalized daily puzzles, and recovery of learning history.
   - Specify consent, data minimization, export, deletion, and a safe migration path for existing browser data before choosing an identity provider.
 
 - [ ] **Evaluate technique-finding tools and coaching toggles**
+  - Their role as temporary, fading scaffolds in personalized coaching is defined in [Daily Personalized Puzzles v0.1](daily-personalized-puzzles-v0.1.md#4-tool-fading).
   - Goal: help learners reduce the visual search space and recognize a technique themselves without immediately revealing the move.
   - Current baseline: **Show line counts** displays the selected digit's occurrences in each row and column using placed values and player-entered notes. In a unit where the digit is still missing, one candidate occurrence can point toward a Hidden Single; two candidate occurrences can expose a strong link used by techniques such as Skyscraper, 2-String Kite, and W-Wing.
   - Evaluate these utilities:
