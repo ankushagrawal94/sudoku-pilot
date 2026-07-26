@@ -1,4 +1,4 @@
-# Optional Login and Account Sync Specification v0.1
+# Optional Login and Account Sync Specification v0.2
 
 - **Status:** Proposed
 - **Updated:** 2026-07-25
@@ -12,7 +12,7 @@ Sudoku Pilot will continue to work without an account. A player may optionally c
 2. resume the current puzzle and keep preferences in sync across devices;
 3. retain the learning signals that will power technique mastery and personalized daily puzzles.
 
-Version 1 uses a dedicated Sudoku Pilot Supabase project for Auth and account data. It reuses the Vite-compatible client, session, OAuth, and browser-test patterns already proven in Triptych Studio. It does not share Triptych's Supabase project, Google OAuth credentials, database, or user records.
+Version 1 uses a dedicated Sudoku Pilot Neon project for Neon Auth and account data. It reuses Sudoku Pilot's existing Neon/Vercel operational conventions, the product-isolation and live auth-test lessons proven in Personal Agent Platform, and Neon's official Vite client patterns. It does not share the private puzzle warehouse project, Personal Agent's Auth tenant, Google OAuth credentials, database, or user records.
 
 The two sign-in methods are:
 
@@ -30,6 +30,7 @@ The app must never build or store its own password system.
 - **No silent data loss.** First sign-in merges safe sets and asks the player to choose when two in-progress puzzles conflict.
 - **Private by default.** There are no profiles, public usernames, leaderboards, friends, or sharing in v1.
 - **Product isolation.** Reuse implementation patterns and provider organizations where sensible, but use Sudoku-specific projects, keys, OAuth configuration, sender identity, data, and budgets.
+- **Free-plan constrained.** Account sync launches only while it fits Neon's Free plan. There is no automatic paid upgrade or overage authorization; guest play remains available if a provider limit is approached or reached.
 
 ## Goals and success criteria
 
@@ -125,7 +126,7 @@ Requirements:
 - keep the player's current route and puzzle intact if the surface is dismissed;
 - return an OAuth user to the same app view after a successful redirect;
 - use generic credential errors that do not reveal whether an account exists;
-- never send an email address, name, access token, or Supabase user ID to PostHog.
+- never send an email address, name, access token, or Neon Auth user ID to PostHog.
 
 ### Account creation
 
@@ -197,57 +198,60 @@ The discard action states exactly what will be lost. It does not delete cloud da
 **Delete account** requires recent authentication and a typed or explicit destructive confirmation. It:
 
 1. deletes Sudoku-owned rows;
-2. revokes sessions and deletes the Supabase Auth user through a server-only endpoint;
+2. revokes sessions and deletes the Neon Auth user through the provider-supported recent-authentication flow, using a server-only endpoint if privileged cleanup is required;
 3. clears account caches on the device;
 4. returns the app to a fresh guest state;
 5. confirms that the action is complete.
 
-Deletion must be tested with both email/password and Google accounts. The service key used for deletion is never exposed to the browser.
+Deletion must be tested with both email/password and Google accounts. Any privileged deletion credential is never exposed to the browser.
 
 ## Technical decision
 
-### Provider: dedicated Supabase Auth
+### Provider: dedicated Neon Auth
 
-Use Supabase Auth and Postgres for the account boundary.
+Use Neon Auth, Neon Postgres, and the Neon Data API for the account boundary.
 
 Why:
 
-- Triptych Studio already proves the same `@supabase/supabase-js` client pattern in a Vite browser app.
-- Supabase supports email/password, Google OAuth, persisted browser sessions, password recovery, and row-level security without a custom auth server.
-- Account data can live beside Auth under explicit per-user RLS policies.
+- Neon keeps Auth users, sessions, configuration, and application data in one branchable Postgres project.
+- Neon Auth supports email/password and Google OAuth, and its Data API validates Neon Auth JWTs for Postgres row-level security without a custom auth server.
+- Neon and Vercel can provision isolated Auth and data endpoints for preview branches.
+- Sudoku Pilot already operates a Neon resource through Vercel Marketplace, so provider setup, environment naming, database migrations, and usage monitoring are familiar.
+- The current Free plan is sufficient for launch: $0 without a credit card, up to 60,000 Auth MAU, 100 compute-hours, and 0.5 GB storage per project as checked on 2026-07-25. These are planning limits, not a permanent product guarantee.
 - The browser can remain a static Vite PWA hosted on Vercel.
 
-Start implementation from the exact `@supabase/supabase-js` version currently pinned and verified in Triptych Studio (`2.110.8` as of this spec), then review the current Supabase changelog and pin the tested version in Sudoku Pilot's lockfile.
+Neon's current unified browser SDK, `@neondatabase/neon-js`, is still published under a beta tag (`0.6.2-beta` when this decision was recorded). Phase 0 must therefore prove the exact vanilla-JavaScript flow before implementation proceeds. Pin the exact version that passes the proof; do not accept a floating beta range.
 
 Do not choose:
 
 - **Hand-built auth:** creates unnecessary password, recovery, session, and OAuth security work.
 - **Clerk:** capable, but introduces a new account stack and its strongest reusable components target Next.js rather than this Vite app.
-- **Neon Auth:** useful in the owner-only Personal Agent runtime, but that integration required a custom same-origin credential bridge and exact JWT/JWKS compatibility work. It is not the simplest public Vite account path.
-- **Triptych's existing Supabase tenant:** violates product isolation and couples user data, OAuth configuration, quotas, and incident boundaries.
+- **Supabase:** the Vite integration is proven in Triptych Studio, but it adds another backend provider when current Neon Auth covers the required methods and ownership model on a free plan.
+- **The private puzzle warehouse Neon project:** violates product isolation and would expose catalog infrastructure to public account traffic, Auth configuration, quotas, and incidents.
 
 ### Reusable code patterns
 
 Reuse and adapt, rather than copy blindly:
 
-- `triptych-studio/src/supabaseClient.js`
-  - lazy-load `@supabase/supabase-js`;
-  - read only browser-safe URL and publishable key variables;
-  - enable session persistence, URL session detection, and token refresh;
-  - return `null` when the feature is not configured.
-- `triptych-studio/src/main.js`
-  - initialize from `auth.getSession()`;
-  - subscribe early with `auth.onAuthStateChange()`;
-  - defer state application outside the auth callback;
-  - use `signInWithOAuth({ provider: "google" })`;
-  - treat auth failure as an optional-feature failure.
-- `triptych-studio/tests/e2e/supabase-auth-workspace.mjs`
-  - intercept provider requests in browser tests;
-  - verify rendered auth choices and request contracts without real credentials.
+- Sudoku Pilot's `scripts/catalog/warehouse.mjs` and `tests/warehouse.test.js`
+  - reuse the established migration/test discipline and provider-neutral error handling;
+  - keep account migrations and credentials separate from the catalog warehouse.
+- Personal Agent Platform's Neon Auth acceptance approach
+  - reuse exact trusted-origin, token/JWKS, logout, expiry, wrong-audience, and cross-user negative tests;
+  - do not reuse its same-origin credential bridge, which was specific to an owner-only Python/Render architecture.
+- Neon's official `neon-data-api-neon-auth` Vite application
+  - start from `createClient()` in `@neondatabase/neon-js`;
+  - configure browser-safe Auth and Data API URLs;
+  - use `client.auth.signUp.email()`, `client.auth.signIn.email()`, `client.auth.signIn.social({ provider: "google" })`, `client.auth.getSession()`, and the SDK's supported session-change mechanism;
+  - query account tables through the authenticated Data API client;
+  - adapt the headless client calls to Sudoku Pilot's vanilla JavaScript UI instead of importing React components.
+- Triptych Studio's browser-auth test structure
+  - reuse the provider-request interception and rendered-state contract;
+  - replace Supabase-specific request shapes with Neon's proven request shapes.
 
 Create Sudoku-specific modules instead of embedding auth and sync calls throughout `src/app.js`:
 
-- `src/accountClient.js` — configuration, Supabase client creation, and auth methods;
+- `src/accountClient.js` — configuration, Neon client creation, and auth methods;
 - `src/accountSync.js` — serialization, migration, merge, dirty state, conflict handling, and retry;
 - `src/accountView.js` — pure rendering helpers for signed-out, signed-in, error, and migration states.
 
@@ -257,26 +261,28 @@ Browser-safe:
 
 ```text
 VITE_ACCOUNT_SYNC_ENABLED=false
-VITE_SUPABASE_URL=
-VITE_SUPABASE_PUBLISHABLE_KEY=
+VITE_NEON_AUTH_URL=
+VITE_NEON_DATA_API_URL=
 ```
 
 Server-only:
 
 ```text
-SUPABASE_SECRET_KEY=
+ACCOUNT_DATABASE_URL_UNPOOLED=
 ```
 
 Rules:
 
 - default the feature flag to false until production acceptance passes;
 - standardize implementation and CI on Node.js 22 or later before adding the client dependency;
-- never place a secret/service-role key in a `VITE_` variable;
+- never place a database connection string, OAuth client secret, email-provider secret, or other privileged credential in a `VITE_` variable;
 - use exact production and localhost redirect allowlists, never wildcards;
-- add only the exact Supabase project origin to the current CSP `connect-src`;
+- add only the exact Neon Auth and Data API origins to the current CSP `connect-src`;
 - use a Sudoku-specific Google OAuth client and consent-screen branding;
-- configure a Sudoku-specific SMTP sender, preferably through the existing Resend organization with a dedicated scoped key and verified Sudoku Pilot domain;
-- use a separate Supabase project and explicit spend/usage alerts. Moving to a paid plan or enabling paid overages requires separate approval.
+- use Neon's shared email service only for development; configure a Sudoku-specific sender for production password confirmation and recovery, preferably through the existing Resend organization with a dedicated scoped key and verified Sudoku Pilot domain;
+- use a separate Neon project and explicit compute, storage, egress, and Auth-MAU monitoring;
+- keep autoscaling capped and scale-to-zero enabled where compatible with the sync experience;
+- remain on the Free plan. Adding billing details, changing to a paid plan, or enabling paid usage requires separate approval.
 
 ## Data model
 
@@ -286,7 +292,7 @@ The implementation may refine names, but it must preserve these ownership and me
 
 One row per user:
 
-- `user_id uuid primary key references auth.users on delete cascade`
+- `user_id text primary key default auth.user_id()`
 - `schema_version integer not null`
 - `revision bigint not null`
 - `active_puzzle jsonb`
@@ -301,7 +307,7 @@ Writes use optimistic concurrency on `revision`. A stale writer receives a confl
 
 ### `played_puzzles`
 
-- `user_id uuid not null`
+- `user_id text not null default auth.user_id()`
 - `canonical_id text not null`
 - `first_played_at timestamptz not null`
 - `completed_at timestamptz`
@@ -311,7 +317,7 @@ Upserts are idempotent. `first_played_at` keeps the earliest known timestamp and
 
 ### `technique_progress_by_device`
 
-- `user_id uuid not null`
+- `user_id text not null default auth.user_id()`
 - `device_id uuid not null`
 - `technique_id text not null`
 - non-negative monotonic counters for opportunities, independent successes, assisted successes, hint reveals/applies, and practice completions
@@ -327,10 +333,10 @@ Every exposed table has RLS enabled before access is granted.
 For select, insert, update, and delete, policies must combine `TO authenticated` with ownership:
 
 ```sql
-(select auth.uid()) = user_id
+(select auth.user_id()) = user_id
 ```
 
-Update policies require both `USING` and `WITH CHECK`. Do not use user-editable metadata for authorization. Do not expose privileged views or a service-role key. Run Supabase security and performance advisors before release.
+Update policies require both `USING` and `WITH CHECK`. Do not use user-editable metadata for authorization. Do not expose privileged views or database credentials. Run Neon Data API Advisors before release.
 
 ## Sync contract
 
@@ -352,9 +358,9 @@ The sync layer owns a versioned serializer. Database migrations and local-storag
 - Use generic auth errors to reduce account enumeration.
 - Require HTTPS outside localhost.
 - Validate OAuth `redirectTo` against an internal allowlist; never accept a user-provided redirect.
-- Verify authenticated server requests per request. Create any server Supabase client inside the request handler so no user's session can leak through a warm Vercel function.
+- Verify authenticated server requests per request against the current branch's Neon Auth contract. Create request-scoped auth/data clients so no user's session can leak through a warm Vercel function.
 - Keep access and refresh tokens in the provider-supported client storage only; never copy them into app state, analytics, logs, URLs controlled by Sudoku Pilot, or exported data.
-- Do not call PostHog `identify` with the Supabase user ID by default. Account analytics remain anonymous and contain only method, outcome class, sync state, and migration result.
+- Do not call PostHog `identify` with the Neon Auth user ID by default. Account analytics remain anonymous and contain only method, outcome class, sync state, and migration result.
 - Log no passwords, tokens, email addresses, puzzle notes, or imported content.
 - Keep the OCR feature independent. Signing in does not automatically upload screenshots or grant higher paid-provider quotas.
 - Add retention rules for deleted accounts and operational backups to the Privacy Policy.
@@ -384,10 +390,13 @@ Allowed properties are bounded enums such as `method`, `outcome`, `error_class`,
 
 ### Phase 0: provider and compatibility proof
 
-- Create a dedicated Supabase project on the approved free/capped plan.
-- Configure exact production/local URLs, email/password, Google, SMTP, CAPTCHA, and alerts.
-- Prove real signup, email confirmation, sign-in, token refresh, password recovery, Google sign-in, same-email identity behavior, sign-out, and deletion in a non-production environment.
-- Stop if identity linking, callback, email delivery, quota, JWT, or deletion behavior differs from this contract.
+- Create a dedicated Sudoku Pilot Neon project on the Free plan. Do not reuse the private puzzle warehouse.
+- Record the current Free-plan limits and configure monitoring at 80% of compute, storage, egress, and Auth-MAU allowances. Do not add a payment method for this phase.
+- Build a disposable vanilla-JavaScript Vite spike using an exact pinned `@neondatabase/neon-js` beta version; do not use React-only Auth UI components.
+- Configure exact production/local URLs, email/password, Google, production email delivery, abuse controls, Data API, RLS, and preview-branch integration.
+- Prove real signup, email confirmation, sign-in, session restoration, token refresh, password recovery, Google sign-in, same-email identity behavior, sign-out, deletion, and Data API ownership in a non-production branch.
+- Prove a Vercel preview receives its matching branch-specific Auth and Data API URLs without trusting arbitrary preview origins.
+- Stop if vanilla-JavaScript session handling, identity linking, callback, email delivery, Free-plan limits, SDK stability, JWT, RLS, or deletion behavior differs from this contract. Reconsider Supabase only through a new explicit decision.
 
 ### Phase 1: auth foundation behind a flag
 
@@ -408,14 +417,14 @@ Allowed properties are bounded enums such as `method`, `outcome`, `error_class`,
 - Verify idempotent multi-device aggregation.
 - Expose the aggregate contract to the separate daily-personalization work without labeling mastery prematurely.
 
-Each phase requires a clean commit, current-main rebase, `npm run build`, `npm test`, Supabase RLS/advisor checks where applicable, and live verification before enabling the next phase.
+Each phase requires a clean commit, current-main rebase, `npm run build`, `npm test`, Neon Data API/RLS advisor checks where applicable, and live verification before enabling the next phase.
 
 ## Acceptance criteria
 
 ### Guest and offline
 
 - [ ] A first-time visitor can play every current mode without seeing or using account UI.
-- [ ] Missing Supabase configuration, an auth outage, or a sync outage does not delay initial render or disable guest play.
+- [ ] Missing Neon configuration, an auth outage, a Data API outage, or a sync outage does not delay initial render or disable guest play.
 - [ ] A previously signed-in player can continue a cached puzzle offline and sees an accurate sync state.
 
 ### Authentication
@@ -438,8 +447,10 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 ### Security and privacy
 
 - [ ] A user cannot read, write, or delete another user's rows in local SQL tests or live negative tests.
-- [ ] No secret key is present in browser assets, source maps, logs, or `VITE_` variables.
-- [ ] OAuth redirects are allowlisted and the CSP permits only the exact required Supabase origin.
+- [ ] No database URL, OAuth secret, email-provider secret, or privileged credential is present in browser assets, source maps, logs, or `VITE_` variables.
+- [ ] OAuth redirects are allowlisted and the CSP permits only the exact required Neon Auth and Data API origins.
+- [ ] Data API Advisors report no unresolved security errors, and two-user negative tests prove every ownership policy.
+- [ ] Free-plan usage monitoring is active; no billing method, paid plan, or paid overage has been enabled.
 - [ ] Analytics contain no account identifiers or puzzle content.
 - [ ] Export and deletion pass for email/password and Google accounts.
 - [ ] Privacy, account-free, About, and offline copy accurately distinguish guest-local from signed-in-cloud behavior.
@@ -447,8 +458,8 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 ## Verification plan
 
 - Unit tests for serialization, schema migration, merge rules, revision conflicts, retry classification, and analytics redaction.
-- Browser tests with intercepted Supabase endpoints for every auth state and failure mode.
-- Local Supabase SQL tests with two users proving positive ownership and negative cross-user access for every operation.
+- Browser tests with intercepted Neon Auth and Data API endpoints for every auth state and failure mode.
+- Branch-isolated Neon SQL/Data API tests with two users proving positive ownership and negative cross-user access for every operation.
 - Two-browser end-to-end tests for no-repeat history, current-puzzle conflicts, offline edits, and eventual sync.
 - Live non-production tests using real email/password and Google accounts, including recovery, refresh, sign-out, export, deletion, and same-email behavior.
 - Production smoke test from the exact `origin/main` commit before the feature flag is enabled.
@@ -457,19 +468,21 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 
 - Sudoku local state and played IDs: `src/app.js`
 - Sudoku security headers: `vercel.json`
-- Triptych Vite Supabase client: sibling repository `triptych-studio`, `src/supabaseClient.js`
-- Triptych auth/session flow: sibling repository `triptych-studio`, `src/main.js`
+- Sudoku Neon warehouse conventions: `scripts/catalog/warehouse.mjs`, `tests/warehouse.test.js`, and `resources/catalog-pipeline.md`
+- Personal Agent Neon Auth acceptance: sibling repository `personal-agent-platform`, `REPORTS/R2-T8A-private-alpha-acceptance-v0.1.md`
 - Triptych browser auth contract: sibling repository `triptych-studio`, `tests/e2e/supabase-auth-workspace.mjs`
-- [Supabase JavaScript password sign-in](https://supabase.com/docs/reference/javascript/auth-signinwithpassword)
-- [Supabase JavaScript OAuth sign-in](https://supabase.com/docs/reference/javascript/auth-signinwithoauth)
-- [Supabase JavaScript signup](https://supabase.com/docs/reference/javascript/auth-signup)
-- [Supabase Auth security](https://supabase.com/docs/guides/auth)
-- [Supabase Data API security and RLS](https://supabase.com/docs/guides/api/securing-your-api)
+- [Neon pricing and Free-plan limits](https://neon.com/pricing)
+- [Neon Auth: branchable identity in Postgres](https://neon.com/blog/neon-auth-branchable-identity-in-your-database)
+- [Neon Auth and Data API Vite example](https://github.com/neondatabase/neon-data-api-neon-auth)
+- [Neon row-level security](https://neon.com/docs/guides/row-level-security)
+- [Neon Auth SDK and Vite demo update](https://neon.com/docs/changelog/2026-01-30)
+- [Neon Google OAuth provider configuration](https://neon.com/docs/changelog/2025-07-04)
 
 ## Decision log
 
 - **2026-07-25:** Keep accounts optional and preserve guest/offline behavior.
 - **2026-07-25:** Treat email as the v1 username; do not add arbitrary handles.
-- **2026-07-25:** Select a dedicated Supabase project and reuse Triptych's Vite integration patterns.
+- **2026-07-25:** Initially selected a dedicated Supabase project based on Triptych's exact Vite integration.
+- **2026-07-25:** Replaced Supabase with a dedicated Neon project after current Neon Auth review. The deciding factors are the $0 Free plan, existing Neon operations, branchable Auth/data, and lower provider sprawl; the beta vanilla-JavaScript SDK remains a Phase 0 gate.
 - **2026-07-25:** Sync no-repeat history and current progress before adding mastery-driven recommendations.
 - **2026-07-25:** Require consent, safe migration, export, and deletion in the first public account release.

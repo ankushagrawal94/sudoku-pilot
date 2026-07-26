@@ -13,7 +13,7 @@ This is the canonical repository backlog for product and engineering follow-ups.
 
 - [ ] **Optional login**
   - The account, sync, and purchase-recovery boundary is defined in the campaign [product requirements](adaptive-improvement-campaign-product-v0.2.md#local-first-and-account-behavior) and [technical design](adaptive-improvement-campaign-technical-v0.1.md#optional-sync-boundary).
-  - Product requirements and implementation plan: [Optional Login and Account Sync Specification v0.1](optional-login-v0.1.md).
+  - Product requirements and implementation plan: [Optional Login and Account Sync Specification v0.2](optional-login-v0.1.md).
   - Keep sign-in optional and preserve the current local-first experience.
   - Lead with benefits that justify an account: cross-device campaign progress, purchase restoration, no repeated catalog puzzles, and recovery of learning history.
   - Implement consent, data minimization, export, deletion, and a safe migration path for existing browser data as specified before enabling the feature.
