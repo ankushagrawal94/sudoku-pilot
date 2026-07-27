@@ -36,7 +36,7 @@ Public enablement is intentionally blocked until all Phase 0 live tests pass. Li
 
 1. The pinned beta SDK still resolves Better Auth `1.4.18`, which is affected by the email-OTP pre-account-hijacking advisory [GHSA-qq9h-g4jm-xgf3](https://github.com/advisories/GHSA-qq9h-g4jm-xgf3). The fixed Better Auth version is `1.6.22`, but no patched `@neondatabase/neon-js` release is currently available as of 2026-07-27.
 
-Production is bound to Neon's main branch. PR #34's Preview environment is bound to dedicated branch `preview-login-pr-34`; its Auth, Data API, database URL, deletion branch ID, and project-scoped deletion key are scoped to `codex/login-feature-spec`. Do not merge, enable Preview/Production signup, or turn on the feature flag until the dependency advisory is resolved.
+Production is bound to Neon's main branch. PR #34's Preview environment is bound to dedicated branch `preview-login-pr-34`; its Auth, Data API, database URL, deletion branch ID, and project-scoped deletion key are scoped to `codex/login-feature-spec`. The disabled implementation may merge, but do not enable Preview/Production signup or turn on the feature flag until the dependency advisory is resolved.
 
 ## Product principles
 
@@ -543,4 +543,4 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 - **2026-07-27:** Replaced the unsupported hosted `/delete-user` call with an authenticated server-only deletion endpoint backed by Neon's branch Auth User API and a project-scoped key.
 - **2026-07-27:** Isolated PR #34 on `preview-login-pr-34`, retained main for Production, and kept both flags off while the SDK advisory remains.
 - **2026-07-27:** Added and verified an exact Cloudflare reply route for the temporary `sudoku@ankushagrawal.com` sender.
-- **2026-07-27:** Passed deployed email/password deletion acceptance on the isolated Preview branch. Kept PR #34 open and both flags off solely because the pinned Neon SDK still resolves the affected Better Auth version.
+- **2026-07-27:** Passed deployed email/password deletion acceptance on the isolated Preview branch. Approved merging the disabled implementation while keeping both flags off because the pinned Neon SDK still resolves the affected Better Auth version.
