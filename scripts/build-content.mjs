@@ -299,12 +299,17 @@ function renderPrivacyPage() {
       <article class="contact-page">
         <header class="article-header">
           <h1>Privacy</h1>
-          <p class="dek">Sudoku Pilot stores gameplay locally while product analytics records how the app is used.</p>
-          <p class="byline">Last updated July 21, 2026</p>
+          <p class="dek">Sudoku Pilot works without an account, with optional account sync for players who choose it.</p>
+          <p class="byline">Last updated July 27, 2026</p>
         </header>
         <section>
-          <h2>Game data stays in your browser</h2>
-          <p>Puzzles, entries, pencil notes, undo history, practice progress, and preferences are stored in your browser's local storage. Sudoku Pilot does not provide an account or sync this data to an application server. You can remove it with the app's Clear local data action or by clearing this site's stored data in your browser.</p>
+          <h2>Guest data stays in your browser</h2>
+          <p>Without an account, puzzles, entries, pencil notes, undo history, practice progress, and preferences are stored in your browser's local storage. You can remove guest data with the app's Clear local data action or by clearing this site's stored data in your browser.</p>
+        </section>
+        <section>
+          <h2>Optional accounts and sync</h2>
+          <p>If you create an account, Neon Auth stores your email address, password credential, and sessions. After you choose to sync, Sudoku Pilot stores selected puzzle progress, played puzzle IDs, preferences, completion totals, and learning history in Neon so they can be used across devices. Imported screenshot images, OCR payloads, and analytics identifiers are not included in account sync.</p>
+          <p>Resend delivers account verification and password-recovery emails. You can export your synced Sudoku data or delete your account from More → Account. Deleting an account removes its Sudoku sync data and Neon Auth user; clearing local data separately removes data kept in the current browser.</p>
         </section>
         <section>
           <h2>Screenshot OCR uses an online provider</h2>
