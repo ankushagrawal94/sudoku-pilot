@@ -107,11 +107,12 @@ assert.deepEqual(verified, { user: verifiedUser });
 let deletionRequest;
 const deletionResult = await deleteAccountThroughServer({
   auth: {
-    getBetterAuthInstance() {
+    async getSession() {
       return {
-        async getToken() {
-          return { data: { token: "test-data-api-jwt" } };
-        }
+        data: {
+          session: { access_token: "test-data-api-jwt" }
+        },
+        error: null
       };
     }
   }
