@@ -25,6 +25,8 @@ assert.match(headers["content-security-policy"] || "", /style-src 'self' 'unsafe
 assert.match(headers["content-security-policy"] || "", /connect-src 'self' https:\/\/us\.i\.posthog\.com https:\/\/eu\.i\.posthog\.com/);
 assert.match(headers["content-security-policy"] || "", /https:\/\/ep-still-dream-a6at2pib\.neonauth\.us-west-2\.aws\.neon\.tech/);
 assert.match(headers["content-security-policy"] || "", /https:\/\/ep-still-dream-a6at2pib\.apirest\.us-west-2\.aws\.neon\.tech/);
+assert.match(headers["content-security-policy"] || "", /https:\/\/ep-wandering-dew-a60wyslr\.neonauth\.us-west-2\.aws\.neon\.tech/);
+assert.match(headers["content-security-policy"] || "", /https:\/\/ep-wandering-dew-a60wyslr\.apirest\.us-west-2\.aws\.neon\.tech/);
 assert.match(headers["content-security-policy"] || "", /frame-ancestors 'none'/);
 assert.equal(headers["x-frame-options"], "DENY");
 assert.equal(headers["x-content-type-options"], "nosniff");
