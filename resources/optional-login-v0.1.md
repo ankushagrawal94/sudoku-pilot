@@ -1,4 +1,4 @@
-# Optional Login and Account Sync Specification v0.3
+# Optional Login and Account Sync Specification v0.4
 
 - **Status:** Implemented behind a default-off feature flag; production acceptance pending
 - **Updated:** 2026-07-27
@@ -32,11 +32,11 @@ The implementation is present on `codex/login-feature-spec` and remains disabled
 - unit, security, and intercepted desktop/mobile browser tests run in the default repository suite;
 - Production and Preview keep `VITE_ACCOUNT_SYNC_ENABLED=false`; local Development is enabled for acceptance work.
 
-Public enablement is intentionally blocked until all Phase 0 live tests pass. Live email/password, email delivery, rate limiting, RLS, Data API Advisor, two-browser sync, conflict, offline retry, export, and password-recovery checks pass. The previous deletion and environment-branching gaps are implemented and await final deployed acceptance. One dependency launch blocker remains:
+Public enablement is intentionally blocked until all Phase 0 live tests pass. Live email/password, email delivery, rate limiting, RLS, Data API Advisor, two-browser sync, conflict, offline retry, export, password recovery, and deployed account-deletion checks pass. One dependency launch blocker remains:
 
 1. The pinned beta SDK still resolves Better Auth `1.4.18`, which is affected by the email-OTP pre-account-hijacking advisory [GHSA-qq9h-g4jm-xgf3](https://github.com/advisories/GHSA-qq9h-g4jm-xgf3). The fixed Better Auth version is `1.6.22`, but no patched `@neondatabase/neon-js` release is currently available as of 2026-07-27.
 
-Production is bound to Neon's main branch. PR #34's Preview environment is bound to dedicated branch `preview-login-pr-34`; its Auth, Data API, database URL, deletion branch ID, and project-scoped deletion key are scoped to `codex/login-feature-spec`. Do not merge, enable Preview/Production signup, or turn on the feature flag until deployed deletion acceptance passes and the dependency advisory is resolved.
+Production is bound to Neon's main branch. PR #34's Preview environment is bound to dedicated branch `preview-login-pr-34`; its Auth, Data API, database URL, deletion branch ID, and project-scoped deletion key are scoped to `codex/login-feature-spec`. Do not merge, enable Preview/Production signup, or turn on the feature flag until the dependency advisory is resolved.
 
 ## Product principles
 
@@ -408,7 +408,6 @@ Passed against the dedicated Neon branch:
 Failed or blocked:
 
 - dependency acceptance: the current beta Neon SDK has no patched release for the Better Auth email-OTP advisory;
-- final deployed deletion acceptance against PR #34's newly isolated Preview branch.
 
 ### Operational follow-up — 2026-07-27
 
@@ -418,6 +417,7 @@ Failed or blocked:
 - Bound Production deletion configuration to Neon main and the PR Preview configuration to `preview-login-pr-34`.
 - Kept both public feature flags off.
 - Created and verified the active Cloudflare reply route from `sudoku@ankushagrawal.com` to the owner's Gmail destination.
+- Verified deployed deletion on PR #34 commit `1373101` and deployment `dpl_8LthYJtvWzsiBVdRyx9LgapXRRuJ`: authenticated deletion returned `200`, the Auth session became invalid, no Sudoku-owned rows remained, an unauthenticated request returned `401`, and a cross-origin request returned `403`.
 
 ## Analytics
 
@@ -501,7 +501,7 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 - [x] Data API Advisors report no unresolved security errors, and two-user negative tests prove every ownership policy.
 - [x] Free-plan usage monitoring is active; no billing method, paid plan, or paid overage has been enabled.
 - [x] Analytics contain no account identifiers or puzzle content.
-- [ ] Export and deletion pass for an email/password account.
+- [x] Export and deletion pass for an email/password account.
 - [ ] Privacy, account-free, About, and offline copy accurately distinguish guest-local from signed-in-cloud behavior.
 
 ## Verification plan
@@ -543,3 +543,4 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 - **2026-07-27:** Replaced the unsupported hosted `/delete-user` call with an authenticated server-only deletion endpoint backed by Neon's branch Auth User API and a project-scoped key.
 - **2026-07-27:** Isolated PR #34 on `preview-login-pr-34`, retained main for Production, and kept both flags off while the SDK advisory remains.
 - **2026-07-27:** Added and verified an exact Cloudflare reply route for the temporary `sudoku@ankushagrawal.com` sender.
+- **2026-07-27:** Passed deployed email/password deletion acceptance on the isolated Preview branch. Kept PR #34 open and both flags off solely because the pinned Neon SDK still resolves the affected Better Auth version.
