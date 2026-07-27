@@ -3,7 +3,7 @@ import {
   completePasswordReset,
   createAccountClient,
   createEmailAccount,
-  deleteAuthUser,
+  deleteAccountThroughServer,
   genericAuthMessage,
   getAccountSession,
   readAccountConfig,
@@ -412,10 +412,12 @@ export function createAccountController({
     if (confirmation !== "DELETE" || !model.session?.user) return;
     emit({ deleting: true, error: "" });
     try {
-      for (const table of ["technique_progress_by_device", "played_puzzles", "account_state"]) {
-        assertQuery(await client.from(table).delete().neq("user_id", ""));
+      await deleteAccountThroughServer(client);
+      try {
+        await client.auth.signOut();
+      } catch {
+        // The server has already deleted the Auth user, so local cleanup must continue.
       }
-      await deleteAuthUser(client);
       clearAccountCache(storage);
       clearAccountData();
       emit({ deleting: false, session: null, status: "signed_out", surfaceOpen: false });

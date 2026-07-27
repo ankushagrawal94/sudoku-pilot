@@ -7,6 +7,9 @@
     "api/sudoku-ocr.js": {
       "maxDuration": 30,
       "supportsCancellation": true
+    },
+    "api/account-delete.js": {
+      "maxDuration": 30
     }
   },
   "headers": [

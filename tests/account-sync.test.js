@@ -11,6 +11,7 @@ import {
 import {
   accountConfigReady,
   classifyAccountError,
+  deleteAccountThroughServer,
   readAccountConfig,
   verifyEmailCode
 } from "../src/accountClient.js";
@@ -103,6 +104,29 @@ assert.deepEqual(verifyOtpRequest, {
 });
 assert.deepEqual(verified, { user: verifiedUser });
 
+let deletionRequest;
+const deletionResult = await deleteAccountThroughServer({
+  auth: {
+    getBetterAuthInstance() {
+      return {
+        async getSession() {
+          return { data: { session: { token: "test-session-token" } } };
+        }
+      };
+    }
+  }
+}, async (url, options) => {
+  deletionRequest = { url, options };
+  return new Response(JSON.stringify({ deleted: true }), {
+    status: 200,
+    headers: { "content-type": "application/json" }
+  });
+});
+assert.equal(deletionRequest.url, "/api/account-delete");
+assert.equal(deletionRequest.options.headers.Authorization, "Bearer test-session-token");
+assert.deepEqual(JSON.parse(deletionRequest.options.body), { confirmation: "DELETE" });
+assert.deepEqual(deletionResult, { deleted: true });
+
 const sql = await readFile(new URL("../database/account/001_account_sync.sql", import.meta.url), "utf8");
 for (const table of ["account_state", "played_puzzles", "technique_progress_by_device"]) {
   assert.match(sql, new RegExp(`alter table public\\.${table} enable row level security`));
@@ -111,5 +135,11 @@ for (const table of ["account_state", "played_puzzles", "technique_progress_by_d
 assert.equal((sql.match(/to authenticated/g) || []).length, 15);
 assert.equal((sql.match(/using \(\(select auth\.user_id\(\)\) = user_id\)/g) || []).length, 9);
 assert.equal((sql.match(/with check \(\(select auth\.user_id\(\)\) = user_id\)/g) || []).length, 6);
+
+const deletionSql = await readFile(new URL("../database/account/002_account_delete.sql", import.meta.url), "utf8");
+assert.match(deletionSql, /create or replace function public\.account_current_user_id\(\)/);
+assert.match(deletionSql, /security invoker/);
+assert.match(deletionSql, /revoke all on function public\.account_current_user_id\(\) from public, anonymous/);
+assert.match(deletionSql, /grant execute on function public\.account_current_user_id\(\) to authenticated/);
 
 console.log("account sync tests passed");

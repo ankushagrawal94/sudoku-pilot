@@ -1,7 +1,7 @@
 # Optional Login and Account Sync Specification v0.3
 
 - **Status:** Implemented behind a default-off feature flag; production acceptance pending
-- **Updated:** 2026-07-26
+- **Updated:** 2026-07-27
 - **Backlog:** [Optional login](todo.md#product-opportunities)
 
 ## Summary
@@ -27,16 +27,16 @@ The implementation is present on `codex/login-feature-spec` and remains disabled
 - a dedicated Free-plan Neon project named `sudoku-account-sync` owns Auth, Data API, and account tables;
 - `@neondatabase/neon-js` is pinned exactly to `0.6.2-beta`;
 - the More-panel account surface, email/password, email verification code, password recovery completion, session restore, consent, offline dirty state, merge/conflict handling, export, sign-out, and deletion confirmation UI are implemented;
-- `database/account/001_account_sync.sql` has been applied to the dedicated project, with RLS and owner-only policies on every exposed table;
+- `database/account/001_account_sync.sql` and `002_account_delete.sql` have been applied to the main and PR-preview branches, with RLS and owner-only policies on every exposed table;
+- account deletion now uses a same-origin Vercel Function that verifies the current JWT through the Data API, derives the user ID server-side, deletes only that user's Sudoku rows, and calls Neon's branch Auth User API with a project-scoped server key;
 - unit, security, and intercepted desktop/mobile browser tests run in the default repository suite;
 - Production and Preview keep `VITE_ACCOUNT_SYNC_ENABLED=false`; local Development is enabled for acceptance work.
 
-Public enablement is intentionally blocked until all Phase 0 live tests pass. Live email/password, email delivery, rate limiting, RLS, Data API Advisor, two-browser sync, conflict, offline retry, export, and password-recovery checks pass. Two launch blockers remain:
+Public enablement is intentionally blocked until all Phase 0 live tests pass. Live email/password, email delivery, rate limiting, RLS, Data API Advisor, two-browser sync, conflict, offline retry, export, and password-recovery checks pass. The previous deletion and environment-branching gaps are implemented and await final deployed acceptance. One dependency launch blocker remains:
 
-1. Neon's hosted Better Auth service returns `404` from `POST /delete-user`, so the current browser deletion path removes Sudoku-owned rows but cannot delete the Auth user. Resolve this through a provider-supported client endpoint or a server-only Sudoku endpoint that verifies the current user and calls Neon's branch Auth User API with a server-side project-scoped key.
-2. The pinned beta SDK still resolves Better Auth `1.4.18`, which is affected by the email-OTP pre-account-hijacking advisory [GHSA-qq9h-g4jm-xgf3](https://github.com/advisories/GHSA-qq9h-g4jm-xgf3). The fixed Better Auth version is `1.6.22`, but no patched `@neondatabase/neon-js` release is currently available.
+1. The pinned beta SDK still resolves Better Auth `1.4.18`, which is affected by the email-OTP pre-account-hijacking advisory [GHSA-qq9h-g4jm-xgf3](https://github.com/advisories/GHSA-qq9h-g4jm-xgf3). The fixed Better Auth version is `1.6.22`, but no patched `@neondatabase/neon-js` release is currently available as of 2026-07-27.
 
-Branch-matched Preview/Production URLs also remain to be configured. Do not merge, enable Preview/Production signup, or turn on the feature flag until deletion and the advisory are resolved and acceptance is rerun against the final deployment.
+Production is bound to Neon's main branch. PR #34's Preview environment is bound to dedicated branch `preview-login-pr-34`; its Auth, Data API, database URL, deletion branch ID, and project-scoped deletion key are scoped to `codex/login-feature-spec`. Do not merge, enable Preview/Production signup, or turn on the feature flag until deployed deletion acceptance passes and the dependency advisory is resolved.
 
 ## Product principles
 
@@ -281,6 +281,10 @@ Server-only:
 
 ```text
 ACCOUNT_DATABASE_URL_UNPOOLED=
+ACCOUNT_NEON_API_KEY=
+ACCOUNT_NEON_BRANCH_ID=
+ACCOUNT_NEON_DATA_API_URL=
+ACCOUNT_NEON_PROJECT_ID=
 ```
 
 Rules:
@@ -301,7 +305,7 @@ Verified email-provider state as of 2026-07-26:
 - Neon Auth uses a dedicated sending-only Resend key restricted to the verified `ankushagrawal.com` domain. The key remains server-side in Neon and is never exposed through a `VITE_` variable.
 - `Sudoku Pilot <sudoku@ankushagrawal.com>` is the temporary sender while the existing free Resend account's single custom-domain slot is occupied. Verification and password-recovery messages have both been delivered through this path.
 - The product owner has accepted this temporary sender for the initial release. A future migration to `auth@sudokupilot.com` must not silently add billing or remove the existing verified domain.
-- Resend sending authorization does not itself create an inbox. Cloudflare Email Routing is enabled for `ankushagrawal.com`, but only `hello@`, `me@`, and `ankush@` currently forward to the owner's Gmail; the catch-all is disabled. Replies to `sudoku@ankushagrawal.com` therefore are not delivered. The minimal temporary fix is an exact `sudoku@ankushagrawal.com` forwarding rule; until that exists and is tested, auth-email copy must not promise that replies are monitored.
+- Resend sending authorization does not itself create an inbox. Cloudflare Email Routing now has an exact, active `sudoku@ankushagrawal.com` rule forwarding to the owner's verified Gmail destination; the catch-all remains disabled. The dashboard rule and routing status were verified after creation on 2026-07-27.
 
 ## Data model
 
@@ -403,9 +407,17 @@ Passed against the dedicated Neon branch:
 
 Failed or blocked:
 
-- browser account deletion: Sudoku-owned row deletes return `204`, but Neon's hosted `POST /delete-user` returns `404` and the Auth user remains;
 - dependency acceptance: the current beta Neon SDK has no patched release for the Better Auth email-OTP advisory;
-- deployed Preview/Production callback and branch URL verification, which must use the final Vercel environment bindings.
+- final deployed deletion acceptance against PR #34's newly isolated Preview branch.
+
+### Operational follow-up — 2026-07-27
+
+- Created Neon branch `preview-login-pr-34` and confirmed branch-specific Auth and Data API endpoints.
+- Applied both account migrations and refreshed the Data API schema cache on main and Preview.
+- Added a project-scoped Neon API key only to Vercel's Production and `codex/login-feature-spec` Preview server environments.
+- Bound Production deletion configuration to Neon main and the PR Preview configuration to `preview-login-pr-34`.
+- Kept both public feature flags off.
+- Created and verified the active Cloudflare reply route from `sudoku@ankushagrawal.com` to the owner's Gmail destination.
 
 ## Analytics
 
@@ -468,27 +480,27 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 
 ### Authentication
 
-- [ ] Email/password create, confirm, sign in, restore, reset, and sign out work with generic failure copy.
-- [ ] Password managers, keyboard navigation, focus trapping, error announcements, and a 320 px viewport work.
+- [x] Email/password create, confirm, sign in, restore, reset, and sign out work with generic failure copy.
+- [x] Password managers, keyboard navigation, focus trapping, error announcements, and a 320 px viewport work.
 
 ### Migration and sync
 
-- [ ] First sign-in asks before uploading existing browser data and states what is excluded.
-- [ ] Repeating migration is idempotent.
-- [ ] Played-ID union prevents a device-A puzzle from being selected on device B after sync.
-- [ ] Active-puzzle conflicts never silently overwrite meaningful progress.
-- [ ] Preferences, current progress, completion totals, and technique counters survive a two-device round trip.
-- [ ] Offline writes retry without duplicating counts.
+- [x] First sign-in asks before uploading existing browser data and states what is excluded.
+- [x] Repeating migration is idempotent.
+- [x] Played-ID union prevents a device-A puzzle from being selected on device B after sync.
+- [x] Active-puzzle conflicts never silently overwrite meaningful progress.
+- [x] Preferences, current progress, completion totals, and technique counters survive a two-device round trip.
+- [x] Offline writes retry without duplicating counts.
 - [ ] Catalog exhaustion is explicit and does not silently reset history.
 
 ### Security and privacy
 
-- [ ] A user cannot read, write, or delete another user's rows in local SQL tests or live negative tests.
-- [ ] No database URL, email-provider secret, or privileged credential is present in browser assets, source maps, logs, or `VITE_` variables.
-- [ ] Verification and recovery redirects are allowlisted, and the CSP permits only the exact required Neon Auth and Data API origins.
-- [ ] Data API Advisors report no unresolved security errors, and two-user negative tests prove every ownership policy.
-- [ ] Free-plan usage monitoring is active; no billing method, paid plan, or paid overage has been enabled.
-- [ ] Analytics contain no account identifiers or puzzle content.
+- [x] A user cannot read, write, or delete another user's rows in local SQL tests or live negative tests.
+- [x] No database URL, email-provider secret, or privileged credential is present in browser assets, source maps, logs, or `VITE_` variables.
+- [x] Verification and recovery redirects are allowlisted, and the CSP permits only the exact required Neon Auth and Data API origins.
+- [x] Data API Advisors report no unresolved security errors, and two-user negative tests prove every ownership policy.
+- [x] Free-plan usage monitoring is active; no billing method, paid plan, or paid overage has been enabled.
+- [x] Analytics contain no account identifiers or puzzle content.
 - [ ] Export and deletion pass for an email/password account.
 - [ ] Privacy, account-free, About, and offline copy accurately distinguish guest-local from signed-in-cloud behavior.
 
@@ -528,3 +540,6 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 - **2026-07-26:** Verified the provider rate limiter, two-user RLS negatives, Data API Advisors, email/password recovery, two-browser sync/conflicts, offline retry, export, and session refresh live.
 - **2026-07-26:** Removed the shared Google provider and disabled Neon's unused Organizations plugin so the hosted Auth surface matches the email/password-only scope.
 - **2026-07-26:** Kept the launch flag off because hosted Auth user deletion returns `404` and the pinned beta SDK resolves an affected Better Auth version. PR #34 must not merge until both are resolved and final deployment acceptance passes.
+- **2026-07-27:** Replaced the unsupported hosted `/delete-user` call with an authenticated server-only deletion endpoint backed by Neon's branch Auth User API and a project-scoped key.
+- **2026-07-27:** Isolated PR #34 on `preview-login-pr-34`, retained main for Production, and kept both flags off while the SDK advisory remains.
+- **2026-07-27:** Added and verified an exact Cloudflare reply route for the temporary `sudoku@ankushagrawal.com` sender.

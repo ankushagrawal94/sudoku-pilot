@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 
-const [vercelConfig, appSource, accountClientSource, accountSyncSource, browserAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient, sudokuOcrRoute] = await Promise.all([
+const [vercelConfig, appSource, accountClientSource, accountSyncSource, accountDeleteRoute, accountDeletionServer, browserAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient, sudokuOcrRoute] = await Promise.all([
   readFile(new URL("../vercel.json", import.meta.url), "utf8"),
   readFile(new URL("../src/app.js", import.meta.url), "utf8"),
   readFile(new URL("../src/accountClient.js", import.meta.url), "utf8"),
   readFile(new URL("../src/accountSync.js", import.meta.url), "utf8"),
+  readFile(new URL("../api/account-delete.js", import.meta.url), "utf8"),
+  readFile(new URL("../server/account-deletion.js", import.meta.url), "utf8"),
   readFile(new URL("../src/browserAnalytics.js", import.meta.url), "utf8"),
   readFile(new URL("../.env.example", import.meta.url), "utf8"),
   readFile(new URL("../.gitignore", import.meta.url), "utf8"),
@@ -31,6 +33,7 @@ assert.match(headers["permissions-policy"] || "", /camera=\(\)/);
 assert.match(headers["permissions-policy"] || "", /microphone=\(\)/);
 assert.equal(vercel.functions?.["api/sudoku-ocr.js"]?.maxDuration, 30, "OCR must have an explicit function duration above its provider timeout.");
 assert.equal(vercel.functions?.["api/sudoku-ocr.js"]?.supportsCancellation, true, "OCR must opt into Vercel request cancellation.");
+assert.equal(vercel.functions?.["api/account-delete.js"]?.maxDuration, 30, "Account deletion must have an explicit function duration.");
 
 assert.doesNotMatch(appSource, /https?:\/\//i, "Application source must not load remote runtime scripts.");
 assert.doesNotMatch(appSource, /createElement\(["']script["']\)/, "OCR must not inject a script element.");
@@ -58,6 +61,10 @@ assert.match(envExample, /^VITE_ACCOUNT_SYNC_ENABLED=false$/m);
 assert.match(envExample, /^VITE_NEON_AUTH_URL=\s*$/m);
 assert.match(envExample, /^VITE_NEON_DATA_API_URL=\s*$/m);
 assert.match(envExample, /^ACCOUNT_DATABASE_URL_UNPOOLED=\s*$/m);
+assert.match(envExample, /^ACCOUNT_NEON_API_KEY=\s*$/m);
+assert.match(envExample, /^ACCOUNT_NEON_BRANCH_ID=\s*$/m);
+assert.match(envExample, /^ACCOUNT_NEON_DATA_API_URL=\s*$/m);
+assert.match(envExample, /^ACCOUNT_NEON_PROJECT_ID=\s*$/m);
 assert.match(envExample, /^RAPIDAPI_KEY=\s*$/m);
 assert.match(envExample, /^SUDOKU_OCR_ENABLED=false$/m);
 assert.match(envExample, /^SUDOKU_OCR_MAX_CALLS_PER_IP_PER_HOUR=3$/m);
@@ -67,6 +74,11 @@ assert.match(readme, /VITE_POSTHOG_KEY/);
 assert.match(readme, /VITE_POSTHOG_HOST/);
 assert.doesNotMatch(browserAnalyticsSource, /phc_[A-Za-z0-9]/, "Production source must not embed a PostHog project key.");
 assert.doesNotMatch(accountClientSource, /DATABASE_URL|client_secret|clientSecret/i, "The browser account client must contain only browser-safe configuration.");
+assert.doesNotMatch(accountClientSource, /ACCOUNT_NEON_API_KEY|ACCOUNT_DATABASE_URL/i, "The browser account client must not contain deletion credentials.");
+assert.match(accountDeleteRoute, /bearerToken/);
+assert.match(accountDeletionServer, /ACCOUNT_NEON_API_KEY/);
+assert.match(accountDeletionServer, /where user_id = \$1/);
+assert.doesNotMatch(accountDeleteRoute, /error:\s*error(?:\?\.message|\.message)/, "Deletion responses must not expose server errors.");
 assert.doesNotMatch(accountSyncSource, /capture\([^\n]*(email:|user_id:|userId:|token:)/i, "Account analytics must not include identifiers or tokens.");
 assert.match(accountSyncSource, /account_export_completed/);
 assert.match(accountSyncSource, /account_deleted/);
