@@ -45,6 +45,13 @@ import {
   legalCandidates,
   rowOf
 } from "./solver.js";
+import {
+  createSolveTranscriptManager,
+  openSolveTranscriptStorage,
+  replaySolveRun,
+  SOLVE_TRANSCRIPT_MAX_RUNS,
+  SOLVE_TRANSCRIPT_RETENTION_DAYS
+} from "./solveTranscript.js";
 
 const app = document.querySelector("#app");
 const productAnalytics = createBrowserProductAnalytics();
@@ -87,6 +94,15 @@ const campaignRuntime = {
   reflection: null,
   pendingEvidence: Promise.resolve()
 };
+const solveTranscriptRuntime = {
+  enabled: CAMPAIGN_FEATURE_ENABLED,
+  manager: null,
+  initializing: null,
+  currentRunId: null,
+  summary: null,
+  pending: Promise.resolve(),
+  error: ""
+};
 
 const state = createInitialState();
 const accountController = createAccountController({
@@ -118,7 +134,10 @@ window.addEventListener("popstate", handlePopState);
 render();
 void accountController.init();
 startTimer();
-if (CAMPAIGN_FEATURE_ENABLED) initializeCampaign();
+if (CAMPAIGN_FEATURE_ENABLED) {
+  solveTranscriptRuntime.initializing = initializeSolveTranscripts();
+  initializeCampaign();
+}
 
 function routeFromLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -468,6 +487,135 @@ async function initializeCampaign() {
   render();
 }
 
+async function initializeSolveTranscripts() {
+  try {
+    const storage = await openSolveTranscriptStorage();
+    solveTranscriptRuntime.manager = createSolveTranscriptManager({ storage });
+    const resumable = state.solveRunId
+      ? await solveTranscriptRuntime.manager.getRun(state.solveRunId)
+      : null;
+    if (resumable && !resumable.completedAt) {
+      solveTranscriptRuntime.currentRunId = resumable.runId;
+      const replayed = replaySolveRun(resumable);
+      const current = snapshotTranscriptPuzzle(state.puzzle);
+      await solveTranscriptRuntime.manager.appendTransition(resumable.runId, {
+        action: "resumeReconcile",
+        before: replayed,
+        after: current,
+        elapsedMs: runningElapsedSeconds() * 1000,
+        assistanceLevel: state.solveAssistanceLevel
+      });
+    } else if (!state.completionRecorded || !isSolved(state.puzzle.values)) {
+      const run = await solveTranscriptRuntime.manager.startRun({
+        source: state.puzzleSource,
+        difficulty: state.puzzleSource === "import" ? "custom" : state.difficulty,
+        canonicalPuzzleId: state.puzzle.canonicalId || state.campaignPuzzleCanonicalId || null,
+        sourceId: state.puzzle.sourceId || null,
+        puzzle: snapshotTranscriptPuzzle(state.puzzle)
+      });
+      solveTranscriptRuntime.currentRunId = run.runId;
+      state.solveRunId = run.runId;
+      saveState();
+    } else {
+      state.solveRunId = null;
+    }
+    solveTranscriptRuntime.summary = await solveTranscriptRuntime.manager.summary();
+  } catch (error) {
+    solveTranscriptRuntime.error = error.message || "Private solve history is unavailable.";
+  }
+  render();
+}
+
+function queueSolveTranscriptTask(task, { refreshSummary = false } = {}) {
+  if (!solveTranscriptRuntime.enabled) return Promise.resolve(null);
+  solveTranscriptRuntime.pending = solveTranscriptRuntime.pending
+    .catch(() => {})
+    .then(async () => {
+      if (solveTranscriptRuntime.initializing) await solveTranscriptRuntime.initializing;
+      if (!solveTranscriptRuntime.manager) return null;
+      const result = await task(solveTranscriptRuntime.manager);
+      if (refreshSummary) solveTranscriptRuntime.summary = await solveTranscriptRuntime.manager.summary();
+      return result;
+    })
+    .catch((error) => {
+      solveTranscriptRuntime.error = error.message || "Private solve history could not be saved.";
+      return null;
+    });
+  return solveTranscriptRuntime.pending;
+}
+
+function startSolveTranscriptForCurrentPuzzle({ preserveCurrent = false } = {}) {
+  if (!solveTranscriptRuntime.enabled) return Promise.resolve(null);
+  const previousRunId = solveTranscriptRuntime.currentRunId || state.solveRunId;
+  const runInput = {
+    source: state.puzzleSource,
+    difficulty: state.puzzleSource === "import" ? "custom" : state.difficulty,
+    canonicalPuzzleId: state.puzzle.canonicalId || state.campaignPuzzleCanonicalId || null,
+    sourceId: state.puzzle.sourceId || null,
+    puzzle: snapshotTranscriptPuzzle(state.puzzle)
+  };
+  state.solveRunId = null;
+  return queueSolveTranscriptTask(async (manager) => {
+    if (previousRunId && !preserveCurrent) await manager.completeRun(previousRunId, "replaced");
+    const run = await manager.startRun(runInput);
+    solveTranscriptRuntime.currentRunId = run.runId;
+    state.solveRunId = run.runId;
+    saveState();
+    return run;
+  }, { refreshSummary: true });
+}
+
+function queueSolveTransition(action, before, after, {
+  techniqueId = null,
+  observedTechniqueId = null,
+  assistanceLevel = "none"
+} = {}) {
+  if (!solveTranscriptRuntime.enabled) return;
+  const input = {
+    action,
+    before,
+    after,
+    elapsedMs: runningElapsedSeconds() * 1000,
+    techniqueId,
+    observedTechniqueId,
+    assistanceLevel
+  };
+  void queueSolveTranscriptTask(async (manager) => {
+    if (!solveTranscriptRuntime.currentRunId) {
+      const run = await manager.startRun({
+        source: state.puzzleSource,
+        difficulty: state.puzzleSource === "import" ? "custom" : state.difficulty,
+        canonicalPuzzleId: state.puzzle.canonicalId || state.campaignPuzzleCanonicalId || null,
+        sourceId: state.puzzle.sourceId || null,
+        puzzle: before
+      });
+      solveTranscriptRuntime.currentRunId = run.runId;
+      state.solveRunId = run.runId;
+      saveState();
+    }
+    await manager.appendTransition(solveTranscriptRuntime.currentRunId, input);
+  });
+}
+
+function completeSolveTranscript(status = "completed") {
+  if (!solveTranscriptRuntime.enabled) return Promise.resolve(null);
+  return queueSolveTranscriptTask(async (manager) => {
+    if (!solveTranscriptRuntime.currentRunId) return null;
+    const completed = await manager.completeRun(solveTranscriptRuntime.currentRunId, status);
+    solveTranscriptRuntime.currentRunId = null;
+    state.solveRunId = null;
+    saveState();
+    return completed;
+  }, { refreshSummary: true });
+}
+
+function snapshotTranscriptPuzzle(puzzle) {
+  return {
+    values: [...puzzle.values],
+    eliminated: puzzle.eliminated.map((digits) => new Set(digits))
+  };
+}
+
 function renderCampaignView() {
   if (!campaignRuntime.enabled) return "";
   if (campaignRuntime.loading) {
@@ -489,7 +637,10 @@ function renderCampaignPlacement() {
   const goal = campaignRuntime.model?.profile?.goal || "";
   const preferredMinutes = campaignRuntime.model?.profile?.preferredMinutes || 10;
   const techniques = campaignTechniqueNodes();
-  const hasTechniqueEvidence = campaignRuntime.model?.evidence?.some((event) => event.techniqueId) || false;
+  const hasTechniqueEvidence = (
+    campaignRuntime.model?.evidence?.some((event) => event.techniqueId) ||
+    loadTechniqueProgressRows().some((row) => techniqueRowHasPerception(row))
+  );
   return `
     <div class="campaign-shell" data-testid="campaign-view">
       <section class="panel campaign-hero">
@@ -568,6 +719,10 @@ function campaignPlacementStatus(techniqueId, draft) {
   if (Object.hasOwn(draft, techniqueId) && draft[techniqueId] !== "unknown") return draft[techniqueId];
   if (["mastered", "review-due"].includes(skill?.state)) return "known";
   if (["learning", "practicing"].includes(skill?.state)) return "learning";
+  const catalogName = techniqueNameForId(techniqueId);
+  if (loadTechniqueProgressRows().some((row) => row.technique_id === catalogName && techniqueRowHasPerception(row))) {
+    return "learning";
+  }
   return Object.hasOwn(draft, techniqueId) ? draft[techniqueId] : "unknown";
 }
 
@@ -579,6 +734,16 @@ function campaignPlacementPerceptionText(hasTechniqueEvidence) {
     return `This browser has ${state.playerStats.completed} completed puzzle${state.playerStats.completed === 1 ? "" : "s"}, but those totals do not show which techniques you used. We left the technique estimates as Not sure.`;
   }
   return "We do not have technique-aware evidence in this browser yet, so every technique starts as Not sure.";
+}
+
+function techniqueRowHasPerception(row) {
+  return [
+    "independent_successes",
+    "assisted_successes",
+    "hint_reveals",
+    "hint_applies",
+    "practice_completions"
+  ].some((key) => Number(row?.[key]) > 0);
 }
 
 function renderPlacementTechnique(node, status) {
@@ -772,6 +937,8 @@ function renderCampaignSkillGraph() {
 }
 
 function renderCampaignDataControls() {
+  const summary = solveTranscriptRuntime.summary;
+  const transcriptCount = summary?.runCount ?? 0;
   return `
     <section class="panel campaign-data-controls">
       <h3>Your local campaign data</h3>
@@ -780,6 +947,15 @@ function renderCampaignDataControls() {
         <button data-action="campaign-export">Export data</button>
         <button data-action="campaign-reset">Reset skill graph and history</button>
         <button class="danger-button" data-action="campaign-delete">Delete campaign data</button>
+      </div>
+      <div class="campaign-transcript-controls">
+        <h4>Private solve transcripts</h4>
+        <p data-testid="campaign-transcript-summary">${transcriptCount} local run${transcriptCount === 1 ? "" : "s"} retained. These compact replays contain starting grids and exact actions, stay in this browser, and are never included in account sync or campaign evidence. Sudoku Pilot keeps at most ${summary?.maxRuns || SOLVE_TRANSCRIPT_MAX_RUNS} runs for ${summary?.retentionDays || SOLVE_TRANSCRIPT_RETENTION_DAYS} days.</p>
+        ${solveTranscriptRuntime.error ? `<p class="campaign-inline-error" role="alert">${escapeHtml(solveTranscriptRuntime.error)}</p>` : ""}
+        <div class="tool-row">
+          <button data-action="campaign-export-transcripts" ${transcriptCount ? "" : "disabled"}>Export solve transcripts</button>
+          <button class="danger-button" data-action="campaign-delete-transcripts" ${transcriptCount ? "" : "disabled"}>Delete solve transcripts</button>
+        </div>
       </div>
     </section>
   `;
@@ -1053,6 +1229,27 @@ async function handleCampaignAction(action) {
     });
     return;
   }
+  if (action === "campaign-export-transcripts") {
+    await runCampaignTask(async () => {
+      await queueSolveTranscriptTask(async (manager) => {
+        downloadSolveTranscriptExport(await manager.exportData());
+      });
+    });
+    return;
+  }
+  if (action === "campaign-delete-transcripts") {
+    if (!window.confirm("Delete every private solve transcript from this browser? Campaign evidence and skill history will remain.")) return;
+    await runCampaignTask(async () => {
+      await queueSolveTranscriptTask(async (manager) => {
+        await manager.clearAll();
+        solveTranscriptRuntime.currentRunId = null;
+        state.solveRunId = null;
+        solveTranscriptRuntime.summary = await manager.summary();
+        saveState();
+      });
+    });
+    return;
+  }
   if (action === "campaign-reset") {
     if (!window.confirm("Reset the campaign skill graph and history? Export first if you want a copy.")) return;
     await runCampaignTask(async () => {
@@ -1116,7 +1313,7 @@ async function launchCampaignPlacementPuzzle(difficulty, goal = null, selectionB
     goal
   });
   state.previousPuzzle = snapshotCurrentPuzzle();
-  state.puzzle = createPuzzle(generated.grid, generated.solution);
+  state.puzzle = createGeneratedPuzzle(generated);
   state.difficulty = difficulty;
   state.selected = null;
   state.multiSelected.clear();
@@ -1127,6 +1324,7 @@ async function launchCampaignPlacementPuzzle(difficulty, goal = null, selectionB
   resetPuzzleStats();
   resetTimer();
   closeHintDetails();
+  void startSolveTranscriptForCurrentPuzzle({ preserveCurrent: true });
   playedCanonicalIds.add(generated.canonicalId);
   savePlayedCanonicalIds();
   navigateTo("play", { analyticsEntryPoint: null });
@@ -1180,12 +1378,21 @@ function restoreCampaignActivity(activity, { fresh = false } = {}) {
 }
 
 function queueCampaignAssistance(level) {
+  recordSolveAssistance(level);
   if (!level || !campaignRuntime.session || !campaignRuntime.model?.currentActivity?.startedAt) return;
   campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
     .catch(() => {})
     .then(async () => {
       campaignRuntime.model = await campaignRuntime.session.recordAssistance(level);
     });
+}
+
+function recordSolveAssistance(level) {
+  const levels = ["none", "tool", "search-focus", "structural-location", "exact-move"];
+  if (!levels.includes(level)) return;
+  if (levels.indexOf(level) > levels.indexOf(state.solveAssistanceLevel || "none")) {
+    state.solveAssistanceLevel = level;
+  }
 }
 
 function queueCampaignPlacementTechnique(techniqueName) {
@@ -1221,6 +1428,16 @@ function downloadCampaignExport(data) {
   URL.revokeObjectURL(url);
 }
 
+function downloadSolveTranscriptExport(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `sudoku-pilot-private-solves-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function recordPuzzleCompletion() {
   const solved = isSolved(state.puzzle.values);
   if (!solved) {
@@ -1238,6 +1455,7 @@ function recordPuzzleCompletion() {
   }
   const elapsed = runningElapsedSeconds();
   if (firstCompletion) {
+    void completeSolveTranscript("completed");
     if (state.puzzleSource !== "campaign-placement") {
       puzzleJourney.complete({
         active_seconds: elapsed,
@@ -2476,11 +2694,8 @@ function enterDigit(digit) {
   if (state.selected === null || state.puzzle.givens[state.selected]) return;
   if (state.numberMode === "note" && state.puzzle.values[state.selected]) return;
   if (state.numberMode === "value" && state.puzzle.values[state.selected] === digit) return;
-  const observedTechnique = (
-    state.numberMode === "value" &&
-    state.puzzleSource === "campaign-placement" &&
-    state.puzzle.solution?.[state.selected] === digit
-  )
+  const transcriptBefore = state.numberMode === "value" ? snapshotTranscriptPuzzle(state.puzzle) : null;
+  const observedTechnique = state.numberMode === "value"
     ? uniquelyRecognizedTechnique(state.selected, digit)
     : null;
   state.runMessage = "";
@@ -2500,16 +2715,35 @@ function enterDigit(digit) {
         state.puzzle.notes[index].delete(digit);
       }
     }
-    if (observedTechnique) queueCampaignPlacementTechnique(observedTechnique);
+    queueSolveTransition("manualEntry", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+      observedTechniqueId: techniqueIdForName(observedTechnique),
+      assistanceLevel: state.solveAssistanceLevel
+    });
+    if (observedTechnique) {
+      queueCampaignPlacementTechnique(observedTechnique);
+      if (state.puzzleSource !== "practice") {
+        incrementTechniqueProgress(observedTechnique, {
+          opportunities: 1,
+          ...(state.solveAssistanceLevel === "none"
+            ? { independent_successes: 1 }
+            : { assisted_successes: 1 })
+        });
+      }
+    }
   }
   closeHintDetails();
   render();
 }
 
 function uniquelyRecognizedTechnique(index, digit) {
-  const allowedTechniques = (campaignRuntime.model?.currentActivity?.certificationSnapshot?.allowedTechniqueIds || [])
-    .map((techniqueId) => techniqueNameForId(techniqueId))
-    .filter(Boolean);
+  const campaignTechniqueIds = campaignRuntime.model?.currentActivity?.diagnosticPlacement
+    ? campaignRuntime.model.currentActivity.certificationSnapshot?.allowedTechniqueIds || []
+    : [];
+  const allowedTechniques = campaignTechniqueIds.length
+    ? campaignTechniqueIds.map((techniqueId) => techniqueNameForId(techniqueId)).filter(Boolean)
+    : (state.puzzle.certifiedTechniques?.length
+        ? state.puzzle.certifiedTechniques
+        : COMMITTED_COACHING_TECHNIQUES);
   if (!allowedTechniques.length) return null;
   const techniques = new Set(findAllMoves(state.puzzle, allowedTechniques)
     .filter((move) => (move.fills || []).some((fill) => fill.index === index && fill.digit === digit))
@@ -2587,15 +2821,20 @@ function toggleMultiNote(digit) {
 
 function eraseSelected() {
   if (state.selected === null || state.puzzle.givens[state.selected]) return;
+  const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
   state.runMessage = "";
   pushHistory(clonePuzzle(state.puzzle));
   state.puzzle.values[state.selected] = 0;
   state.puzzle.notes[state.selected].clear();
+  queueSolveTransition("erase", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+    assistanceLevel: state.solveAssistanceLevel
+  });
   closeHintDetails();
   render();
 }
 
 function undo() {
+  const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
   const last = state.puzzle.history.pop();
   if (!last) return;
   const history = state.puzzle.history;
@@ -2603,6 +2842,9 @@ function undo() {
   state.puzzle.history = history;
   state.completionSummary = null;
   syncPracticeProgress();
+  queueSolveTransition("undo", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+    assistanceLevel: state.solveAssistanceLevel
+  });
   state.runMessage = "Undid last change.";
   closeHintDetails();
 }
@@ -2686,7 +2928,7 @@ function startCertifiedPractice(index = 0) {
       practice_mode: session.mode,
       fixture_index: session.fixtureIndex
     });
-    if (session.mode !== "near-miss") startTrackedPuzzle("practice");
+    if (session.mode !== "near-miss") startTrackedPuzzle("practice", { preserveCurrent: true });
     resetTimer();
     closeHintDetails();
   } catch (error) {
@@ -2763,6 +3005,7 @@ function requestHint() {
   }
   const check = checkBoard();
   state.hintRequested = true;
+  recordSolveAssistance("tool");
   puzzleJourney.recordHint({
     board_status: check.status,
     technique: state.moves[state.hintIndex]?.technique || "note-diagnosis",
@@ -2783,6 +3026,7 @@ function requestHint() {
 }
 
 function showTechniqueHint() {
+  recordSolveAssistance("tool");
   const technique = state.moves[state.hintIndex]?.technique;
   if (technique) incrementTechniqueProgress(technique, { opportunities: 1, hint_reveals: 1 });
   state.hintMode = "coach";
@@ -2827,6 +3071,7 @@ function applyCurrentHint() {
   }
   const move = state.moves[state.hintIndex];
   if (move) {
+    const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
     queueCampaignAssistance("exact-move");
     queueCampaignPlacementTechnique(move.technique);
     applyMove(state.puzzle, move);
@@ -2839,6 +3084,10 @@ function applyCurrentHint() {
       assisted_successes: 1,
       hint_applies: 1,
       ...(completedPractice ? { practice_completions: 1 } : {})
+    });
+    queueSolveTransition("hintApply", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+      techniqueId: techniqueIdForName(move.technique),
+      assistanceLevel: "exact-move"
     });
     state.runMessage = `Applied ${move.technique}: ${move.title}.`;
   }
@@ -2880,6 +3129,7 @@ function runSelectedTechniques() {
     state.runMessage = "Select at least one technique to run.";
     return;
   }
+  const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
   const applied = applySelectedTechniques(state.puzzle, allowed);
   if (!applied.length) {
     state.runMessage = "No selected techniques can move this board forward.";
@@ -2890,6 +3140,10 @@ function runSelectedTechniques() {
   state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
   puzzleJourney.recordMove(state.puzzleMoveCount);
   state.hintCount += 1;
+  queueSolveTransition("automation", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+    techniqueId: applied.length === 1 ? techniqueIdForName(applied[0].technique) : null,
+    assistanceLevel: "exact-move"
+  });
   const counts = groupMoves(applied).map(([technique, count]) => `${count} ${technique}`).join(", ");
   state.runMessage = `Applied ${applied.length} move${applied.length === 1 ? "" : "s"}: ${counts}.`;
   closeHintDetails();
@@ -2901,6 +3155,7 @@ function runOneTechnique(technique) {
     state.runMessage = `Fix the board issue before running ${technique}.`;
     return;
   }
+  const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
   const applied = applySelectedTechniques(state.puzzle, [technique]);
   if (applied.length) {
     queueCampaignAssistance("exact-move");
@@ -2908,6 +3163,10 @@ function runOneTechnique(technique) {
     state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
     puzzleJourney.recordMove(state.puzzleMoveCount);
     state.hintCount += 1;
+    queueSolveTransition("automation", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+      techniqueId: techniqueIdForName(technique),
+      assistanceLevel: "exact-move"
+    });
   }
   state.runMessage = applied.length ? `Applied ${applied.length} ${technique} move${applied.length === 1 ? "" : "s"}.` : `${technique} cannot move this board right now.`;
   closeHintDetails();
@@ -2929,7 +3188,7 @@ function applyImport() {
   state.importStatus = "";
   state.runMessage = "Imported puzzle.";
   resetPuzzleStats();
-  startTrackedPuzzle("import");
+  startTrackedPuzzle("import", { preserveCurrent: true });
   productAnalytics.capture("screenshot_review_confirmed", {
     input_method: state.importMode,
     filled_cells: candidate.values.filter(Boolean).length,
@@ -2975,8 +3234,13 @@ function restorePreviousPuzzle() {
   state.puzzleMoveCount = previous.puzzleMoveCount;
   state.hintCount = previous.hintCount;
   state.hintRequested = previous.hintRequested;
+  state.solveAssistanceLevel = previous.solveAssistanceLevel || "none";
   state.puzzleSource = previous.puzzleSource;
   state.campaignPuzzleCanonicalId = previous.campaignPuzzleCanonicalId;
+  state.solveRunId = previous.solveRunId;
+  void queueSolveTranscriptTask(async () => {
+    solveTranscriptRuntime.currentRunId = previous.solveRunId;
+  });
   state.puzzlePracticeTechnique = previous.puzzlePracticeTechnique;
   state.puzzlePracticeMode = previous.puzzlePracticeMode;
   state.completionRecorded = previous.completionRecorded;
@@ -2998,8 +3262,10 @@ function snapshotCurrentPuzzle() {
     puzzleMoveCount: state.puzzleMoveCount,
     hintCount: state.hintCount,
     hintRequested: state.hintRequested,
+    solveAssistanceLevel: state.solveAssistanceLevel,
     puzzleSource: state.puzzleSource,
     campaignPuzzleCanonicalId: state.campaignPuzzleCanonicalId,
+    solveRunId: state.solveRunId,
     puzzlePracticeTechnique: state.puzzlePracticeTechnique,
     puzzlePracticeMode: state.puzzlePracticeMode,
     completionRecorded: state.completionRecorded,
@@ -3015,6 +3281,11 @@ function clearLocalData() {
     window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
     window.localStorage.removeItem(PLAYER_STATS_KEY);
     window.localStorage.removeItem(ACCOUNT_TECHNIQUE_PROGRESS_KEY);
+    void queueSolveTranscriptTask(async (manager) => {
+      await manager.clearAll();
+      solveTranscriptRuntime.currentRunId = null;
+      solveTranscriptRuntime.summary = await manager.summary();
+    });
     productAnalytics.reset();
     clearInstallPromotionStatus();
     playedCanonicalIds.clear();
@@ -3044,18 +3315,20 @@ function puzzleAnalyticsContext() {
   };
 }
 
-function startTrackedPuzzle(source) {
+function startTrackedPuzzle(source, { preserveCurrent = false } = {}) {
   state.puzzleSource = source;
   if (source !== "campaign-placement") state.campaignPuzzleCanonicalId = null;
   state.puzzlePracticeTechnique = source === "practice" ? state.practiceTechnique : null;
   state.puzzlePracticeMode = source === "practice" ? state.practiceMode : null;
   puzzleJourney.start(puzzleAnalyticsContext());
+  void startSolveTranscriptForCurrentPuzzle({ preserveCurrent });
 }
 
 function resetPuzzleStats() {
   state.puzzleMoveCount = 0;
   state.hintCount = 0;
   state.hintRequested = false;
+  state.solveAssistanceLevel = "none";
   state.completionRecorded = false;
   state.completionSummary = null;
   state.wasSolved = isSolved(state.puzzle.values);
@@ -3243,8 +3516,10 @@ function createInitialState() {
     puzzleMoveCount: 0,
     hintCount: 0,
     hintRequested: false,
+    solveAssistanceLevel: "none",
     puzzleSource: "generated",
     campaignPuzzleCanonicalId: null,
+    solveRunId: null,
     puzzlePracticeTechnique: null,
     puzzlePracticeMode: null,
     completionRecorded: false,
@@ -3302,8 +3577,12 @@ function createInitialState() {
       puzzleMoveCount: Math.max(0, Number(saved.puzzleMoveCount) || 0),
       hintCount: Math.max(0, Number(saved.hintCount) || 0),
       hintRequested: Boolean(saved.hintRequested),
+      solveAssistanceLevel: ["none", "tool", "search-focus", "structural-location", "exact-move"].includes(saved.solveAssistanceLevel)
+        ? saved.solveAssistanceLevel
+        : "none",
       puzzleSource: ["generated", "import", "practice", "campaign-placement"].includes(saved.puzzleSource) ? saved.puzzleSource : "generated",
       campaignPuzzleCanonicalId: typeof saved.campaignPuzzleCanonicalId === "string" ? saved.campaignPuzzleCanonicalId : null,
+      solveRunId: typeof saved.solveRunId === "string" ? saved.solveRunId : null,
       puzzlePracticeTechnique: COMMITTED_COACHING_TECHNIQUES.includes(saved.puzzlePracticeTechnique) ? saved.puzzlePracticeTechnique : null,
       puzzlePracticeMode: PRACTICE_MODES.some(({ id }) => id === saved.puzzlePracticeMode) ? saved.puzzlePracticeMode : null,
       completionRecorded: Boolean(saved.completionRecorded),
@@ -3339,8 +3618,10 @@ function saveState() {
       puzzleMoveCount: state.puzzleMoveCount,
       hintCount: state.hintCount,
       hintRequested: state.hintRequested,
+      solveAssistanceLevel: state.solveAssistanceLevel,
       puzzleSource: state.puzzleSource,
       campaignPuzzleCanonicalId: state.campaignPuzzleCanonicalId,
+      solveRunId: state.solveRunId,
       puzzlePracticeTechnique: state.puzzlePracticeTechnique,
       puzzlePracticeMode: state.puzzlePracticeMode,
       practiceTechnique: state.practiceTechnique,
@@ -3372,6 +3653,7 @@ function createAccountSnapshot() {
       puzzleMoveCount: state.puzzleMoveCount,
       hintCount: state.hintCount,
       hintRequested: state.hintRequested,
+      solveAssistanceLevel: state.solveAssistanceLevel,
       puzzleSource: state.puzzleSource,
       puzzlePracticeTechnique: state.puzzlePracticeTechnique,
       puzzlePracticeMode: state.puzzlePracticeMode,
@@ -3444,11 +3726,14 @@ function applyAccountSnapshot(snapshot) {
     state.puzzleMoveCount = Math.max(0, Number(active.puzzleMoveCount) || 0);
     state.hintCount = Math.max(0, Number(active.hintCount) || 0);
     state.hintRequested = Boolean(active.hintRequested);
+    state.solveAssistanceLevel = "none";
     state.puzzleSource = ["generated", "import", "practice"].includes(active.puzzleSource) ? active.puzzleSource : "generated";
+    state.solveRunId = null;
     state.puzzlePracticeTechnique = active.puzzlePracticeTechnique || null;
     state.puzzlePracticeMode = active.puzzlePracticeMode || null;
     state.completionRecorded = Boolean(active.completionRecorded);
     state.wasSolved = isSolved(puzzle.values);
+    void startSolveTranscriptForCurrentPuzzle({ preserveCurrent: true });
   }
   const preferences = snapshot?.preferences || {};
   for (const key of ["showMistakes", "showTimer", "highlightPeers", "highlightMatches", "lineCountsVisible"]) {
@@ -3523,12 +3808,20 @@ function serializePuzzle(puzzle) {
     notes: puzzle.notes.map((noteSet) => [...noteSet]),
     eliminated: puzzle.eliminated.map((candidateSet) => [...candidateSet]),
     solution: puzzle.solution,
+    canonicalId: puzzle.canonicalId || null,
+    sourceId: puzzle.sourceId || null,
+    certifiedTechniques: Array.isArray(puzzle.certifiedTechniques) ? puzzle.certifiedTechniques : [],
     history: (puzzle.history || []).slice(-MAX_PERSISTED_HISTORY).map((snapshot) => ({
       values: snapshot.values,
       givens: snapshot.givens,
       notes: snapshot.notes.map((noteSet) => [...noteSet]),
       eliminated: snapshot.eliminated.map((candidateSet) => [...candidateSet]),
-      solution: snapshot.solution || null
+      solution: snapshot.solution || null,
+      canonicalId: snapshot.canonicalId || puzzle.canonicalId || null,
+      sourceId: snapshot.sourceId || puzzle.sourceId || null,
+      certifiedTechniques: Array.isArray(snapshot.certifiedTechniques)
+        ? snapshot.certifiedTechniques
+        : puzzle.certifiedTechniques || []
     }))
   };
 }
@@ -3541,12 +3834,22 @@ function deserializePuzzle(saved) {
     notes: Array.isArray(saved.notes) && saved.notes.length === 81 ? saved.notes.map((notes) => new Set((notes || []).map(Number).filter(Boolean))) : Array.from({ length: 81 }, () => new Set()),
     eliminated: Array.isArray(saved.eliminated) && saved.eliminated.length === 81 ? saved.eliminated.map((digits) => new Set((digits || []).map(Number).filter(Boolean))) : Array.from({ length: 81 }, () => new Set()),
     solution: Array.isArray(saved.solution) && saved.solution.length === 81 ? saved.solution.map((value) => Number(value) || 0) : null,
+    canonicalId: typeof saved.canonicalId === "string" ? saved.canonicalId : null,
+    sourceId: typeof saved.sourceId === "string" ? saved.sourceId : null,
+    certifiedTechniques: Array.isArray(saved.certifiedTechniques)
+      ? saved.certifiedTechniques.filter((technique) => COMMITTED_COACHING_TECHNIQUES.includes(technique))
+      : [],
     history: Array.isArray(saved.history) ? saved.history.slice(-MAX_HISTORY).map((snapshot) => ({
       values: Array.isArray(snapshot.values) ? snapshot.values.map((value) => Number(value) || 0) : Array(81).fill(0),
       givens: Array.isArray(snapshot.givens) ? snapshot.givens.map(Boolean) : Array(81).fill(false),
       notes: Array.isArray(snapshot.notes) ? snapshot.notes.map((notes) => new Set((notes || []).map(Number).filter(Boolean))) : Array.from({ length: 81 }, () => new Set()),
       eliminated: Array.isArray(snapshot.eliminated) ? snapshot.eliminated.map((digits) => new Set((digits || []).map(Number).filter(Boolean))) : Array.from({ length: 81 }, () => new Set()),
       solution: Array.isArray(snapshot.solution) ? snapshot.solution.map((value) => Number(value) || 0) : null,
+      canonicalId: typeof snapshot.canonicalId === "string" ? snapshot.canonicalId : null,
+      sourceId: typeof snapshot.sourceId === "string" ? snapshot.sourceId : null,
+      certifiedTechniques: Array.isArray(snapshot.certifiedTechniques)
+        ? snapshot.certifiedTechniques.filter((technique) => COMMITTED_COACHING_TECHNIQUES.includes(technique))
+        : [],
       history: []
     })) : []
   };
@@ -3721,7 +4024,15 @@ function createFreshPuzzle(difficulty) {
   const generated = generatePuzzle({ difficulty, playedCanonicalIds });
   playedCanonicalIds.add(generated.canonicalId);
   savePlayedCanonicalIds();
-  return createPuzzle(generated.grid, generated.solution);
+  return createGeneratedPuzzle(generated);
+}
+
+function createGeneratedPuzzle(generated) {
+  const puzzle = createPuzzle(generated.grid, generated.solution);
+  puzzle.canonicalId = generated.canonicalId;
+  puzzle.sourceId = generated.sourceId;
+  puzzle.certifiedTechniques = Object.keys(generated.rating?.techniqueCounts || {});
+  return puzzle;
 }
 
 function loadPlayedCanonicalIds() {

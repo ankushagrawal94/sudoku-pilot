@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { COMMITTED_COACHING_TECHNIQUES } from "../../src/puzzles.js";
+import { findAllMoves } from "../../src/solver.js";
 
 const CAMPAIGN_URL = "/?campaign=1&view=campaign";
 
@@ -9,6 +11,9 @@ test("campaign stays absent when the local feature flag is off", async ({ page }
   await expect(page.getByTestId("campaign-view")).toHaveCount(0);
   await page.getByRole("button", { name: "More", exact: true }).click();
   await expect(page.getByRole("button", { name: "Open campaign", exact: true })).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("sudoku-pilot-state-v1") || "{}"));
+  expect(saved.solveRunId || null).toBeNull();
+  expect(await page.evaluate(async () => (await indexedDB.databases()).some((database) => database.name === "sudoku-pilot-solve-transcripts"))).toBe(false);
 });
 
 test("campaign starts from observed solving without requiring profile answers", async ({ page }) => {
@@ -89,6 +94,63 @@ test("puzzle-first placement honors the learner's selected level", async ({ page
   expect(activity.certificationSnapshot.difficulty).toBe("hard");
   expect(activity.recommendationSnapshot.reasonCodes).toContain("LEARNER_SELECTED_PUZZLE_LEVEL");
   expect(JSON.parse(await page.evaluate(() => localStorage.getItem("sudoku-pilot-state-v1"))).difficulty).toBe("hard");
+});
+
+test("normal play records a resumable local transcript and pre-fills technique perception", async ({ page }) => {
+  await page.goto(CAMPAIGN_URL);
+  await expect(page.getByTestId("campaign-placement")).toBeVisible();
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await page.locator("[data-difficulty='easy']").click();
+
+  const savedPuzzle = await page.evaluate(() => JSON.parse(localStorage.getItem("sudoku-pilot-state-v1")).puzzle);
+  const puzzle = {
+    ...savedPuzzle,
+    notes: savedPuzzle.notes.map((digits) => new Set(digits)),
+    eliminated: savedPuzzle.eliminated.map((digits) => new Set(digits)),
+    history: []
+  };
+  const grouped = new Map();
+  for (const candidate of findAllMoves(puzzle, COMMITTED_COACHING_TECHNIQUES)) {
+    for (const fill of candidate.fills || []) {
+      const key = `${fill.index}:${fill.digit}`;
+      if (!grouped.has(key)) grouped.set(key, new Set());
+      grouped.get(key).add(candidate.technique);
+    }
+  }
+  const unique = [...grouped.entries()].find(([, techniques]) => techniques.size === 1);
+  const move = unique
+    ? { cell: Number(unique[0].split(":")[0]), digit: Number(unique[0].split(":")[1]), technique: [...unique[1]][0] }
+    : null;
+  expect(move).toBeTruthy();
+
+  await page.locator(`[data-cell="${move.cell}"]`).click();
+  await page.locator(`[data-digit="${move.digit}"]`).click();
+  await expect.poll(() => page.evaluate((technique) => {
+    const rows = JSON.parse(localStorage.getItem("sudoku-pilot-account-techniques-v1") || "[]");
+    return rows.find((row) => row.technique_id === technique)?.independent_successes || 0;
+  }, move.technique)).toBeGreaterThan(0);
+
+  await expect.poll(async () => {
+    const runs = await readSolveTranscriptDatabase(page);
+    return runs.some((run) => run.source === "generated" && run.events.some((event) => event[7] >= 0));
+  }).toBe(true);
+  const beforeReload = await readSolveTranscriptDatabase(page);
+  const activeRun = beforeReload.find((run) => !run.completedAt && run.source === "generated");
+  expect(activeRun).toBeTruthy();
+  expect(activeRun.storageScope).toBe("local-only");
+  expect(activeRun.events.some((event) => event[7] >= 0)).toBe(true);
+  expect(activeRun.initialValues).toHaveLength(81);
+
+  await page.reload();
+  await expect(page.getByTestId("board")).toBeVisible();
+  const afterReload = await readSolveTranscriptDatabase(page);
+  expect(afterReload.filter((run) => run.runId === activeRun.runId)).toHaveLength(1);
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem("sudoku-pilot-state-v1"))).solveRunId).toBe(activeRun.runId);
+
+  await page.goto(CAMPAIGN_URL);
+  await openOptionalPlacement(page);
+  await expect(page.locator('input[value="learning"]:checked')).not.toHaveCount(0);
+  await expect(page.getByText(/current technique estimates are pre-filled/i)).toBeVisible();
 });
 
 test("knowledge-first placement falls back to a profile-matched puzzle when everything is known", async ({ page }) => {
@@ -240,6 +302,24 @@ test("campaign data can be exported, reset, and deleted without puzzle contents"
   for await (const chunk of stream) exported += chunk.toString();
   expect(JSON.parse(exported).schemaVersion).toBe(1);
   expect(exported).not.toMatch(/"grid"|"solution"|"candidateMap"|"notes"|"exactMove"/i);
+  expect(exported).not.toMatch(/"initialValues"|"containsPuzzleContent"/);
+
+  await expect(page.getByTestId("campaign-transcript-summary")).toContainText("local run");
+  const transcriptDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export solve transcripts" }).click();
+  const transcriptDownload = await transcriptDownloadPromise;
+  const transcriptStream = await transcriptDownload.createReadStream();
+  let transcriptExport = "";
+  for await (const chunk of transcriptStream) transcriptExport += chunk.toString();
+  const transcriptData = JSON.parse(transcriptExport);
+  expect(transcriptData.storageScope).toBe("local-only");
+  expect(transcriptData.containsPuzzleContent).toBe(true);
+  expect(transcriptData.runs[0].initialValues).toHaveLength(81);
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete solve transcripts" }).click();
+  await expect(page.getByTestId("campaign-transcript-summary")).toContainText("0 local runs");
+  expect(await readSolveTranscriptDatabase(page)).toHaveLength(0);
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Reset skill graph and history" }).click();
@@ -313,6 +393,24 @@ async function readCampaignDatabase(page) {
     }
     database.close();
     return result;
+  });
+}
+
+async function readSolveTranscriptDatabase(page) {
+  return page.evaluate(async () => {
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("sudoku-pilot-solve-transcripts");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const runs = await new Promise((resolve, reject) => {
+      const transaction = database.transaction("runs", "readonly");
+      const request = transaction.objectStore("runs").getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    database.close();
+    return runs;
   });
 }
 

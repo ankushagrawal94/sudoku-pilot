@@ -2346,6 +2346,22 @@ button:hover,
   font-size: 13px;
 }
 
+.campaign-transcript-controls {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #d9e1ea;
+}
+
+.campaign-transcript-controls h4,
+.campaign-transcript-controls p {
+  margin: 0;
+}
+
+.campaign-transcript-controls p {
+  margin-top: 6px;
+  color: #536579;
+}
+
 .campaign-activity-banner {
   display: flex;
   align-items: center;

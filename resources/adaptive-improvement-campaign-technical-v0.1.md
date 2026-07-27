@@ -180,6 +180,21 @@ Append-only evidence keyed by `eventId`, with indexes on `techniqueId`, `activit
 
 Do not store a full grid, candidate map, note set, or exact move in campaign evidence. Existing puzzle persistence remains authoritative for resumable gameplay.
 
+#### `sudoku-pilot-solve-transcripts`
+
+A separate IndexedDB database stores bounded, replayable solve runs for private detector validation. This database is not campaign evidence and is not part of account sync.
+
+Each run stores:
+
+- schema, codec, and analyzer versions;
+- source, difficulty, and optional canonical/source IDs;
+- an 81-digit initial-value encoding plus sparse initial solver eliminations;
+- a compact ordered array of elapsed-time, action, value-patch, elimination-patch, technique-reference, and assistance fields;
+- terminal status and completion time; and
+- explicit `local-only` and `containsPuzzleContent` markers.
+
+Retain at most 100 runs and delete completed runs older than 90 days. Persist one run record rather than one database row per move. Export and deletion are separate from the grid-free campaign export. Account sync receives only bounded technique aggregates derived on-device; raw transcripts never enter the account snapshot.
+
 #### `skill_snapshots`
 
 Materialized reducer output for fast reads.
@@ -644,6 +659,8 @@ The opening full Sudoku is a diagnostic activity, not a personalized teaching pu
 
 Technique perception may be pre-filled only from evidence that satisfies the campaign evidence contract. Aggregate puzzle-completion totals and legacy history without technique attribution remain visible as insufficient context, not converted into mastery. A future signed-in source can populate the same skill model only after the separately specified account-sync and provenance work is implemented.
 
+For prospective play, evaluate a manual fill against every committed detector allowed by the current puzzle's certification. Attribute the move only when exactly one detector yields the same cell and digit. Record the conclusion and assistance separately from the replay transcript. Device-level technique aggregates may pre-fill **Learning**, but cannot pre-fill durable **Know it** because aggregate counters lack distinct-state and distinct-date provenance.
+
 ## Offline behavior
 
 The production bundle or service-worker cache must include:
@@ -873,6 +890,7 @@ Cover desktop Chromium and Pixel 5:
 - assistance-depth evidence;
 - review-due activity;
 - export, reset, and deletion;
+- compact solve-transcript replay, retention, separate export, and deletion;
 - entitlement loss without data loss; and
 - accessibility at 320 px.
 
@@ -882,6 +900,7 @@ Cover desktop Chromium and Pixel 5:
 - forbidden key and value detection;
 - no puzzle data in selector diagnostics;
 - export contains only documented campaign data; and
+- raw solve transcripts remain local-only and never appear in campaign or account exports; and
 - deletion removes campaign stores without affecting unrelated preferences unless requested.
 
 ## Rollout and migrations

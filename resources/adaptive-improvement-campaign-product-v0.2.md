@@ -458,9 +458,12 @@ The complete placement, campaign, skill graph, recommendation, activity, and mas
 - Select activities on-device from shipped, certified data.
 - Cache the current activity and core coaching for offline use.
 - Export, reset, and delete the skill graph and campaign history.
+- Retain a bounded, separately controlled local solve transcript for prospective technique inference.
 - Explain that clearing site data or changing devices loses unsynced history.
 
 Local calendar dates are used only for evidence spacing and review timing.
+
+Private solve transcripts are distinct from campaign evidence. They may contain the starting grid and exact value/elimination changes needed to replay detector decisions, but remain local-only, use a versioned compact format, retain at most 100 runs for 90 days, and have separate export and deletion controls. Campaign evidence continues to exclude grids and exact moves.
 
 ### Optional account
 
@@ -472,6 +475,8 @@ An account may later add:
 - continuity across installed devices.
 
 Sign-in remains optional for free gameplay and a local campaign. Before sync is implemented, define consent, data minimization, conflict resolution, export, deletion, and local-to-account migration separately.
+
+Account sync may receive bounded technique aggregates derived on-device from unambiguous moves. It must not upload raw solve transcripts, starting grids, or exact actions under this campaign phase.
 
 ## Paid product hypothesis
 
@@ -505,6 +510,8 @@ Pricing and packaging remain hypotheses. "Lifetime" must define whether it cover
 ## Privacy and analytics
 
 Keep the full skill graph, puzzle state, notes, exact moves, and evidence history on-device by default.
+
+Technique inference runs against the board state immediately before a manual value entry. When exactly one committed, source-certified detector produces that exact fill, store a provisional technique observation with the deepest assistance used. Ambiguous moves produce no technique attribution. One observation does not grant durable mastery.
 
 Product analytics may record only coarse, consented events such as:
 
