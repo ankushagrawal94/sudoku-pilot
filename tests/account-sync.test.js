@@ -109,8 +109,8 @@ const deletionResult = await deleteAccountThroughServer({
   auth: {
     getBetterAuthInstance() {
       return {
-        async getSession() {
-          return { data: { session: { token: "test-session-token" } } };
+        async getToken() {
+          return { data: { token: "test-data-api-jwt" } };
         }
       };
     }
@@ -123,7 +123,7 @@ const deletionResult = await deleteAccountThroughServer({
   });
 });
 assert.equal(deletionRequest.url, "/api/account-delete");
-assert.equal(deletionRequest.options.headers.Authorization, "Bearer test-session-token");
+assert.equal(deletionRequest.options.headers.Authorization, "Bearer test-data-api-jwt");
 assert.deepEqual(JSON.parse(deletionRequest.options.body), { confirmation: "DELETE" });
 assert.deepEqual(deletionResult, { deleted: true });
 
@@ -139,6 +139,7 @@ assert.equal((sql.match(/with check \(\(select auth\.user_id\(\)\) = user_id\)/g
 const deletionSql = await readFile(new URL("../database/account/002_account_delete.sql", import.meta.url), "utf8");
 assert.match(deletionSql, /create or replace function public\.account_current_user_id\(\)/);
 assert.match(deletionSql, /security invoker/);
+assert.match(deletionSql, /current_setting\('request\.jwt\.claims', true\)/);
 assert.match(deletionSql, /revoke all on function public\.account_current_user_id\(\) from public, anonymous/);
 assert.match(deletionSql, /grant execute on function public\.account_current_user_id\(\) to authenticated/);
 

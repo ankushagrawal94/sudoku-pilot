@@ -7,7 +7,7 @@ stable
 security invoker
 set search_path = ''
 as $$
-  select auth.user_id()
+  select nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
 $$;
 
 revoke all on function public.account_current_user_id() from public, anonymous;
