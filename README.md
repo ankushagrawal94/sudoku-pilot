@@ -82,6 +82,10 @@ PostHog captures `app_opened`, puzzle start/first-move/meaningful-play/completio
 
 The full PostHog browser suite is enabled: session replay, autocapture, page views and page leave, heatmaps, dead-click detection, performance metrics, exception and console capture, surveys, feature flags, and remote project configuration. Replay includes puzzle interactions but blocks the screenshot-import panel so the imported image itself is not recorded. PostHog manages analytics delivery and can buffer or retry events after a connection failure. PostHog is loaded asynchronously and is never required for startup, solving, OCR, or offline use.
 
+## Project planning
+
+Product and engineering follow-ups are maintained in the canonical [Sudoku Pilot TODO list](resources/todo.md).
+
 ## Run locally
 
 ```sh
