@@ -7,6 +7,9 @@
     "api/sudoku-ocr.js": {
       "maxDuration": 30,
       "supportsCancellation": true
+    },
+    "api/account-delete.js": {
+      "maxDuration": 30
     }
   },
   "headers": [
@@ -15,7 +18,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; form-action 'self'"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://us.i.posthog.com https://eu.i.posthog.com https://ep-still-dream-a6at2pib.neonauth.us-west-2.aws.neon.tech https://ep-still-dream-a6at2pib.apirest.us-west-2.aws.neon.tech https://ep-wandering-dew-a60wyslr.neonauth.us-west-2.aws.neon.tech https://ep-wandering-dew-a60wyslr.apirest.us-west-2.aws.neon.tech; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; form-action 'self' https://ep-still-dream-a6at2pib.neonauth.us-west-2.aws.neon.tech https://ep-wandering-dew-a60wyslr.neonauth.us-west-2.aws.neon.tech"
         },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },

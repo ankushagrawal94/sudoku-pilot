@@ -25,7 +25,7 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: `npm run build && npm run preview -- --port ${port}`,
+    command: `VITE_ACCOUNT_SYNC_ENABLED=false npm run build && npm run preview -- --port ${port}`,
     url: baseURL,
     reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1"
   }

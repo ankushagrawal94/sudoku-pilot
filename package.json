@@ -8,7 +8,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "node scripts/build-content.mjs && vite build && node scripts/build-sw.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node tests/analytics.test.js && node tests/solver.test.js && node tests/hard-gates.test.js && node tests/catalog-quality.test.js && node tests/rich-generator.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/campaign.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/warehouse.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && node tests/sudoku-ocr-api.test.js && playwright test",
+    "test": "node tests/analytics.test.js && node tests/account-sync.test.js && node tests/account-delete-api.test.js && node tests/solver.test.js && node tests/hard-gates.test.js && node tests/catalog-quality.test.js && node tests/rich-generator.test.js && node tests/coaching.test.js && node tests/learning-practice.test.js && node tests/campaign.test.js && node tests/trusted-import-corpus.test.js && node tests/catalog.test.js && node tests/warehouse.test.js && node tests/build-sw.test.js && node tests/security-config.test.js && node tests/content.test.js && node tests/sudoku-ocr-api.test.js && playwright test",
     "test:analytics": "node tests/analytics.test.js && playwright test tests/functional/analytics.spec.js",
     "test:solver": "node tests/solver.test.js",
     "test:hard-gates": "node tests/hard-gates.test.js",
@@ -38,12 +38,14 @@
     "catalog:quality:generate": "node --no-warnings scripts/catalog/generate-rich-candidates.mjs",
     "catalog:quality:audit": "node --no-warnings scripts/catalog/audit-quality-inventory.mjs",
     "catalog:gates:analyze-minimum": "node --no-warnings scripts/catalog/analyze-gate-minimum.mjs",
-    "test:warehouse": "node tests/warehouse.test.js"
+    "test:warehouse": "node tests/warehouse.test.js",
+    "account:migrate": "node scripts/account/migrate.mjs"
   },
   "dependencies": {
+    "@neondatabase/neon-js": "0.6.2-beta",
     "@vercel/analytics": "^2.0.1",
-    "posthog-js": "^1.280.1",
     "pg": "^8.22.0",
+    "posthog-js": "^1.280.1",
     "sudoku-gen": "^1.0.2",
     "vite": "8.1.4"
   },
