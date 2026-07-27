@@ -233,6 +233,94 @@ export function createCampaignSession({
     return loadModel(profileId);
   }
 
+  async function beginPlacementPuzzle({
+    canonicalPuzzleId,
+    sourceId,
+    allowedTechniqueIds = [],
+    goal = null,
+    preferredMinutes = null,
+    profileId = "local"
+  } = {}) {
+    if (!canonicalPuzzleId || !sourceId) throw new Error("A certified catalog puzzle is required for placement.");
+    const normalizedTechniqueIds = [...new Set(allowedTechniqueIds)];
+    normalizedTechniqueIds.forEach(assertTechnique);
+    if (!normalizedTechniqueIds.length) throw new Error("A placement puzzle needs a certified technique ceiling.");
+    const timestamp = currentIso();
+    const profile = normalizeProfile({
+      ...(await storage.getProfile(profileId) || {}),
+      id: profileId,
+      goal,
+      goalSource: goal ? "learner" : "observing",
+      preferredMinutes,
+      preferredMinutesSource: preferredMinutes ? "learner" : "default",
+      placementCompletedAt: null,
+      placementMethod: "observed-puzzle",
+      updatedAt: timestamp
+    }, timestamp);
+    await storage.putProfile(profile);
+    const campaignState = await ensureCampaignState(profileId);
+    if (campaignState.currentActivityId) return loadModel(profileId);
+    const activity = {
+      activityId: `observed-puzzle-${profileId}-${campaignState.campaignSequence}-${canonicalPuzzleId}`,
+      profileId,
+      activityType: "placement-puzzle",
+      focusTechniqueId: null,
+      sourceKind: "catalog",
+      sourceId,
+      canonicalPuzzleId,
+      estimatedMinutes: 10,
+      createdAt: timestamp,
+      startedAt: timestamp,
+      targetReachedAt: null,
+      completedAt: null,
+      replacedAt: null,
+      abandonedAt: null,
+      replacementActivityId: null,
+      placementCheck: true,
+      observationPlacement: true,
+      diagnosticPlacement: true,
+      recommendationSnapshot: {
+        reasonCodes: ["OBSERVED_PLACEMENT_PUZZLE"],
+        inputVersions: inputVersions(),
+        profileSnapshot: {
+          goal: profile.goal,
+          goalSource: profile.goalSource,
+          preferredMinutes: profile.preferredMinutes,
+          preferredMinutesSource: profile.preferredMinutesSource,
+          inferencePolicyVersion: profile.inferencePolicyVersion
+        }
+      },
+      certificationSnapshot: {
+        activityIndexVersion: activityIndex.version,
+        certificationVersion: 1,
+        diagnostic: true,
+        difficulty: "easy",
+        noveltyBudget: null,
+        allowedTechniqueIds: normalizedTechniqueIds
+      },
+      lifecycleVersion: 1
+    };
+    await storage.putActivity(activity);
+    await storage.putCampaignState({
+      ...campaignState,
+      currentActivityId: activity.activityId,
+      updatedAt: timestamp
+    });
+    await storage.appendEvidence(makeEvidence({
+      profileId,
+      activityId: activity.activityId,
+      eventType: "placement_check_started",
+      canonicalPuzzleId,
+      occurredAt: timestamp,
+      payload: {
+        source: "observed-puzzle",
+        activityType: activity.activityType,
+        inferencePolicyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION
+      }
+    }));
+    return loadModel(profileId);
+  }
+
   async function ensureRecommendation(profileId = "local") {
     let model = await loadModel(profileId);
     if (!model.profile?.placementCompletedAt || model.currentActivity) return model;
@@ -325,6 +413,94 @@ export function createCampaignSession({
       }));
     }
     return loadModel(profileId);
+  }
+
+  async function recordPlacementTechnique(techniqueId, profileId = "local") {
+    assertTechnique(techniqueId);
+    const model = await loadModel(profileId);
+    const activity = model.currentActivity;
+    if (!activity?.diagnosticPlacement || !activity.startedAt) return model;
+    if (!activity.certificationSnapshot.allowedTechniqueIds.includes(techniqueId)) {
+      throw new Error(`Technique ${techniqueId} is outside this placement puzzle's certification.`);
+    }
+    const activityEvidence = model.evidence.filter((item) => item.activityId === activity.activityId);
+    const assistanceLevel = deepestAssistanceLevel(activityEvidence.map((item) => item.assistanceLevel));
+    const replayIndex = activityEvidence.filter((item) => item.eventType === "target_recognized").length;
+    await storage.appendEvidence(makeEvidence({
+      profileId,
+      activityId: activity.activityId,
+      techniqueId,
+      eventType: "target_recognized",
+      assistanceLevel,
+      canonicalPuzzleId: activity.canonicalPuzzleId,
+      puzzleStateFingerprint: createPuzzleStateFingerprint({
+        sourceId: activity.sourceId,
+        replayIndex,
+        techniqueId,
+        certificationVersion: activity.certificationSnapshot.certificationVersion
+      }),
+      payload: { recognitionKind: "placement-puzzle" }
+    }));
+    return loadModel(profileId);
+  }
+
+  async function completePlacementPuzzle(profileId = "local") {
+    const model = await loadModel(profileId);
+    const activity = model.currentActivity;
+    if (!activity?.diagnosticPlacement) throw new Error("There is no placement puzzle to complete.");
+    const timestamp = currentIso();
+    const activityEvidence = model.evidence.filter((item) => item.activityId === activity.activityId);
+    const assistanceLevel = deepestAssistanceLevel(activityEvidence.map((item) => item.assistanceLevel));
+    const recognitionCount = activityEvidence.filter((item) => item.eventType === "target_recognized").length;
+    const finalEvents = [
+      makeEvidence({
+        profileId,
+        activityId: activity.activityId,
+        eventType: "placement_check_completed",
+        assistanceLevel,
+        canonicalPuzzleId: activity.canonicalPuzzleId,
+        occurredAt: timestamp,
+        payload: {
+          result: recognitionCount ? "observed" : "exposure-only",
+          source: "observed-puzzle"
+        }
+      }),
+      makeEvidence({
+        profileId,
+        activityId: activity.activityId,
+        eventType: "activity_completed",
+        assistanceLevel,
+        canonicalPuzzleId: activity.canonicalPuzzleId,
+        occurredAt: timestamp,
+        payload: { activityType: activity.activityType }
+      })
+    ];
+    await storage.completeActivity({
+      activityId: activity.activityId,
+      profileId,
+      evidenceEvents: finalEvents,
+      completedAt: timestamp
+    });
+    const completedModel = await loadModel(profileId);
+    await saveObservedProfileInference({
+      model: completedModel,
+      placementCompleted: true,
+      timestamp
+    });
+    const continuedModel = await ensureRecommendation(profileId);
+    return {
+      ...continuedModel,
+      reflection: {
+        completedActivity: activity,
+        assistanceLevel,
+        recognized: recognitionCount > 0,
+        guessed: false,
+        observedPlacement: true,
+        observedTechniqueCount: new Set(activityEvidence
+          .filter((item) => item.eventType === "target_recognized")
+          .map((item) => item.techniqueId)).size
+      }
+    };
   }
 
   async function completeCurrentActivity({
@@ -489,10 +665,13 @@ export function createCampaignSession({
     savePlacement,
     beginPlacementCheck,
     beginObservedPlacement,
+    beginPlacementPuzzle,
     ensureRecommendation,
     startCurrentActivity,
     recordAssistance,
+    recordPlacementTechnique,
     completeCurrentActivity,
+    completePlacementPuzzle,
     correctSkill,
     correctGoal,
     exportData: () => storage.exportData(),
@@ -671,7 +850,9 @@ export function createCampaignSession({
       goal: profile.goalSource === "learner" ? profile.goal : inferredGoal,
       goalSource: profile.goalSource === "learner" ? "learner" : "observed",
       placementCompletedAt: placementCompleted ? timestamp : null,
-      placementMethod: "observed",
+      placementMethod: model.activities.some((activity) => activity.diagnosticPlacement)
+        ? "observed-puzzle"
+        : "observed",
       goalInference: profile.goalSource === "learner" ? null : {
         policyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION,
         evidenceEventIds: observedEvidence.map((event) => event.eventId),
@@ -713,7 +894,7 @@ function normalizeProfile(profile, timestamp) {
     avoidedTechniqueIds: Array.isArray(profile.avoidedTechniqueIds) ? profile.avoidedTechniqueIds : [],
     placementCompletedAt: profile.placementCompletedAt || null,
     placementSkippedAt: profile.placementSkippedAt || null,
-    placementMethod: ["observed", "self-report", "skipped"].includes(profile.placementMethod)
+    placementMethod: ["observed", "observed-puzzle", "self-report", "skipped"].includes(profile.placementMethod)
       ? profile.placementMethod
       : null,
     placementDraftReports: normalizeReports(profile.placementDraftReports || {}),
@@ -781,6 +962,9 @@ function inferGoal(evidenceEvents) {
     .map((event) => event.payload?.result);
   if (observedResults.includes("needs-practice")) return "build-confidence";
   const recognitions = evidenceEvents.filter((event) => event.eventType === "target_recognized");
+  if (recognitions.some((event) => assistanceRank(event.assistanceLevel) >= assistanceRank("structural-location"))) {
+    return "build-confidence";
+  }
   if (recognitions.length && recognitions.every((event) => assistanceRank(event.assistanceLevel) <= assistanceRank("tool"))) {
     return "solve-more-puzzles";
   }

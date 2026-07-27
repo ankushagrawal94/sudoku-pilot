@@ -610,11 +610,12 @@ Do not send grid values, pencil notes, screenshots, candidates, or exact move co
 - The feature is named and described as an adaptive campaign, not a daily quota.
 - Learners can continue immediately after completing a recommendation.
 - Learners can begin without declaring a goal or technique knowledge.
-- The first certified puzzle records technique application and deepest assistance before adapting the path.
+- The first activity is a fresh, complete Easy Sudoku that records technique application and deepest assistance before adapting the path.
+- The opening diagnostic puzzle uses the certified Easy technique ceiling and does not claim a single new technique or grant mastery from completion.
 - Initial placement can skip familiar techniques.
 - At least two meaningfully different learner profiles produce different first-five activity sequences.
 - Every recommendation stores and displays a reason.
-- Every puzzle activity passes novelty-budget and replay checks.
+- Every personalized learning puzzle passes novelty-budget and replay checks; the separately labeled opening diagnostic puzzle passes Easy-ceiling and replay checks.
 - Mastered techniques are skipped or explicitly eligible for automation.
 - Exact-move reveal and completion alone cannot grant mastery.
 - Delayed evidence is required for durable mastery.

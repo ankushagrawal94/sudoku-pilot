@@ -13,6 +13,7 @@ import {
   CAMPAIGN_TECHNIQUE_GRAPH,
   createCampaignSession,
   openCampaignStorage,
+  techniqueIdForName,
   techniqueNameForId
 } from "./campaign/index.js";
 import {
@@ -247,6 +248,7 @@ function render() {
         ${state.showMistakes && check.status !== "ok" ? renderCheckPanel(check) : ""}
         <section class="game-layout">
           <section class="play-area">
+            ${renderCampaignPuzzleBanner()}
             ${renderBoard()}
             ${renderKeypad()}
             ${renderHintPanel()}
@@ -273,7 +275,7 @@ function activateCompletionDialog() {
   const dialog = app.querySelector("[data-testid='completion-celebration']");
   if (!dialog) return;
   [...dialog.parentElement.children].filter((child) => child !== dialog).forEach((child) => { child.inert = true; });
-  dialog.querySelector("[data-action='new-puzzle-after-completion']")?.focus();
+  dialog.querySelector("[data-action='campaign-continue-after-placement'], [data-action='new-puzzle-after-completion']")?.focus();
 }
 
 function activateInstallDialog() {
@@ -302,6 +304,7 @@ function dismissCompletionCelebration() {
 function renderCompletionCelebration() {
   const summary = state.completionSummary;
   const promoteInstall = shouldPromoteInstall();
+  const campaignPlacement = Boolean(summary.campaignPlacement);
   return `
     <section class="celebration-backdrop" data-testid="completion-celebration" role="dialog" aria-modal="true" aria-labelledby="completion-title">
       <div class="celebration-card">
@@ -326,7 +329,7 @@ function renderCompletionCelebration() {
         ` : ""}
         <div class="celebration-actions">
           <button data-action="dismiss-celebration">Keep admiring</button>
-          <button class="primary" data-action="new-puzzle-after-completion">Fly another puzzle</button>
+          <button class="primary" data-action="${campaignPlacement ? "campaign-continue-after-placement" : "new-puzzle-after-completion"}">${campaignPlacement ? "Continue campaign" : "Fly another puzzle"}</button>
         </div>
       </div>
     </section>
@@ -491,16 +494,16 @@ function renderCampaignPlacement() {
       <section class="panel campaign-hero">
         <p class="eyebrow">Private preview · local only</p>
         <h2 tabindex="-1" data-route-heading>Find your starting point</h2>
-        <p>Start with a short certified puzzle. Sudoku Pilot will adapt from the technique you apply and the deepest help you actually use.</p>
+        <p>Start with a complete Easy Sudoku. Sudoku Pilot will adapt from the techniques you apply and the deepest help you actually use.</p>
         <p class="campaign-privacy-note">No questionnaire is required. This campaign stays in this browser and does not infer detailed mastery from solve counts or legacy history.</p>
       </section>
       <form class="panel campaign-placement" data-testid="campaign-placement">
         <div class="campaign-observed-start">
           <div>
             <h3>Let your solving do the talking</h3>
-            <p>We will begin with one focused puzzle, keep the result provisional, and adjust immediately.</p>
+            <p>We will begin with a fresh, full Sudoku puzzle, keep what we infer provisional, and adjust immediately.</p>
           </div>
-          <button type="button" class="primary" data-action="campaign-start-observed-placement">Start with a puzzle</button>
+          <button type="button" class="primary" data-action="campaign-start-observed-placement">Start with an easy puzzle</button>
         </div>
         <details class="campaign-optional-placement">
           <summary>Optional: tell us your preferences or what you know</summary>
@@ -617,6 +620,7 @@ function renderCampaignHome() {
 }
 
 function renderRecommendationCard(activity) {
+  if (activity.diagnosticPlacement) return renderPlacementPuzzleCard(activity);
   const name = techniqueNameForId(activity.focusTechniqueId);
   const started = Boolean(activity.startedAt);
   const reasonCodes = activity.recommendationSnapshot?.reasonCodes || [];
@@ -642,12 +646,33 @@ function renderRecommendationCard(activity) {
   `;
 }
 
+function renderPlacementPuzzleCard(activity) {
+  return `
+    <article class="panel campaign-recommendation" data-testid="campaign-recommendation" data-activity-id="${activity.activityId}">
+      <div class="campaign-recommendation-topline">
+        <span class="campaign-activity-badge">Starting puzzle</span>
+        <span>Easy · about ${activity.estimatedMinutes || 10} min</span>
+      </div>
+      <h3>Your Easy Sudoku is in progress</h3>
+      <p class="campaign-focus">Solve it normally. Assistance-aware technique evidence stays local and provisional.</p>
+      <p data-testid="campaign-reason">Continue the same puzzle you started. Reloading will not create another assignment or duplicate its evidence.</p>
+      <div class="campaign-primary-actions">
+        <button data-action="campaign-open-graph">Edit skill graph</button>
+        <button class="primary" data-action="campaign-start-activity">Resume puzzle</button>
+      </div>
+    </article>
+  `;
+}
+
 function renderCampaignReflection() {
   const reflection = campaignRuntime.reflection;
   if (!reflection) return "";
-  const name = techniqueNameForId(reflection.completedActivity.focusTechniqueId);
-  const evidence = reflection.recognized
-    ? `Target recognized with ${campaignAssistanceLabel(reflection.assistanceLevel)} assistance.`
+  const placementPuzzle = reflection.completedActivity.diagnosticPlacement;
+  const name = placementPuzzle ? "Starting puzzle" : techniqueNameForId(reflection.completedActivity.focusTechniqueId);
+  const evidence = placementPuzzle && reflection.recognized
+    ? `${reflection.observedTechniqueCount} technique pattern${reflection.observedTechniqueCount === 1 ? "" : "s"} recognized with ${campaignAssistanceLabel(reflection.assistanceLevel)} assistance.`
+    : reflection.recognized
+      ? `Target recognized with ${campaignAssistanceLabel(reflection.assistanceLevel)} assistance.`
     : "Completion was recorded as exposure, not proof of mastery.";
   const observation = reflection.observedPlacement
     ? "Sudoku Pilot used this provisional evidence to choose your starting path."
@@ -702,7 +727,7 @@ function renderCampaignSkillGraph() {
         ${model.activities.filter((activity) => activity.completedAt).length ? `
           <ol>
             ${model.activities.filter((activity) => activity.completedAt).sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 8).map((activity) => `
-              <li><strong>${techniqueNameForId(activity.focusTechniqueId)}</strong> · ${campaignActivityLabel(activity.activityType)} <time datetime="${activity.completedAt}">${new Date(activity.completedAt).toLocaleString()}</time></li>
+              <li><strong>${activity.diagnosticPlacement ? "Easy starting puzzle" : techniqueNameForId(activity.focusTechniqueId)}</strong> · ${campaignActivityLabel(activity.activityType)} <time datetime="${activity.completedAt}">${new Date(activity.completedAt).toLocaleString()}</time></li>
             `).join("")}
           </ol>
         ` : "<p>No completed campaign activities yet.</p>"}
@@ -760,6 +785,27 @@ function renderCampaignActivityBanner(kind) {
   `;
 }
 
+function renderCampaignPuzzleBanner() {
+  const activity = campaignRuntime.model?.currentActivity;
+  if (
+    !campaignRuntime.enabled ||
+    !activity?.diagnosticPlacement ||
+    !activity.startedAt ||
+    state.puzzleSource !== "campaign-placement" ||
+    state.campaignPuzzleCanonicalId !== activity.canonicalPuzzleId
+  ) return "";
+  return `
+    <section class="campaign-activity-banner campaign-puzzle-banner" data-testid="campaign-placement-puzzle-banner">
+      <div>
+        <p class="eyebrow">Campaign starting puzzle</p>
+        <strong>Easy · complete Sudoku</strong>
+        <p>Solve normally. We use only technique and assistance evidence—not your grid, solution, notes, or exact moves.</p>
+      </div>
+      <button data-action="campaign-return-home">Back to campaign</button>
+    </section>
+  `;
+}
+
 function campaignTechniqueNodes() {
   return CAMPAIGN_TECHNIQUE_GRAPH.nodes.filter((node) => node.kind === "technique");
 }
@@ -769,6 +815,7 @@ function campaignActivityLabel(type) {
     lesson: "Technique lesson",
     "find-pattern": "Find the pattern",
     "near-miss": "Near-miss recognition",
+    "placement-puzzle": "Diagnostic puzzle",
     "full-puzzle": "Certified full puzzle",
     "focused-puzzle": "Focused puzzle"
   })[type] || type.replaceAll("-", " ");
@@ -865,11 +912,32 @@ async function handleCampaignAction(action) {
   if (action === "campaign-start-observed-placement") {
     const placement = readPlacementForm();
     await runCampaignTask(async () => {
-      campaignRuntime.model = await campaignRuntime.session.beginObservedPlacement({
+      const generated = generatePuzzle({ difficulty: "easy", playedCanonicalIds });
+      const allowedTechniqueIds = Object.keys(generated.rating.techniqueCounts)
+        .map(techniqueIdForName)
+        .filter(Boolean);
+      campaignRuntime.model = await campaignRuntime.session.beginPlacementPuzzle({
+        canonicalPuzzleId: generated.canonicalId,
+        sourceId: generated.sourceId,
+        allowedTechniqueIds,
         goal: placement.goal
       });
       campaignRuntime.reflection = null;
-      restoreCampaignActivity(campaignRuntime.model.currentActivity, { fresh: true });
+      state.previousPuzzle = snapshotCurrentPuzzle();
+      state.puzzle = createPuzzle(generated.grid, generated.solution);
+      state.difficulty = "easy";
+      state.selected = null;
+      state.multiSelected.clear();
+      state.multiSelectMode = false;
+      state.panel = null;
+      state.puzzleSource = "campaign-placement";
+      state.campaignPuzzleCanonicalId = generated.canonicalId;
+      resetPuzzleStats();
+      resetTimer();
+      closeHintDetails();
+      playedCanonicalIds.add(generated.canonicalId);
+      savePlayedCanonicalIds();
+      navigateTo("play", { analyticsEntryPoint: null });
     });
     return;
   }
@@ -890,6 +958,15 @@ async function handleCampaignAction(action) {
       const wasStarted = Boolean(campaignRuntime.model.currentActivity?.startedAt);
       campaignRuntime.model = await campaignRuntime.session.startCurrentActivity();
       restoreCampaignActivity(campaignRuntime.model.currentActivity, { fresh: !wasStarted });
+    });
+    return;
+  }
+  if (action === "campaign-continue-after-placement") {
+    await runCampaignTask(async () => {
+      await campaignRuntime.pendingEvidence;
+      state.completionSummary = null;
+      campaignRuntime.mode = "home";
+      navigateTo("campaign", { analyticsEntryPoint: null });
     });
     return;
   }
@@ -1008,6 +1085,16 @@ function readPlacementForm() {
 
 function restoreCampaignActivity(activity, { fresh = false } = {}) {
   if (!activity) return;
+  if (activity.diagnosticPlacement) {
+    if (
+      state.puzzleSource !== "campaign-placement" ||
+      state.campaignPuzzleCanonicalId !== activity.canonicalPuzzleId
+    ) {
+      throw new Error("This starting puzzle is not available in local puzzle storage. Reset campaign progress to begin another.");
+    }
+    navigateTo("play", { analyticsEntryPoint: null });
+    return;
+  }
   const technique = techniqueNameForId(activity.focusTechniqueId);
   if (activity.activityType === "lesson") {
     state.lessonTechnique = technique;
@@ -1052,6 +1139,16 @@ function queueCampaignAssistance(level) {
     });
 }
 
+function queueCampaignPlacementTechnique(techniqueName) {
+  const techniqueId = techniqueIdForName(techniqueName);
+  if (!techniqueId || !campaignRuntime.model?.currentActivity?.diagnosticPlacement) return;
+  campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
+    .catch(() => {})
+    .then(async () => {
+      campaignRuntime.model = await campaignRuntime.session.recordPlacementTechnique(techniqueId);
+    });
+}
+
 function assistanceForStage(stage) {
   return ({
     2: "search-focus",
@@ -1087,12 +1184,22 @@ function recordPuzzleCompletion() {
   }
   const elapsed = runningElapsedSeconds();
   if (firstCompletion) {
-    puzzleJourney.complete({
-      active_seconds: elapsed,
-      moves: state.puzzleMoveCount,
-      hints_used: state.hintCount,
-      local_completed_puzzles: state.playerStats.completed
-    });
+    if (state.puzzleSource !== "campaign-placement") {
+      puzzleJourney.complete({
+        active_seconds: elapsed,
+        moves: state.puzzleMoveCount,
+        hints_used: state.hintCount,
+        local_completed_puzzles: state.playerStats.completed
+      });
+    } else {
+      campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
+        .catch(() => {})
+        .then(async () => {
+          const completed = await campaignRuntime.session.completePlacementPuzzle();
+          campaignRuntime.model = completed;
+          campaignRuntime.reflection = completed.reflection || null;
+        });
+    }
   }
   state.elapsedBeforeStart = elapsed;
   state.startedAt = Date.now();
@@ -1100,6 +1207,7 @@ function recordPuzzleCompletion() {
     elapsed,
     moves: state.puzzleMoveCount,
     completed: state.playerStats.completed,
+    campaignPlacement: state.puzzleSource === "campaign-placement",
     analysis: state.hintCount
       ? `You finished with ${state.hintCount} coach assist${state.hintCount === 1 ? "" : "s"}. Every assist is another pattern in your toolkit.`
       : "You solved this one without a hint. Crisp, clean flying."
@@ -2314,6 +2422,13 @@ function enterDigit(digit) {
   if (state.selected === null || state.puzzle.givens[state.selected]) return;
   if (state.numberMode === "note" && state.puzzle.values[state.selected]) return;
   if (state.numberMode === "value" && state.puzzle.values[state.selected] === digit) return;
+  const observedTechnique = (
+    state.numberMode === "value" &&
+    state.puzzleSource === "campaign-placement" &&
+    state.puzzle.solution?.[state.selected] === digit
+  )
+    ? uniquelyRecognizedTechnique(state.selected, digit)
+    : null;
   state.runMessage = "";
   pushHistory(clonePuzzle(state.puzzle));
   if (state.numberMode === "note") {
@@ -2331,9 +2446,17 @@ function enterDigit(digit) {
         state.puzzle.notes[index].delete(digit);
       }
     }
+    if (observedTechnique) queueCampaignPlacementTechnique(observedTechnique);
   }
   closeHintDetails();
   render();
+}
+
+function uniquelyRecognizedTechnique(index, digit) {
+  const techniques = new Set(findAllMoves(state.puzzle, COACHING_TIER_1)
+    .filter((move) => (move.fills || []).some((fill) => fill.index === index && fill.digit === digit))
+    .map((move) => move.technique));
+  return techniques.size === 1 ? [...techniques][0] : null;
 }
 
 function selectCell(index) {
@@ -2647,6 +2770,7 @@ function applyCurrentHint() {
   const move = state.moves[state.hintIndex];
   if (move) {
     queueCampaignAssistance("exact-move");
+    queueCampaignPlacementTechnique(move.technique);
     applyMove(state.puzzle, move);
     state.puzzleMoveCount += (move.fills || []).length;
     puzzleJourney.recordMove(state.puzzleMoveCount);
@@ -2703,6 +2827,8 @@ function runSelectedTechniques() {
     state.runMessage = "No selected techniques can move this board forward.";
     return;
   }
+  queueCampaignAssistance("exact-move");
+  applied.forEach((move) => queueCampaignPlacementTechnique(move.technique));
   state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
   puzzleJourney.recordMove(state.puzzleMoveCount);
   state.hintCount += 1;
@@ -2719,6 +2845,8 @@ function runOneTechnique(technique) {
   }
   const applied = applySelectedTechniques(state.puzzle, [technique]);
   if (applied.length) {
+    queueCampaignAssistance("exact-move");
+    applied.forEach((move) => queueCampaignPlacementTechnique(move.technique));
     state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
     puzzleJourney.recordMove(state.puzzleMoveCount);
     state.hintCount += 1;
@@ -2790,6 +2918,7 @@ function restorePreviousPuzzle() {
   state.hintCount = previous.hintCount;
   state.hintRequested = previous.hintRequested;
   state.puzzleSource = previous.puzzleSource;
+  state.campaignPuzzleCanonicalId = previous.campaignPuzzleCanonicalId;
   state.puzzlePracticeTechnique = previous.puzzlePracticeTechnique;
   state.puzzlePracticeMode = previous.puzzlePracticeMode;
   state.completionRecorded = previous.completionRecorded;
@@ -2812,6 +2941,7 @@ function snapshotCurrentPuzzle() {
     hintCount: state.hintCount,
     hintRequested: state.hintRequested,
     puzzleSource: state.puzzleSource,
+    campaignPuzzleCanonicalId: state.campaignPuzzleCanonicalId,
     puzzlePracticeTechnique: state.puzzlePracticeTechnique,
     puzzlePracticeMode: state.puzzlePracticeMode,
     completionRecorded: state.completionRecorded,
@@ -2858,6 +2988,7 @@ function puzzleAnalyticsContext() {
 
 function startTrackedPuzzle(source) {
   state.puzzleSource = source;
+  if (source !== "campaign-placement") state.campaignPuzzleCanonicalId = null;
   state.puzzlePracticeTechnique = source === "practice" ? state.practiceTechnique : null;
   state.puzzlePracticeMode = source === "practice" ? state.practiceMode : null;
   puzzleJourney.start(puzzleAnalyticsContext());
@@ -3055,6 +3186,7 @@ function createInitialState() {
     hintCount: 0,
     hintRequested: false,
     puzzleSource: "generated",
+    campaignPuzzleCanonicalId: null,
     puzzlePracticeTechnique: null,
     puzzlePracticeMode: null,
     completionRecorded: false,
@@ -3112,7 +3244,8 @@ function createInitialState() {
       puzzleMoveCount: Math.max(0, Number(saved.puzzleMoveCount) || 0),
       hintCount: Math.max(0, Number(saved.hintCount) || 0),
       hintRequested: Boolean(saved.hintRequested),
-      puzzleSource: ["generated", "import", "practice"].includes(saved.puzzleSource) ? saved.puzzleSource : "generated",
+      puzzleSource: ["generated", "import", "practice", "campaign-placement"].includes(saved.puzzleSource) ? saved.puzzleSource : "generated",
+      campaignPuzzleCanonicalId: typeof saved.campaignPuzzleCanonicalId === "string" ? saved.campaignPuzzleCanonicalId : null,
       puzzlePracticeTechnique: COMMITTED_COACHING_TECHNIQUES.includes(saved.puzzlePracticeTechnique) ? saved.puzzlePracticeTechnique : null,
       puzzlePracticeMode: PRACTICE_MODES.some(({ id }) => id === saved.puzzlePracticeMode) ? saved.puzzlePracticeMode : null,
       completionRecorded: Boolean(saved.completionRecorded),
@@ -3149,6 +3282,7 @@ function saveState() {
       hintCount: state.hintCount,
       hintRequested: state.hintRequested,
       puzzleSource: state.puzzleSource,
+      campaignPuzzleCanonicalId: state.campaignPuzzleCanonicalId,
       puzzlePracticeTechnique: state.puzzlePracticeTechnique,
       puzzlePracticeMode: state.puzzlePracticeMode,
       practiceTechnique: state.practiceTechnique,

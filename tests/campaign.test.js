@@ -496,6 +496,74 @@ assert.ok(selectionMs < 500, `100 metadata-only selections should complete under
 }
 
 {
+  let eventSequence = 0;
+  const storage = createMemoryCampaignStorage();
+  const session = createCampaignSession({
+    storage,
+    now: () => new Date("2026-07-26T11:45:00Z"),
+    eventId: () => `placement-puzzle-${eventSequence++}`
+  });
+  let model = await session.beginPlacementPuzzle({
+    canonicalPuzzleId: "easy-0001",
+    sourceId: "easy-0001",
+    allowedTechniqueIds: ["last-digit", "naked-single", "hidden-single"]
+  });
+  assert.equal(model.currentActivity.activityType, "placement-puzzle");
+  assert.equal(model.currentActivity.focusTechniqueId, null);
+  assert.equal(model.currentActivity.certificationSnapshot.difficulty, "easy");
+  assert.equal(model.currentActivity.certificationSnapshot.diagnostic, true);
+  assert.equal(model.currentActivity.certificationSnapshot.noveltyBudget, null);
+  assert.equal(model.activities.length, 1);
+
+  await session.recordPlacementTechnique("naked-single");
+  await session.recordAssistance("exact-move");
+  await session.recordPlacementTechnique("hidden-single");
+  model = await session.completePlacementPuzzle();
+  assert.equal(model.placementRequired, false);
+  assert.ok(model.currentActivity, "completion must immediately select the next learning activity");
+  assert.notEqual(model.currentActivity.activityType, "placement-puzzle");
+  assert.equal(model.profile.placementMethod, "observed-puzzle");
+  assert.equal(model.profile.goal, "build-confidence", "deep assistance should conservatively infer a confidence path");
+  const placementActivity = model.activities.find((activity) => activity.activityType === "placement-puzzle");
+  assert.ok(placementActivity.completedAt);
+  const placementEvidence = await storage.listEvidence({ activityId: placementActivity.activityId });
+  assert.equal(placementEvidence.filter((item) => item.eventType === "activity_completed").length, 1);
+  assert.equal(placementEvidence.filter((item) => item.eventType === "target_recognized").length, 2);
+  assert.equal(
+    placementEvidence.find((item) => item.techniqueId === "hidden-single" && item.eventType === "target_recognized").assistanceLevel,
+    "exact-move"
+  );
+  assert.doesNotMatch(
+    JSON.stringify(placementEvidence),
+    /"grid"|"solution"|"candidateMap"|"notes"|"exactMove"/i
+  );
+  assert.notEqual(
+    model.skills.find((skill) => skill.techniqueId === "hidden-single").state,
+    "mastered",
+    "an exact-move placement must not grant mastery"
+  );
+}
+
+{
+  const storage = createMemoryCampaignStorage();
+  const session = createCampaignSession({
+    storage,
+    now: () => new Date("2026-07-26T11:50:00Z"),
+    eventId: (() => {
+      let sequence = 0;
+      return () => `placement-exposure-${sequence++}`;
+    })()
+  });
+  await session.beginPlacementPuzzle({
+    canonicalPuzzleId: "easy-0002",
+    sourceId: "easy-0002",
+    allowedTechniqueIds: ["last-digit", "naked-single"]
+  });
+  const model = await session.completePlacementPuzzle();
+  assert.ok(model.skills.every((skill) => skill.state !== "mastered"), "puzzle completion alone must not grant mastery");
+}
+
+{
   let clockTick = 0;
   let eventSequence = 0;
   const storage = createMemoryCampaignStorage();

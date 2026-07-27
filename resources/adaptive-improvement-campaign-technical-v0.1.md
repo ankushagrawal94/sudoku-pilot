@@ -630,7 +630,7 @@ Legacy data without sufficient context may influence a recommendation explanatio
 
 Use prerequisite and family structure to reduce checks:
 
-- launch a certified focused puzzle without requiring questionnaire answers;
+- launch a fresh, complete Sudoku from the certified Easy catalog without requiring questionnaire answers;
 - infer a low-confidence initial goal and technique state from correct application, errors, guesses, and deepest assistance;
 - successful recognition can skip nearby foundational checks provisionally;
 - failure narrows the next check to prerequisites;
@@ -638,6 +638,8 @@ Use prerequisite and family structure to reduce checks:
 - the graph remains editable afterward.
 
 The placement and goal-inference policies must be deterministic, separately versioned, visible as provisional, and capped to a product-approved maximum duration. A learner-provided goal overrides the inferred goal without rewriting prior evidence.
+
+The opening full Sudoku is a diagnostic activity, not a personalized teaching puzzle. Its certification snapshot records the Easy difficulty ceiling and every technique allowed by the catalog record. It may sample several foundational techniques, so it does not claim a one-new-technique budget. Completion alone is exposure; only assistance-aware recognized techniques affect the skill graph. Every subsequent personalized puzzle recommendation still enforces the one-new-technique budget without exception.
 
 ## Offline behavior
 

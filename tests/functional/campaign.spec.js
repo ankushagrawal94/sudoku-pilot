@@ -17,22 +17,51 @@ test("campaign starts from observed solving without requiring profile answers", 
   await expect(page.getByText("No questionnaire is required")).toBeVisible();
   await expect(page.locator("[data-campaign-goal]")).not.toBeVisible();
 
-  await page.getByRole("button", { name: "Start with a puzzle" }).click();
-  await expect(page.getByTestId("practice-session")).toHaveAttribute("data-practice-mode", "find-pattern");
-  await expect(page.getByTestId("campaign-activity-banner")).toContainText("Starting-point puzzle");
-  await page.getByTestId("hint-button").click();
-  for (let stage = 2; stage <= 4; stage += 1) {
-    await page.getByTestId("hint-panel").getByRole("button", { name: "Next clue", exact: true }).click();
-  }
-  await page.getByTestId("hint-panel").getByRole("button", { name: "Apply", exact: true }).click();
-  await page.getByRole("button", { name: "See my next activity" }).click();
+  await page.getByRole("button", { name: "Start with an easy puzzle" }).click();
+  await expect(page.getByTestId("board")).toBeVisible();
+  await expect(page.getByTestId("campaign-placement-puzzle-banner")).toContainText("Easy · complete Sudoku");
+  await expect(page.locator("[data-difficulty='easy']")).toHaveClass(/active/);
+  await expect(page.getByTestId("practice-session")).toHaveCount(0);
+
+  const startedSnapshot = await readCampaignDatabase(page);
+  const placementActivity = startedSnapshot.activities.find((activity) => activity.activityType === "placement-puzzle");
+  expect(placementActivity).toBeTruthy();
+  expect(placementActivity.focusTechniqueId).toBeNull();
+  expect(placementActivity.certificationSnapshot).toMatchObject({
+    diagnostic: true,
+    difficulty: "easy",
+    noveltyBudget: null
+  });
+  const savedPuzzle = await page.evaluate(() => JSON.parse(localStorage.getItem("sudoku-pilot-state-v1")));
+  expect(savedPuzzle.puzzleSource).toBe("campaign-placement");
+  expect(savedPuzzle.campaignPuzzleCanonicalId).toBe(placementActivity.canonicalPuzzleId);
+
+  const evidenceCountBeforeReload = startedSnapshot.evidence_events.length;
+  await page.reload();
+  await expect(page.getByTestId("campaign-placement-puzzle-banner")).toBeVisible();
+  const resumedSnapshot = await readCampaignDatabase(page);
+  expect(resumedSnapshot.activities).toHaveLength(startedSnapshot.activities.length);
+  expect(resumedSnapshot.evidence_events).toHaveLength(evidenceCountBeforeReload);
+  expect(resumedSnapshot.campaign_state[0].currentActivityId).toBe(placementActivity.activityId);
+  await page.getByRole("button", { name: "Back to campaign" }).click();
+  await expect(page.getByTestId("campaign-recommendation")).toContainText("Your Easy Sudoku is in progress");
+  await page.getByRole("button", { name: "Resume puzzle" }).click();
+  await expect(page.getByTestId("campaign-placement-puzzle-banner")).toBeVisible();
+
+  await solveSavedPuzzle(page);
+  await expect(page.getByTestId("completion-celebration")).toBeVisible();
+  await page.getByRole("button", { name: "Continue campaign" }).click();
 
   await expect(page.getByTestId("campaign-recommendation")).toBeVisible();
-  await expect(page.getByTestId("campaign-inferred-path")).toContainText("Build confidence");
+  await expect(page.getByTestId("campaign-inferred-path")).toContainText("Solve more puzzles");
   await expect(page.getByTestId("campaign-inferred-path")).toContainText("inferred provisionally");
   const inferredSnapshot = await readCampaignDatabase(page);
   expect(inferredSnapshot.profiles[0].goalSource).toBe("observed");
   expect(inferredSnapshot.profiles[0].goalInference.policyVersion).toBe(1);
+  expect(inferredSnapshot.activities.find((activity) => activity.activityId === placementActivity.activityId).completedAt).toBeTruthy();
+  expect(inferredSnapshot.evidence_events.some((item) => item.activityId === placementActivity.activityId && item.eventType === "target_recognized")).toBe(true);
+  expect(inferredSnapshot.evidence_events.some((item) => item.activityId === placementActivity.activityId && item.eventType === "activity_completed")).toBe(true);
+  expect(JSON.stringify(inferredSnapshot.evidence_events)).not.toMatch(/"grid"|"solution"|"candidateMap"|"notes"|"exactMove"/i);
 
   await page.getByText("Adjust this path").click();
   await page.locator("[data-campaign-goal-correction]").selectOption("learn-techniques");
@@ -43,8 +72,6 @@ test("campaign starts from observed solving without requiring profile answers", 
   const snapshot = await readCampaignDatabase(page);
   expect(snapshot.profiles[0].goalSource).toBe("observed");
   expect(snapshot.profiles[0].goalInference.policyVersion).toBe(1);
-  expect(snapshot.evidence_events.some((item) => item.eventType === "exact_move_revealed")).toBe(true);
-  expect(snapshot.evidence_events.some((item) => item.eventType === "placement_check_completed" && item.payload.result === "needs-practice")).toBe(true);
   expect(snapshot.evidence_events.some((item) => item.eventType === "profile_corrected" && item.techniqueId === null && item.payload.goal === "learn-techniques")).toBe(true);
 });
 
@@ -158,8 +185,9 @@ test("campaign is usable at mobile width without horizontal overflow", async ({ 
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 
-  await page.getByRole("button", { name: "Start with a puzzle" }).click();
-  await expect(page.getByTestId("practice-session")).toBeVisible();
+  await page.getByRole("button", { name: "Start with an easy puzzle" }).click();
+  await expect(page.getByTestId("board")).toBeVisible();
+  await expect(page.getByTestId("campaign-placement-puzzle-banner")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 });
 
@@ -250,4 +278,13 @@ async function readCampaignDatabase(page) {
     database.close();
     return result;
   });
+}
+
+async function solveSavedPuzzle(page) {
+  const puzzle = await page.evaluate(() => JSON.parse(localStorage.getItem("sudoku-pilot-state-v1")).puzzle);
+  for (let index = 0; index < 81; index += 1) {
+    if (puzzle.givens[index]) continue;
+    await page.locator(`[data-cell="${index}"]`).click();
+    await page.locator(`[data-digit="${puzzle.solution[index]}"]`).click();
+  }
 }
