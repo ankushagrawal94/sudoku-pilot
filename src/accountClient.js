@@ -75,13 +75,12 @@ export async function completePasswordReset(client, token, newPassword) {
 }
 
 export async function deleteAccountThroughServer(client, fetchImpl = globalThis.fetch) {
-  const underlying = client.auth.getBetterAuthInstance?.();
-  if (!underlying?.getToken || typeof fetchImpl !== "function") {
+  if (!client?.auth?.getSession || typeof fetchImpl !== "function") {
     throw new Error("account_deletion_unavailable");
   }
-  const tokenResult = await underlying.getToken();
-  if (tokenResult?.error) throw tokenResult.error;
-  const token = tokenResult?.data?.token;
+  const sessionResult = await client.auth.getSession();
+  if (sessionResult?.error) throw sessionResult.error;
+  const token = sessionResult?.data?.session?.access_token;
   if (!token) throw new Error("account_deletion_unauthorized");
   const response = await fetchImpl("/api/account-delete", {
     method: "POST",
