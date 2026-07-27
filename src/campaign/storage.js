@@ -35,6 +35,7 @@ export function createMemoryCampaignStorage() {
       const activityKey = serializeKey(activityId);
       const activity = stores.get("activities").get(activityKey);
       if (!activity) throw new Error(`Unknown campaign activity: ${activityId}`);
+      if (activity.completedAt) throw new Error(`Campaign activity is already completed: ${activityId}`);
       const stateKey = serializeKey(profileId);
       const state = stores.get("campaign_state").get(stateKey) || { profileId, campaignSequence: 0 };
       for (const event of evidenceEvents) {
@@ -121,6 +122,24 @@ function createStorageApi(adapter) {
     async clearAll() {
       for (const store of CAMPAIGN_STORE_NAMES) await adapter.clear(store);
     },
+    async resetProgress(profileId = "local") {
+      const profile = await adapter.get("profiles", profileId);
+      for (const store of ["evidence_events", "skill_snapshots", "activities", "campaign_state"]) {
+        await adapter.clear(store);
+      }
+      if (profile) {
+        await adapter.put("profiles", profileId, {
+          ...profile,
+          placementCompletedAt: null,
+          placementSkippedAt: null,
+          placementDraftReports: {},
+          updatedAt: new Date().toISOString()
+        });
+      }
+    },
+    async deleteProfileData() {
+      for (const store of CAMPAIGN_STORE_NAMES) await adapter.clear(store);
+    },
     close: adapter.close || (() => {})
   });
 }
@@ -163,6 +182,7 @@ function idbRequest(database, storeName, mode, operation) {
 function completeIndexedDbActivity(database, { activityId, profileId, evidenceEvents, completedAt }) {
   evidenceEvents.forEach(validateEvidenceEvent);
   return new Promise((resolve, reject) => {
+    let lifecycleError = null;
     const transaction = database.transaction(
       ["evidence_events", "activities", "campaign_state", "skill_snapshots"],
       "readwrite"
@@ -176,6 +196,12 @@ function completeIndexedDbActivity(database, { activityId, profileId, evidenceEv
 
     activityRequest.onsuccess = () => {
       if (!activityRequest.result) {
+        lifecycleError = new Error(`Unknown campaign activity: ${activityId}`);
+        transaction.abort();
+        return;
+      }
+      if (activityRequest.result.completedAt) {
+        lifecycleError = new Error(`Campaign activity is already completed: ${activityId}`);
         transaction.abort();
         return;
       }
@@ -197,7 +223,7 @@ function completeIndexedDbActivity(database, { activityId, profileId, evidenceEv
     };
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error || new Error(`Unknown campaign activity: ${activityId}`));
+    transaction.onabort = () => reject(lifecycleError || transaction.error || new Error(`Campaign activity completion failed: ${activityId}`));
   });
 }
 

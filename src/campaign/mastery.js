@@ -83,6 +83,7 @@ export function reduceSkillState(techniqueId, events, {
 
     if (event.eventType !== SUCCESS_EVENT) continue;
     const wasMastered = state === "mastered" || state === "review-due";
+    const placementRecognition = event.payload?.recognitionKind === "placement";
     recentCorrectness.push(true);
     trimWindow(recentCorrectness, policy.contradictionWindow);
     lastSuccessAt = event.occurredAt;
@@ -100,7 +101,7 @@ export function reduceSkillState(techniqueId, events, {
     }
 
     if (state === "unseen" || state === "learning") state = "practicing";
-    if (wasMastered && event.assistanceLevel !== "exact-move") {
+    if (wasMastered && !placementRecognition && event.assistanceLevel !== "exact-move") {
       successfulRetrievalsAfterMastery += 1;
       if (provisional && ASSISTANCE_LEVELS.indexOf(event.assistanceLevel) < ASSISTANCE_LEVELS.indexOf("structural-location")) {
         provisional = false;

@@ -39,6 +39,7 @@ export function buildCampaignActivityIndex({
         solverVersion: 1,
         certificationVersion: CAMPAIGN_CERTIFICATION_VERSION,
         noveltyCertified: true,
+        runtimeLaunchCertified: false,
         allowedTechniqueIds: Object.freeze([...new Set(allowedTechniqueIds)]),
         requiredTechniqueIds: Object.freeze(puzzle.required.map(techniqueIdForName).filter(Boolean)),
         focusWindows: Object.freeze([Object.freeze({
@@ -77,6 +78,7 @@ export function queryCampaignActivities(index, {
     (!activityTypes || activityTypes.includes(record.activityType)) &&
     (!record.canonicalPuzzleId || !recent.has(record.canonicalPuzzleId)) &&
     record.noveltyCertified &&
+    (!["full-puzzle", "focused-puzzle", "complete-puzzle"].includes(record.activityType) || record.runtimeLaunchCertified) &&
     record.allowedTechniqueIds.every((id) => allowed.has(id))
   ));
 }
@@ -109,6 +111,7 @@ function createLessonRecord(node) {
     solverVersion: null,
     certificationVersion: CAMPAIGN_CERTIFICATION_VERSION,
     noveltyCertified: true,
+    runtimeLaunchCertified: true,
     allowedTechniqueIds: Object.freeze([node.id]),
     requiredTechniqueIds: Object.freeze([node.id]),
     focusWindows: Object.freeze([])
@@ -128,6 +131,7 @@ function createPracticeRecord(node, mode) {
     solverVersion: 1,
     certificationVersion: CAMPAIGN_CERTIFICATION_VERSION,
     noveltyCertified: !completePuzzle,
+    runtimeLaunchCertified: !completePuzzle,
     allowedTechniqueIds: Object.freeze([node.id]),
     requiredTechniqueIds: Object.freeze([node.id]),
     focusWindows: Object.freeze([Object.freeze({

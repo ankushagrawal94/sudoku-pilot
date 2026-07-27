@@ -6,6 +6,7 @@ import {
   CAMPAIGN_ACTIVITY_INDEX_VERSION,
   CAMPAIGN_TECHNIQUE_GRAPH,
   createEvidenceEvent,
+  createCampaignSession,
   createMemoryCampaignStorage,
   createPuzzleStateFingerprint,
   deepestAssistanceLevel,
@@ -163,6 +164,23 @@ const wWingCatalog = queryCampaignActivities(activityIndex, {
   activityTypes: ["full-puzzle"]
 });
 assert.equal(wWingCatalog.length, 0, "the selector must not treat multi-novel-technique W-Wing puzzles as safe");
+const runtimePuzzleRecord = {
+  ...activityIndex.records.find((record) => record.sourceKind === "catalog"),
+  focusTechniqueId: "w-wing",
+  allowedTechniqueIds: ["w-wing", "hidden-pair"],
+  runtimeLaunchCertified: true
+};
+const runtimePuzzleIndex = { ...activityIndex, records: [runtimePuzzleRecord] };
+assert.equal(queryCampaignActivities(runtimePuzzleIndex, {
+  focusTechniqueId: "w-wing",
+  masteredTechniqueIds: [],
+  activityTypes: ["full-puzzle"]
+}).length, 0, "a launch-certified puzzle must still reject a second unmastered technique");
+assert.equal(queryCampaignActivities(runtimePuzzleIndex, {
+  focusTechniqueId: "w-wing",
+  masteredTechniqueIds: ["hidden-pair"],
+  activityTypes: ["full-puzzle"]
+}).length, 1, "a launch-certified puzzle may use mastered techniques plus one focus technique");
 const wWingFocused = queryCampaignActivities(activityIndex, {
   focusTechniqueId: "w-wing",
   masteredTechniqueIds: tierOneIds,
@@ -315,6 +333,19 @@ assert.ok(selectionMs < 500, `100 metadata-only selections should complete under
   assert.equal((await storage.getCampaignState(profile.id)).currentActivityId, null);
   assert.equal(await storage.getSkillSnapshot(profile.id, "w-wing"), null, "completion must invalidate affected snapshots");
   assert.equal((await storage.listEvidence({ profileId: profile.id })).length, 1);
+  await assert.rejects(() => storage.completeActivity({
+    activityId: experienced.activity.activityId,
+    profileId: profile.id,
+    evidenceEvents: [event({
+      eventId: "duplicate-completion-attempt",
+      profileId: profile.id,
+      activityId: experienced.activity.activityId,
+      eventType: "activity_completed",
+      occurredAt: "2026-07-26T10:11:00Z"
+    })],
+    completedAt: "2026-07-26T10:11:00.000Z"
+  }), /already completed/);
+  assert.equal((await storage.getCampaignState(profile.id)).campaignSequence, 1, "duplicate completion must not advance the campaign twice");
   await assert.rejects(() => storage.appendEvidence(completionEvent), /Duplicate append-only key/);
   const exported = await storage.exportData();
   assert.equal(exported.schemaVersion, 1);
@@ -345,6 +376,153 @@ assert.ok(selectionMs < 500, `100 metadata-only selections should complete under
   }), /Duplicate append-only key/);
   assert.equal((await storage.getActivity(activity.activityId)).completedAt, null, "failed completion must not partially update the activity");
   assert.equal((await storage.getCampaignState("atomic-profile")).campaignSequence, 0, "failed completion must not advance the campaign");
+}
+
+{
+  const placementEvents = [
+    event({
+      eventId: "placement-recognition",
+      eventType: "target_recognized",
+      occurredAt: "2026-01-01T10:00:00Z",
+      puzzleStateFingerprint: "placement-state",
+      payload: { recognitionKind: "placement" }
+    }),
+    event({
+      eventId: "placement-complete",
+      eventType: "placement_check_completed",
+      occurredAt: "2026-01-01T10:00:00Z",
+      payload: { result: "success" }
+    })
+  ];
+  const placementSkill = reduceSkillState("w-wing", placementEvents, { now: "2026-01-01T11:00:00Z" });
+  assert.equal(placementSkill.state, "mastered");
+  assert.equal(placementSkill.provisional, true, "one successful placement check remains provisional");
+}
+
+{
+  let clockTick = 0;
+  let eventSequence = 0;
+  const storage = createMemoryCampaignStorage();
+  const session = createCampaignSession({
+    storage,
+    now: () => new Date(Date.UTC(2026, 6, 26, 12, 0, clockTick++)),
+    eventId: () => `session-event-${eventSequence++}`
+  });
+  const beginnerPlacement = await session.savePlacement({
+    goal: "learn-techniques",
+    preferredMinutes: 10,
+    reports: {},
+    skipped: true
+  });
+  assert.equal(beginnerPlacement.placementRequired, false);
+  const beginnerCampaign = await session.ensureRecommendation();
+  assert.ok(beginnerCampaign.currentActivity);
+  const beginnerFocus = beginnerCampaign.currentActivity.focusTechniqueId;
+
+  const beginnerStarted = await session.startCurrentActivity();
+  assert.ok(beginnerStarted.currentActivity.startedAt);
+  const startedEvidenceCount = (await storage.listEvidence({
+    activityId: beginnerStarted.currentActivity.activityId
+  })).filter((item) => item.eventType === "activity_started").length;
+  await session.startCurrentActivity();
+  assert.equal(
+    (await storage.listEvidence({ activityId: beginnerStarted.currentActivity.activityId }))
+      .filter((item) => item.eventType === "activity_started").length,
+    startedEvidenceCount,
+    "reload/resume must not duplicate activity-started evidence"
+  );
+
+  const afterLesson = await session.completeCurrentActivity();
+  assert.ok(afterLesson.currentActivity, "completion should immediately offer a next activity");
+  assert.equal(afterLesson.campaignState.campaignSequence, 1);
+  assert.equal(
+    afterLesson.skills.find((skill) => skill.techniqueId === beginnerFocus).state,
+    "learning",
+    "lesson completion alone must not grant mastery"
+  );
+  assert.equal(
+    afterLesson.currentActivity.createdAt.slice(0, 10),
+    beginnerStarted.currentActivity.startedAt.slice(0, 10),
+    "same-date continuation must remain available"
+  );
+
+  const exportBeforeCorrection = await session.exportData();
+  const evidenceCount = exportBeforeCorrection.evidence_events.length;
+  const corrected = await session.correctSkill(beginnerFocus, "known");
+  assert.equal(corrected.skills.find((skill) => skill.techniqueId === beginnerFocus).provisional, true);
+  const exportAfterCorrection = await session.exportData();
+  assert.equal(exportAfterCorrection.evidence_events.length, evidenceCount + 1, "corrections must append evidence");
+  assert.ok(exportAfterCorrection.evidence_events.some((item) => item.eventType === "profile_corrected"));
+  assert.doesNotMatch(JSON.stringify(exportAfterCorrection.evidence_events), /"grid"|"solution"|"candidate"|"notes"|"exactMove"/i);
+
+  await session.resetProgress();
+  const reset = await session.loadModel();
+  assert.equal(reset.placementRequired, true);
+  assert.equal(reset.activities.length, 0);
+  assert.equal(reset.evidence.length, 0);
+  await session.deleteData();
+  assert.equal((await session.exportData()).profiles.length, 0);
+}
+
+{
+  const newStorage = createMemoryCampaignStorage();
+  const experiencedStorage = createMemoryCampaignStorage();
+  let newEventId = 0;
+  let experiencedEventId = 0;
+  const newSession = createCampaignSession({
+    storage: newStorage,
+    now: () => new Date("2026-07-26T15:00:00Z"),
+    eventId: () => `new-${newEventId++}`
+  });
+  const experiencedSession = createCampaignSession({
+    storage: experiencedStorage,
+    now: () => new Date("2026-07-26T15:00:00Z"),
+    eventId: () => `experienced-${experiencedEventId++}`
+  });
+  await newSession.savePlacement({ skipped: true });
+  const reports = Object.fromEntries(techniqueNodes.map((node) => [
+    node.id,
+    node.tier === 1 ? "known" : "unknown"
+  ]));
+  await experiencedSession.savePlacement({ reports });
+  const newRecommendation = (await newSession.ensureRecommendation()).currentActivity;
+  const experiencedRecommendation = (await experiencedSession.ensureRecommendation()).currentActivity;
+  assert.notEqual(
+    newRecommendation.focusTechniqueId,
+    experiencedRecommendation.focusTechniqueId,
+    "new and Tier 1 self-reported learners must receive different recommendations"
+  );
+  assert.ok(
+    !tierOneIds.includes(experiencedRecommendation.focusTechniqueId),
+    "placement should skip provisionally known Tier 1 techniques"
+  );
+  const tierOneSkill = (await experiencedSession.loadModel()).skills.find((skill) => skill.techniqueId === tierOneIds[0]);
+  assert.equal(tierOneSkill.provisional, true);
+  assert.equal(tierOneSkill.state, "mastered", "known self-report should not force a lesson");
+}
+
+{
+  const storage = createMemoryCampaignStorage();
+  let eventSequence = 0;
+  const session = createCampaignSession({
+    storage,
+    now: () => new Date("2026-07-26T18:00:00Z"),
+    eventId: () => `assistance-${eventSequence++}`
+  });
+  const reports = Object.fromEntries(techniqueNodes.map((node) => [node.id, node.id === "last-digit" ? "learning" : "known"]));
+  await session.savePlacement({ reports });
+  let model = await session.ensureRecommendation();
+  assert.equal(model.currentActivity.focusTechniqueId, "last-digit");
+  assert.equal(model.currentActivity.activityType, "find-pattern");
+  await session.startCurrentActivity();
+  await session.recordAssistance("exact-move");
+  model = await session.completeCurrentActivity({ recognized: true });
+  const skill = model.skills.find((item) => item.techniqueId === "last-digit");
+  assert.notEqual(skill.state, "mastered", "an exact-move reveal must not grant mastery");
+  assert.equal(skill.withoutLocationCount, 0);
+  const evidence = await storage.listEvidence({ techniqueId: "last-digit" });
+  assert.ok(evidence.some((item) => item.eventType === "exact_move_revealed"));
+  assert.ok(evidence.some((item) => item.eventType === "target_recognized" && item.assistanceLevel === "exact-move"));
 }
 
 console.log(`campaign contracts passed: ${activityIndex.records.length} indexed activities, ${indexBuildMs.toFixed(1)}ms index build, ${selectionMs.toFixed(1)}ms for 100 selections`);

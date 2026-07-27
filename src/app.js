@@ -10,6 +10,12 @@ import { buildCoachingMove } from "./coaching.js";
 import { getTechniqueLesson } from "./learning.js";
 import { createPracticeState, PRACTICE_MODES } from "./practice.js";
 import {
+  CAMPAIGN_TECHNIQUE_GRAPH,
+  createCampaignSession,
+  openCampaignStorage,
+  techniqueNameForId
+} from "./campaign/index.js";
+import {
   clearInstallPromotionStatus,
   installPlatform,
   installPromotionStatus,
@@ -55,11 +61,31 @@ const MAX_PERSISTED_HISTORY = 12;
 const FEEDBACK_EMAIL = "hello@sudokupilot.com";
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
-const PRIMARY_VIEWS = new Set(["play", "learn", "practice", "import"]);
+const CAMPAIGN_FEATURE_STORAGE_KEY = "sudoku-pilot-feature-adaptive-campaign-phase1a";
+const CAMPAIGN_FEATURE_ENABLED = isCampaignFeatureEnabled();
+const PRIMARY_VIEWS = new Set([
+  "play",
+  "learn",
+  "practice",
+  "import",
+  ...(CAMPAIGN_FEATURE_ENABLED ? ["campaign"] : [])
+]);
 const PLAY_PANELS = new Set(["more", "about"]);
 let timerInterval = null;
 const viewedLessons = new Set();
 let deferredInstallPrompt = null;
+const campaignRuntime = {
+  enabled: CAMPAIGN_FEATURE_ENABLED,
+  loading: CAMPAIGN_FEATURE_ENABLED,
+  busy: false,
+  error: "",
+  mode: "home",
+  model: null,
+  session: null,
+  storage: null,
+  reflection: null,
+  pendingEvidence: Promise.resolve()
+};
 
 const state = createInitialState();
 const accountController = createAccountController({
@@ -91,6 +117,7 @@ window.addEventListener("popstate", handlePopState);
 render();
 void accountController.init();
 startTimer();
+if (CAMPAIGN_FEATURE_ENABLED) initializeCampaign();
 
 function routeFromLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -99,6 +126,17 @@ function routeFromLocation() {
   const requestedPanel = params.get("panel");
   const panel = view === "play" && PLAY_PANELS.has(requestedPanel) ? requestedPanel : null;
   return { view, panel };
+}
+
+function isCampaignFeatureEnabled() {
+  try {
+    const value = new URLSearchParams(window.location.search).get("campaign");
+    if (value === "1") return true;
+    if (value === "0") return false;
+    return window.localStorage.getItem(CAMPAIGN_FEATURE_STORAGE_KEY) === "enabled";
+  } catch {
+    return false;
+  }
 }
 
 function navigationUrl({ view, panel }) {
@@ -120,6 +158,7 @@ function initializeNavigation() {
 }
 
 function navigateTo(view, { panel = null, replace = false, analyticsEntryPoint = "navigation" } = {}) {
+  const previousView = state.view;
   const route = {
     view: PRIMARY_VIEWS.has(view) ? view : "play",
     panel: view === "play" && PLAY_PANELS.has(panel) ? panel : null
@@ -135,11 +174,13 @@ function navigateTo(view, { panel = null, replace = false, analyticsEntryPoint =
   const currentDepth = Number(window.history.state?.sudokuPilotDepth) || 0;
   const nextState = { sudokuPilot: true, sudokuPilotDepth: replace ? currentDepth : currentDepth + 1, ...route };
   window.history[replace ? "replaceState" : "pushState"](nextState, "", navigationUrl(route));
-  productAnalytics.capture("app_view_changed", {
-    view: route.view,
-    panel: route.panel || "none",
-    entry_point: analyticsEntryPoint
-  });
+  if (route.view !== "campaign" && previousView !== "campaign" && analyticsEntryPoint) {
+    productAnalytics.capture("app_view_changed", {
+      view: route.view,
+      panel: route.panel || "none",
+      entry_point: analyticsEntryPoint
+    });
+  }
   return true;
 }
 
@@ -173,6 +214,9 @@ function focusRequestedRoute() {
 
 function render() {
   state.moves = findAllMoves(state.puzzle, activeHintTechniques());
+  if (state.practiceSession && !state.practiceSession.targetApplied && practiceTargetEffectApplied(state.practiceSession)) {
+    state.practiceSession.targetApplied = true;
+  }
   if (state.practiceSession && !state.practiceSession.targetApplied) {
     const targetIndex = state.moves.findIndex((move) => sameMoveAction(move, state.practiceSession.targetMove));
     if (targetIndex > 0) state.moves.unshift(...state.moves.splice(targetIndex, 1));
@@ -199,7 +243,7 @@ function render() {
         ` : ""}
       </header>
 
-      ${state.view === "learn" ? renderLessonBrowser() : state.view === "practice" ? renderPracticeBrowser() : state.view === "import" ? renderImportPanel() : state.panel === "more" ? renderMorePanel() : state.panel === "about" ? renderAboutPanel() : `
+      ${state.view === "campaign" ? renderCampaignView() : state.view === "learn" ? renderLessonBrowser() : state.view === "practice" ? renderPracticeBrowser() : state.view === "import" ? renderImportPanel() : state.panel === "more" ? renderMorePanel() : state.panel === "about" ? renderAboutPanel() : `
         ${state.showMistakes && check.status !== "ok" ? renderCheckPanel(check) : ""}
         <section class="game-layout">
           <section class="play-area">
@@ -400,6 +444,561 @@ async function installApp() {
   render();
 }
 
+async function initializeCampaign() {
+  try {
+    campaignRuntime.storage = await openCampaignStorage();
+    campaignRuntime.session = createCampaignSession({ storage: campaignRuntime.storage });
+    let model = await campaignRuntime.session.loadModel();
+    if (model.profile?.placementCompletedAt && !model.currentActivity) {
+      model = await campaignRuntime.session.ensureRecommendation();
+    }
+    campaignRuntime.model = model;
+    campaignRuntime.loading = false;
+    const activity = model.currentActivity;
+    if (activity?.startedAt && ["learn", "practice"].includes(state.view)) {
+      restoreCampaignActivity(activity);
+    }
+  } catch (error) {
+    campaignRuntime.loading = false;
+    campaignRuntime.error = error.message || "Campaign storage is unavailable.";
+  }
+  render();
+}
+
+function renderCampaignView() {
+  if (!campaignRuntime.enabled) return "";
+  if (campaignRuntime.loading) {
+    return `<div class="campaign-shell" data-testid="campaign-view"><section class="panel campaign-loading" aria-live="polite"><h2 tabindex="-1" data-route-heading>Adaptive campaign</h2><p>Loading your local campaign…</p></section></div>`;
+  }
+  if (campaignRuntime.error && !campaignRuntime.model) {
+    return `<div class="campaign-shell" data-testid="campaign-view"><section class="panel campaign-error" role="alert"><h2 tabindex="-1" data-route-heading>Adaptive campaign</h2><p>${escapeHtml(campaignRuntime.error)}</p><p>Your regular puzzles, lessons, and practice are still available.</p></section></div>`;
+  }
+  if (campaignRuntime.model?.placementRequired) return renderCampaignPlacement();
+  if (campaignRuntime.mode === "graph") return renderCampaignSkillGraph();
+  return renderCampaignHome();
+}
+
+function renderCampaignPlacement() {
+  const draft = campaignRuntime.model?.profile?.placementDraftReports || {};
+  const goal = campaignRuntime.model?.profile?.goal || "learn-techniques";
+  const preferredMinutes = campaignRuntime.model?.profile?.preferredMinutes || 10;
+  const techniques = campaignTechniqueNodes();
+  return `
+    <div class="campaign-shell" data-testid="campaign-view">
+      <section class="panel campaign-hero">
+        <p class="eyebrow">Private preview · local only</p>
+        <h2 tabindex="-1" data-route-heading>Find your starting point</h2>
+        <p>Tell Sudoku Pilot what you already know. Self-reports are provisional: “Know it” skips the lesson now and schedules a short retrieval check later.</p>
+        <p class="campaign-privacy-note">This campaign stays in this browser. It does not infer detailed mastery from solve counts or legacy history.</p>
+      </section>
+      <form class="panel campaign-placement" data-testid="campaign-placement">
+        <div class="campaign-preferences">
+          <label>Your goal
+            <select data-campaign-goal>
+              <option value="learn-techniques" ${goal === "learn-techniques" ? "selected" : ""}>Learn techniques efficiently</option>
+              <option value="solve-more-puzzles" ${goal === "solve-more-puzzles" ? "selected" : ""}>Solve more puzzles</option>
+              <option value="build-confidence" ${goal === "build-confidence" ? "selected" : ""}>Build confidence</option>
+            </select>
+          </label>
+          <label>Preferred session
+            <select data-campaign-minutes>
+              ${[5, 10, 15, 25].map((minutes) => `<option value="${minutes}" ${preferredMinutes === minutes ? "selected" : ""}>About ${minutes} minutes</option>`).join("")}
+            </select>
+          </label>
+        </div>
+        <div class="panel-title campaign-placement-heading">
+          <div><h3>Technique familiarity</h3><p class="caption">You can change every answer later.</p></div>
+          <button type="button" data-action="campaign-mark-tier1-known">Mark Tier 1 “Know it”</button>
+        </div>
+        <div class="campaign-technique-list">
+          ${techniques.map((node) => renderPlacementTechnique(node, draft[node.id] || "unknown")).join("")}
+        </div>
+        <section class="campaign-recognition-check">
+          <div><h3>Optional recognition check</h3><p>Try one certified near-miss example before finishing placement.</p></div>
+          <label>Technique
+            <select data-campaign-check-technique>
+              ${techniques.map((node) => `<option value="${node.id}">${node.catalogName}</option>`).join("")}
+            </select>
+          </label>
+          <button type="button" data-action="campaign-placement-check">Try recognition check</button>
+        </section>
+        ${campaignRuntime.error ? `<p class="campaign-inline-error" role="alert">${escapeHtml(campaignRuntime.error)}</p>` : ""}
+        <div class="campaign-primary-actions">
+          <button type="button" data-action="campaign-skip-placement">Skip placement for now</button>
+          <button type="button" class="primary" data-action="campaign-complete-placement">Build my campaign</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function renderPlacementTechnique(node, status) {
+  const options = [
+    ["known", "Know it"],
+    ["learning", "Learning"],
+    ["unknown", "Not sure"]
+  ];
+  return `
+    <fieldset class="campaign-technique-row" data-campaign-placement-technique="${node.id}">
+      <legend><span>${node.catalogName}</span><small>Tier ${node.tier}</small></legend>
+      <div class="campaign-status-choices">
+        ${options.map(([value, label]) => `
+          <label><input type="radio" name="placement-${node.id}" value="${value}" aria-label="${node.catalogName}: ${label}" ${status === value ? "checked" : ""} /> <span>${label}</span></label>
+        `).join("")}
+      </div>
+    </fieldset>
+  `;
+}
+
+function renderCampaignHome() {
+  const model = campaignRuntime.model;
+  const activity = model?.currentActivity;
+  return `
+    <div class="campaign-shell" data-testid="campaign-view">
+      <section class="panel campaign-hero">
+        <p class="eyebrow">Adaptive improvement campaign</p>
+        <h2 tabindex="-1" data-route-heading>Your next best activity</h2>
+        <p>Continue as long as you like. Calendar dates affect later retrieval evidence, never access.</p>
+      </section>
+      ${renderCampaignReflection()}
+      ${activity ? renderRecommendationCard(activity) : `
+        <section class="panel campaign-empty" role="status">
+          <h3>No personalized activity is available</h3>
+          <p>${escapeHtml(model?.selectionFailure?.explanation?.text || "The campaign kept the novelty budget intact. Standard lessons and practice remain available.")}</p>
+        </section>
+      `}
+      <section class="panel campaign-skill-summary" data-testid="campaign-skill-summary">
+        <div class="panel-title">
+          <div><p class="eyebrow">Personal skill graph</p><h3>${model.summary.mastered} mastered · ${model.summary.practicing} practicing · ${model.summary.learning} learning</h3></div>
+          <button data-action="campaign-open-graph">Inspect and correct</button>
+        </div>
+        <div class="campaign-summary-grid">
+          ${[
+            ["Mastered", model.summary.mastered],
+            ["Review due", model.summary["review-due"]],
+            ["Practicing", model.summary.practicing],
+            ["Learning", model.summary.learning],
+            ["Unseen", model.summary.unseen]
+          ].map(([label, count]) => `<div><strong>${count}</strong><span>${label}</span></div>`).join("")}
+        </div>
+      </section>
+      ${renderCampaignDataControls()}
+    </div>
+  `;
+}
+
+function renderRecommendationCard(activity) {
+  const name = techniqueNameForId(activity.focusTechniqueId);
+  const started = Boolean(activity.startedAt);
+  const reasonCodes = activity.recommendationSnapshot?.reasonCodes || [];
+  return `
+    <article class="panel campaign-recommendation" data-testid="campaign-recommendation" data-activity-id="${activity.activityId}">
+      <div class="campaign-recommendation-topline">
+        <span class="campaign-activity-badge">${campaignActivityLabel(activity.activityType)}</span>
+        <span>About ${activity.estimatedMinutes || 5} min</span>
+      </div>
+      <h3>${name}</h3>
+      <p class="campaign-focus">Focus technique: <strong>${name}</strong></p>
+      <p data-testid="campaign-reason">${campaignReasonText(reasonCodes, activity.startedAt)}</p>
+      <details>
+        <summary>Why this activity is safe</summary>
+        <p>Its certified path introduces at most one technique outside your current mastered set. If no full puzzle qualifies, Sudoku Pilot keeps the budget and uses focused certified practice.</p>
+        <p class="caption">Graph ${activity.recommendationSnapshot?.inputVersions?.graphVersion}; selector ${activity.recommendationSnapshot?.inputVersions?.selectorPolicyVersion}; index ${activity.certificationSnapshot?.activityIndexVersion}; research ${activity.recommendationSnapshot?.inputVersions?.researchPriorVersion}.</p>
+      </details>
+      <div class="campaign-primary-actions">
+        <button data-action="campaign-open-graph">Edit skill graph</button>
+        <button class="primary" data-action="campaign-start-activity">${started ? "Resume activity" : "Start activity"}</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderCampaignReflection() {
+  const reflection = campaignRuntime.reflection;
+  if (!reflection) return "";
+  const name = techniqueNameForId(reflection.completedActivity.focusTechniqueId);
+  const evidence = reflection.recognized
+    ? `Target recognized with ${campaignAssistanceLabel(reflection.assistanceLevel)} assistance.`
+    : "Completion was recorded as exposure, not proof of mastery.";
+  return `
+    <section class="panel campaign-reflection" data-testid="campaign-reflection" role="status">
+      <p class="eyebrow">Activity complete</p>
+      <h3>${name} evidence saved</h3>
+      <p>${evidence} ${reflection.guessed ? "Your guess correction was saved and does not count as success." : ""}</p>
+      <p><strong>Next activity is ready now.</strong> Same-day continuation does not change delayed mastery requirements.</p>
+    </section>
+  `;
+}
+
+function renderCampaignSkillGraph() {
+  const model = campaignRuntime.model;
+  const skillById = new Map(model.skills.map((skill) => [skill.techniqueId, skill]));
+  return `
+    <div class="campaign-shell" data-testid="campaign-view">
+      <section class="panel campaign-hero">
+        <div class="panel-title">
+          <div><p class="eyebrow">Personal skill graph</p><h2 tabindex="-1" data-route-heading>Inspect and correct</h2></div>
+          <button class="primary" data-action="campaign-open-home">Back to recommendation</button>
+        </div>
+        <p>Corrections are saved as new evidence. Earlier history is preserved so future policy versions remain reproducible.</p>
+      </section>
+      <section class="panel campaign-graph" data-testid="campaign-skill-graph">
+        ${campaignTechniqueNodes().map((node) => {
+          const skill = skillById.get(node.id);
+          return `
+            <article class="campaign-skill-row" data-campaign-skill="${node.id}">
+              <div>
+                <h3>${node.catalogName}</h3>
+                <p><span class="campaign-state campaign-state-${skill.state}">${campaignStateLabel(skill)}</span> · ${skill.successCount} recognition${skill.successCount === 1 ? "" : "s"} · ${skill.distinctDateCount} date${skill.distinctDateCount === 1 ? "" : "s"}</p>
+              </div>
+              <div class="campaign-correction">
+                <label>Correct to
+                  <select data-campaign-correction>
+                    <option value="known">Know it</option>
+                    <option value="learning">Learning</option>
+                    <option value="unknown">Not sure</option>
+                  </select>
+                </label>
+                <button data-action="campaign-correct-${node.id}">Save correction</button>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </section>
+      <section class="panel campaign-history">
+        <h3>Recent campaign history</h3>
+        ${model.activities.filter((activity) => activity.completedAt).length ? `
+          <ol>
+            ${model.activities.filter((activity) => activity.completedAt).sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 8).map((activity) => `
+              <li><strong>${techniqueNameForId(activity.focusTechniqueId)}</strong> · ${campaignActivityLabel(activity.activityType)} <time datetime="${activity.completedAt}">${new Date(activity.completedAt).toLocaleString()}</time></li>
+            `).join("")}
+          </ol>
+        ` : "<p>No completed campaign activities yet.</p>"}
+      </section>
+      ${renderCampaignDataControls()}
+    </div>
+  `;
+}
+
+function renderCampaignDataControls() {
+  return `
+    <section class="panel campaign-data-controls">
+      <h3>Your local campaign data</h3>
+      <p>Export includes the versioned skill graph history and evidence metadata, never grids, solutions, candidates, notes, or exact moves.</p>
+      <div class="tool-row">
+        <button data-action="campaign-export">Export data</button>
+        <button data-action="campaign-reset">Reset skill graph and history</button>
+        <button class="danger-button" data-action="campaign-delete">Delete campaign data</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderCampaignActivityBanner(kind) {
+  const activity = campaignRuntime.model?.currentActivity;
+  if (!activity?.startedAt || activity.activityType !== kind) return "";
+  const name = techniqueNameForId(activity.focusTechniqueId);
+  if (kind === "lesson" && state.lessonTechnique !== name) return "";
+  if (kind !== "lesson" && (
+    state.practiceTechnique !== name ||
+    state.practiceSession?.mode !== activity.activityType
+  )) return "";
+  const placement = activity.placementCheck;
+  let ready = kind === "lesson";
+  let recognized = false;
+  let incorrect = false;
+  if (kind === "near-miss") {
+    ready = state.practiceAnswer !== null;
+    recognized = ready && state.practiceAnswer === state.practiceSession?.nearMiss.valid;
+    incorrect = ready && !recognized;
+  } else if (kind === "find-pattern") {
+    ready = Boolean(state.practiceSession?.targetApplied);
+    recognized = ready;
+  }
+  return `
+    <section class="campaign-activity-banner" data-testid="campaign-activity-banner">
+      <div><p class="eyebrow">${placement ? "Placement recognition check" : "Campaign activity"}</p><strong>${name}</strong><p>${ready ? (recognized ? "Target recognized. Save the evidence when you are ready." : "This activity is ready to complete.") : "Your progress is saved locally. You can return to the campaign and resume."}</p></div>
+      <div class="tool-row">
+        <button data-action="campaign-return-home">${placement ? "Back to placement" : "Back to campaign"}</button>
+        ${ready ? `<button class="primary" data-action="${placement ? "campaign-finish-placement-check" : "campaign-complete-activity"}" data-campaign-recognized="${recognized}" data-campaign-incorrect="${incorrect}">${placement ? "Finish check" : "Continue campaign"}</button>` : ""}
+        ${ready && !placement && kind !== "lesson" ? `<button data-action="campaign-complete-guessed">I guessed</button>` : ""}
+      </div>
+    </section>
+  `;
+}
+
+function campaignTechniqueNodes() {
+  return CAMPAIGN_TECHNIQUE_GRAPH.nodes.filter((node) => node.kind === "technique");
+}
+
+function campaignActivityLabel(type) {
+  return ({
+    lesson: "Technique lesson",
+    "find-pattern": "Find the pattern",
+    "near-miss": "Near-miss recognition",
+    "full-puzzle": "Certified full puzzle",
+    "focused-puzzle": "Focused puzzle"
+  })[type] || type.replaceAll("-", " ");
+}
+
+function campaignReasonText(reasonCodes, startedAt) {
+  if (startedAt) return "Continue the activity you already started. The assignment and its evidence remain stable across reloads.";
+  const parts = [];
+  if (reasonCodes.includes("REVIEW_DUE")) parts.push("A short retrieval check is due.");
+  else if (reasonCodes.includes("MORE_EVIDENCE_NEEDED")) parts.push("Another distinct example will make your skill estimate more reliable.");
+  else parts.push("This is the next technique whose prerequisites are ready.");
+  if (reasonCodes.includes("TIME_FIT")) parts.push("It fits your preferred session length.");
+  if (reasonCodes.includes("FALLBACK_NO_CERTIFIED_PUZZLE")) parts.push("No full puzzle met the one-new-technique budget, so this focused certified activity is safer.");
+  return parts.join(" ");
+}
+
+function campaignAssistanceLabel(level) {
+  return ({
+    none: "no",
+    tool: "tool",
+    "search-focus": "search-focus",
+    "structural-location": "structural-location",
+    "exact-move": "exact-move"
+  })[level] || level;
+}
+
+function campaignStateLabel(skill) {
+  if (skill.state === "mastered" && skill.provisional) return "Provisionally mastered";
+  return ({
+    unseen: "Unseen",
+    learning: "Learning",
+    practicing: "Practicing",
+    mastered: "Mastered",
+    "review-due": "Review due"
+  })[skill.state] || skill.state;
+}
+
+async function handleCampaignAction(action) {
+  if (!campaignRuntime.enabled || campaignRuntime.busy) return;
+  if (action === "open-campaign" || action === "campaign-return-home") {
+    campaignRuntime.mode = "home";
+    campaignRuntime.error = "";
+    navigateTo("campaign", { analyticsEntryPoint: null });
+    render();
+    return;
+  }
+  if (action === "campaign-open-graph") {
+    campaignRuntime.mode = "graph";
+    campaignRuntime.error = "";
+    navigateTo("campaign", { analyticsEntryPoint: null });
+    render();
+    return;
+  }
+  if (action === "campaign-open-home") {
+    campaignRuntime.mode = "home";
+    campaignRuntime.error = "";
+    render();
+    return;
+  }
+  if (action === "campaign-mark-tier1-known") {
+    for (const node of campaignTechniqueNodes().filter((item) => item.tier === 1)) {
+      const input = app.querySelector(`[name="placement-${node.id}"][value="known"]`);
+      if (input) input.checked = true;
+    }
+    return;
+  }
+  if (action === "campaign-complete-placement" || action === "campaign-skip-placement") {
+    const placement = readPlacementForm();
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.savePlacement({
+        ...placement,
+        skipped: action === "campaign-skip-placement",
+        reports: action === "campaign-skip-placement" ? {} : placement.reports
+      });
+      campaignRuntime.model = await campaignRuntime.session.ensureRecommendation();
+      campaignRuntime.reflection = null;
+      campaignRuntime.mode = "home";
+    });
+    return;
+  }
+  if (action === "campaign-placement-check") {
+    const placement = readPlacementForm();
+    const techniqueId = app.querySelector("[data-campaign-check-technique]")?.value;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.beginPlacementCheck({
+        ...placement,
+        techniqueId
+      });
+      restoreCampaignActivity(campaignRuntime.model.currentActivity, { fresh: true });
+    });
+    return;
+  }
+  if (action === "campaign-start-activity") {
+    await runCampaignTask(async () => {
+      const wasStarted = Boolean(campaignRuntime.model.currentActivity?.startedAt);
+      campaignRuntime.model = await campaignRuntime.session.startCurrentActivity();
+      restoreCampaignActivity(campaignRuntime.model.currentActivity, { fresh: !wasStarted });
+    });
+    return;
+  }
+  if (action === "campaign-finish-placement-check") {
+    await runCampaignTask(async () => {
+      await campaignRuntime.pendingEvidence;
+      const recognized = state.practiceAnswer === state.practiceSession?.nearMiss.valid;
+      campaignRuntime.model = await campaignRuntime.session.completeCurrentActivity({
+        recognized,
+        incorrect: !recognized
+      });
+      campaignRuntime.mode = "home";
+      navigateTo("campaign", { analyticsEntryPoint: null });
+    });
+    return;
+  }
+  if (action === "campaign-complete-activity" || action === "campaign-complete-guessed") {
+    await runCampaignTask(async () => {
+      await campaignRuntime.pendingEvidence;
+      const activity = campaignRuntime.model.currentActivity;
+      const guessed = action === "campaign-complete-guessed";
+      const recognized = !guessed && (
+        activity.activityType === "find-pattern"
+          ? Boolean(state.practiceSession?.targetApplied)
+          : activity.activityType === "near-miss"
+            ? state.practiceAnswer === state.practiceSession?.nearMiss.valid
+            : false
+      );
+      const incorrect = activity.activityType === "near-miss" && state.practiceAnswer !== state.practiceSession?.nearMiss.valid;
+      const nextModel = await campaignRuntime.session.completeCurrentActivity({ recognized, incorrect, guessed });
+      campaignRuntime.model = nextModel;
+      campaignRuntime.reflection = nextModel.reflection || null;
+      campaignRuntime.mode = "home";
+      state.practiceSession = null;
+      state.practiceAnswer = null;
+      state.completionSummary = null;
+      navigateTo("campaign", { analyticsEntryPoint: null });
+    });
+    return;
+  }
+  if (action.startsWith("campaign-correct-")) {
+    const techniqueId = action.slice("campaign-correct-".length);
+    const row = app.querySelector(`[data-campaign-skill="${techniqueId}"]`);
+    const status = row?.querySelector("[data-campaign-correction]")?.value;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.correctSkill(techniqueId, status);
+      if (!campaignRuntime.model.currentActivity) campaignRuntime.model = await campaignRuntime.session.ensureRecommendation();
+    });
+    return;
+  }
+  if (action === "campaign-export") {
+    await runCampaignTask(async () => {
+      const data = await campaignRuntime.session.exportData();
+      downloadCampaignExport(data);
+    });
+    return;
+  }
+  if (action === "campaign-reset") {
+    if (!window.confirm("Reset the campaign skill graph and history? Export first if you want a copy.")) return;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.resetProgress();
+      campaignRuntime.reflection = null;
+      campaignRuntime.mode = "home";
+    });
+    return;
+  }
+  if (action === "campaign-delete") {
+    if (!window.confirm("Delete all adaptive campaign data from this browser? This cannot be undone.")) return;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.deleteData();
+      campaignRuntime.reflection = null;
+      campaignRuntime.mode = "home";
+    });
+  }
+}
+
+async function runCampaignTask(task) {
+  campaignRuntime.busy = true;
+  campaignRuntime.error = "";
+  render();
+  try {
+    await task();
+  } catch (error) {
+    campaignRuntime.error = error.message || "The campaign could not complete that action.";
+  } finally {
+    campaignRuntime.busy = false;
+    render();
+  }
+}
+
+function readPlacementForm() {
+  const reports = {};
+  for (const node of campaignTechniqueNodes()) {
+    reports[node.id] = app.querySelector(`[name="placement-${node.id}"]:checked`)?.value || "unknown";
+  }
+  return {
+    goal: app.querySelector("[data-campaign-goal]")?.value || "learn-techniques",
+    preferredMinutes: Number(app.querySelector("[data-campaign-minutes]")?.value) || 10,
+    reports
+  };
+}
+
+function restoreCampaignActivity(activity, { fresh = false } = {}) {
+  if (!activity) return;
+  const technique = techniqueNameForId(activity.focusTechniqueId);
+  if (activity.activityType === "lesson") {
+    state.lessonTechnique = technique;
+    state.lessonStage = 1;
+    navigateTo("learn", { analyticsEntryPoint: null });
+    return;
+  }
+  if (!["find-pattern", "near-miss"].includes(activity.activityType)) {
+    throw new Error("This activity type is intentionally gated until its runtime certification is complete.");
+  }
+  state.practiceTechnique = technique;
+  state.practiceMode = activity.activityType;
+  const sameSession = (
+    state.practiceSession?.technique === technique &&
+    state.practiceSession?.mode === activity.activityType &&
+    state.practiceSession?.fixtureIndex === activity.fixtureIndex
+  );
+  const resumableSavedPuzzle = (
+    !fresh &&
+    state.puzzleSource === "practice" &&
+    state.puzzlePracticeTechnique === technique &&
+    state.puzzlePracticeMode === activity.activityType
+  );
+  if (!sameSession && resumableSavedPuzzle) {
+    state.practiceSession = createPracticeState(technique, activity.activityType, activity.fixtureIndex || 0);
+    state.practiceSession.targetApplied = false;
+    state.practiceFixtureIndex = state.practiceSession.fixtureIndex;
+    state.practiceAnswer = null;
+    syncPracticeProgress();
+  } else if (!sameSession) {
+    startCertifiedPractice(activity.fixtureIndex || 0);
+  }
+  navigateTo("practice", { analyticsEntryPoint: null });
+}
+
+function queueCampaignAssistance(level) {
+  if (!level || !campaignRuntime.session || !campaignRuntime.model?.currentActivity?.startedAt) return;
+  campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
+    .catch(() => {})
+    .then(async () => {
+      campaignRuntime.model = await campaignRuntime.session.recordAssistance(level);
+    });
+}
+
+function assistanceForStage(stage) {
+  return ({
+    2: "search-focus",
+    3: "structural-location",
+    4: "exact-move"
+  })[stage] || null;
+}
+
+function downloadCampaignExport(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `sudoku-pilot-campaign-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function recordPuzzleCompletion() {
   const solved = isSolved(state.puzzle.values);
   if (!solved) {
@@ -454,6 +1053,7 @@ function renderLessonBrowser() {
         <header class="lesson-heading">
           <h2 tabindex="-1" data-route-heading>${lesson.technique}</h2>
         </header>
+        ${renderCampaignActivityBanner("lesson")}
 
         ${renderLessonVisual(example)}
 
@@ -558,6 +1158,7 @@ function renderPracticeSession(session) {
         ${targetApplied ? `<p class="practice-success" role="status">Nice, the ${session.technique} move is applied. Keep solving or open another example.</p>` : ""}
         <div class="tool-row"><button data-action="back-to-lesson">Review lesson</button><button class="primary" data-action="next-practice-example">Start another example</button></div>
       </section>
+      ${renderCampaignActivityBanner(session.mode)}
       ${session.mode === "near-miss" ? renderNearMissPractice(session) : `
         <section class="practice-board-area">
           ${renderBoard()}
@@ -730,6 +1331,14 @@ function renderMorePanel() {
       </div>
       ${renderAccountPanel(accountController.getViewModel())}
       ${renderPreferencesPanel()}
+      ${CAMPAIGN_FEATURE_ENABLED ? `
+        <section class="sub-panel campaign-entry">
+          <p class="eyebrow">Private preview</p>
+          <h2>Adaptive improvement campaign</h2>
+          <p class="caption">Get a local, personalized next activity with no daily limit.</p>
+          <button class="primary" data-action="open-campaign">Open campaign</button>
+        </section>
+      ` : ""}
       ${renderAutomationPanel()}
       ${renderTechniqueFilters()}
       ${renderInfoPanel()}
@@ -1466,6 +2075,10 @@ function handleImportPaste(event) {
 }
 
 function handleAction(action) {
+  if (action?.startsWith("campaign-") || action === "open-campaign") {
+    void handleCampaignAction(action);
+    return;
+  }
   if (action === "undo") undo();
   if (action === "erase") eraseSelected();
   if (action === "toggle-notes") setNumberMode(state.numberMode === "note" ? "value" : "note");
@@ -1489,7 +2102,10 @@ function handleAction(action) {
   if (action === "previous-lesson") changeLesson(-1);
   if (action === "next-lesson") changeLesson(1);
   if (action === "previous-lesson-stage") state.lessonStage = Math.max(1, state.lessonStage - 1);
-  if (action === "next-lesson-stage") state.lessonStage = Math.min(4, state.lessonStage + 1);
+  if (action === "next-lesson-stage") {
+    state.lessonStage = Math.min(4, state.lessonStage + 1);
+    queueCampaignAssistance(assistanceForStage(state.lessonStage));
+  }
   if (action === "select-basic") selectTechniqueSet(BASIC_TECHNIQUES);
   if (action === "select-advanced") selectTechniqueSet([...BASIC_TECHNIQUES, ...ADVANCED_TECHNIQUES]);
   if (action === "select-all") selectTechniqueSet(ALL_TECHNIQUES);
@@ -1501,8 +2117,14 @@ function handleAction(action) {
   }
   if (action === "hint") requestHint();
   if (action === "show-technique") showTechniqueHint();
-  if (action === "show-exact-hint") state.hintStage = 4;
-  if (action === "next-hint-stage") state.hintStage = Math.min(4, (state.hintStage || 1) + 1);
+  if (action === "show-exact-hint") {
+    state.hintStage = 4;
+    queueCampaignAssistance("exact-move");
+  }
+  if (action === "next-hint-stage") {
+    state.hintStage = Math.min(4, (state.hintStage || 1) + 1);
+    queueCampaignAssistance(assistanceForStage(state.hintStage));
+  }
   if (action === "previous-hint-stage") state.hintStage = Math.max(1, (state.hintStage || 1) - 1);
   if (action === "toggle-all-moves") toggleAllMoves();
   if (action === "prev-hint") state.hintIndex = Math.max(0, state.hintIndex - 1);
@@ -1953,6 +2575,7 @@ function applyCurrentHint() {
   }
   const move = state.moves[state.hintIndex];
   if (move) {
+    queueCampaignAssistance("exact-move");
     applyMove(state.puzzle, move);
     state.puzzleMoveCount += (move.fills || []).length;
     puzzleJourney.recordMove(state.puzzleMoveCount);
@@ -1971,8 +2594,17 @@ function applyCurrentHint() {
 
 function syncPracticeProgress() {
   if (!state.practiceSession) return;
-  state.practiceSession.targetApplied = !findAllMoves(state.puzzle, [state.practiceSession.technique])
-    .some((move) => sameMoveAction(move, state.practiceSession.targetMove));
+  state.practiceSession.targetApplied = practiceTargetEffectApplied(state.practiceSession);
+}
+
+function practiceTargetEffectApplied(session) {
+  if (!session?.targetMove) return false;
+  const fillsApplied = (session.targetMove.fills || []).every(({ index, digit }) => state.puzzle.values[index] === digit);
+  const eliminationsApplied = (session.targetMove.eliminations || []).every(({ index, digit }) => (
+    state.puzzle.eliminated[index]?.has(digit)
+  ));
+  const hasEffect = (session.targetMove.fills || []).length || (session.targetMove.eliminations || []).length;
+  return Boolean(hasEffect && fillsApplied && eliminationsApplied);
 }
 
 function sameMoveAction(a, b) {

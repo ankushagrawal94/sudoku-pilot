@@ -154,6 +154,10 @@ export function selectNextActivity({
     sourceKind: selected.activity.sourceKind,
     sourceId: selected.activity.sourceId,
     canonicalPuzzleId: selected.activity.canonicalPuzzleId,
+    estimatedMinutes: selected.activity.estimatedMinutes,
+    fixtureIndex: selected.activity.sourceKind === "practice"
+      ? (history.campaignSequence || 0) % 10
+      : null,
     createdAt,
     startedAt: null,
     targetReachedAt: null,
