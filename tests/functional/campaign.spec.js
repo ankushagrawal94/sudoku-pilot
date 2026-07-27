@@ -14,10 +14,12 @@ test("campaign stays absent when the local feature flag is off", async ({ page }
 test("campaign starts from observed solving without requiring profile answers", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
-  await expect(page.getByText("No questionnaire is required")).toBeVisible();
+  await expect(page.getByTestId("campaign-puzzle-start")).toContainText("Start with a puzzle");
+  await expect(page.getByTestId("campaign-knowledge-start")).toContainText("Tell us what you know");
   await expect(page.locator("[data-campaign-goal]")).not.toBeVisible();
 
-  await page.getByRole("button", { name: "Start with an easy puzzle" }).click();
+  await expect(page.locator("[data-campaign-start-difficulty]")).toHaveValue("easy");
+  await page.getByRole("button", { name: "Start puzzle" }).click();
   await expect(page.getByTestId("board")).toBeVisible();
   await expect(page.getByTestId("campaign-placement-puzzle-banner")).toContainText("Easy · complete Sudoku");
   await expect(page.locator("[data-difficulty='easy']")).toHaveClass(/active/);
@@ -75,9 +77,42 @@ test("campaign starts from observed solving without requiring profile answers", 
   expect(snapshot.evidence_events.some((item) => item.eventType === "profile_corrected" && item.techniqueId === null && item.payload.goal === "learn-techniques")).toBe(true);
 });
 
+test("puzzle-first placement honors the learner's selected level", async ({ page }) => {
+  await page.goto(CAMPAIGN_URL);
+  await page.locator("[data-campaign-start-difficulty]").selectOption("hard");
+  await page.getByRole("button", { name: "Start puzzle" }).click();
+
+  await expect(page.getByTestId("campaign-placement-puzzle-banner")).toContainText("Hard · complete Sudoku");
+  await expect(page.locator("[data-difficulty='hard']")).toHaveClass(/active/);
+  const snapshot = await readCampaignDatabase(page);
+  const activity = snapshot.activities.find((item) => item.activityType === "placement-puzzle");
+  expect(activity.certificationSnapshot.difficulty).toBe("hard");
+  expect(activity.recommendationSnapshot.reasonCodes).toContain("LEARNER_SELECTED_PUZZLE_LEVEL");
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem("sudoku-pilot-state-v1"))).difficulty).toBe("hard");
+});
+
+test("knowledge-first placement falls back to a profile-matched puzzle when everything is known", async ({ page }) => {
+  await page.goto(CAMPAIGN_URL);
+  await openOptionalPlacement(page);
+  await page.evaluate(() => {
+    document.querySelectorAll("[data-campaign-placement-technique]").forEach((row) => {
+      row.querySelector('input[value="known"]').checked = true;
+    });
+  });
+  await page.getByRole("button", { name: "Choose my next puzzle" }).click();
+
+  await expect(page.getByTestId("campaign-placement-puzzle-banner")).toContainText("Extreme · complete Sudoku");
+  const snapshot = await readCampaignDatabase(page);
+  expect(snapshot.profiles[0].placementMethod).toBe("self-report+puzzle");
+  const activity = snapshot.activities.find((item) => item.activityType === "placement-puzzle");
+  expect(activity.placementSelectionBasis).toBe("knowledge-profile");
+  expect(activity.recommendationSnapshot.reasonCodes).toContain("KNOWLEDGE_PROFILE_PUZZLE_LEVEL");
+  expect(snapshot.evidence_events.filter((item) => item.eventType === "placement_self_reported")).toHaveLength(17);
+});
+
 test("optional self-report can skip ahead, run a recognition check, and be corrected later", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
-  await page.getByText("Optional: tell us your preferences or what you know").click();
+  await page.getByText("Tell us what you know", { exact: true }).click();
   await page.getByRole("button", { name: "Mark Tier 1 “Know it”" }).click();
   await page.locator("[data-campaign-check-technique]").selectOption("hidden-pair");
   await page.getByRole("button", { name: "Try recognition check" }).click();
@@ -88,8 +123,9 @@ test("optional self-report can skip ahead, run a recognition check, and be corre
   await page.getByRole("button", { name: "Finish check", exact: true }).click();
 
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
-  await page.getByText("Optional: tell us your preferences or what you know").click();
-  await page.getByRole("button", { name: "Use these answers" }).click();
+  await openOptionalPlacement(page);
+  await expect(page.getByRole("radio", { name: "Hidden Pair: Know it" })).toBeChecked();
+  await page.getByRole("button", { name: "Choose my next puzzle" }).click();
   const recommendation = page.getByTestId("campaign-recommendation");
   await expect(recommendation).toBeVisible();
   await expect(recommendation).not.toContainText(/^Last Digit$/);
@@ -109,7 +145,7 @@ test("optional self-report can skip ahead, run a recognition check, and be corre
 test("lesson completion persists atomically and offers another activity immediately", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
   await openOptionalPlacement(page);
-  await page.getByRole("button", { name: "Ignore these answers" }).click();
+  await page.getByRole("button", { name: "Skip these answers" }).click();
   const firstRecommendation = page.getByTestId("campaign-recommendation");
   const firstActivityId = await firstRecommendation.getAttribute("data-activity-id");
   await firstRecommendation.getByRole("button", { name: "Start activity" }).click();
@@ -136,7 +172,7 @@ test("lesson completion persists atomically and offers another activity immediat
 test("an incomplete focused activity resumes after reload without duplicate assignment or evidence", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
   await setPlacementExcept(page, "last-digit", "learning");
-  await page.getByRole("button", { name: "Use these answers" }).click();
+  await page.getByRole("button", { name: "Choose my next puzzle" }).click();
   await expect(page.getByTestId("campaign-recommendation")).toContainText("Last Digit");
   await expect(page.getByTestId("campaign-recommendation")).toContainText("Find the pattern");
   const activityId = await page.getByTestId("campaign-recommendation").getAttribute("data-activity-id");
@@ -159,7 +195,7 @@ test("an incomplete focused activity resumes after reload without duplicate assi
 test("exact-move assistance is recorded and cannot grant mastery", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
   await setPlacementExcept(page, "last-digit", "learning");
-  await page.getByRole("button", { name: "Use these answers" }).click();
+  await page.getByRole("button", { name: "Choose my next puzzle" }).click();
   await page.getByRole("button", { name: "Start activity" }).click();
 
   await page.getByTestId("hint-button").click();
@@ -185,7 +221,7 @@ test("campaign is usable at mobile width without horizontal overflow", async ({ 
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 
-  await page.getByRole("button", { name: "Start with an easy puzzle" }).click();
+  await page.getByRole("button", { name: "Start puzzle" }).click();
   await expect(page.getByTestId("board")).toBeVisible();
   await expect(page.getByTestId("campaign-placement-puzzle-banner")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
@@ -194,7 +230,7 @@ test("campaign is usable at mobile width without horizontal overflow", async ({ 
 test("campaign data can be exported, reset, and deleted without puzzle contents", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
   await openOptionalPlacement(page);
-  await page.getByRole("button", { name: "Ignore these answers" }).click();
+  await page.getByRole("button", { name: "Skip these answers" }).click();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export data" }).click();
@@ -210,7 +246,7 @@ test("campaign data can be exported, reset, and deleted without puzzle contents"
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
 
   await openOptionalPlacement(page);
-  await page.getByRole("button", { name: "Ignore these answers" }).click();
+  await page.getByRole("button", { name: "Skip these answers" }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete campaign data" }).click();
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
@@ -230,7 +266,7 @@ test("campaign placement and continuation work offline after first load", async 
   await page.reload();
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
   await openOptionalPlacement(page);
-  await page.getByRole("button", { name: "Ignore these answers" }).click();
+  await page.getByRole("button", { name: "Skip these answers" }).click();
   await expect(page.getByTestId("campaign-recommendation")).toBeVisible();
   await page.getByRole("button", { name: "Start activity" }).click();
   await expect(page.getByTestId("lesson-browser")).toBeVisible();
@@ -254,7 +290,7 @@ async function setPlacementExcept(page, exceptionId, exceptionStatus) {
 async function openOptionalPlacement(page) {
   const details = page.locator(".campaign-optional-placement");
   if (!await details.getAttribute("open")) {
-    await page.getByText("Optional: tell us your preferences or what you know").click();
+    await page.getByText("Tell us what you know", { exact: true }).click();
   }
 }
 

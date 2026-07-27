@@ -2025,28 +2025,45 @@ button:hover,
   color: #5d6c7a;
 }
 
-.campaign-observed-start {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.campaign-start-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.campaign-start-option {
   padding: 18px;
   border: 1px solid #b8cfe8;
   border-radius: 12px;
   background: #f3f8fe;
 }
 
-.campaign-observed-start h3,
-.campaign-observed-start p {
+.campaign-puzzle-start {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.campaign-puzzle-start h3,
+.campaign-puzzle-start p {
   margin: 0;
 }
 
-.campaign-observed-start p {
+.campaign-puzzle-start h3 {
   margin-top: 6px;
 }
 
+.campaign-puzzle-start label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.campaign-puzzle-start select {
+  width: 100%;
+}
+
 .campaign-optional-placement {
-  margin-top: 18px;
   padding: 14px 16px;
   border: 1px solid #d9e1ea;
   border-radius: 12px;
@@ -2054,11 +2071,36 @@ button:hover,
 
 .campaign-optional-placement > summary {
   cursor: pointer;
+  display: grid;
+  gap: 4px;
+}
+
+.campaign-optional-placement > summary > span:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.campaign-optional-placement > summary strong {
+  font-size: 18px;
+}
+
+.campaign-optional-placement > summary small {
+  color: #536579;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.campaign-option-cta {
+  color: #1769e8;
   font-weight: 800;
 }
 
 .campaign-optional-placement[open] > summary {
   margin-bottom: 10px;
+}
+
+.campaign-start-options .campaign-optional-placement[open] {
+  grid-column: 1 / -1;
 }
 
 .campaign-preferences {
@@ -2561,6 +2603,7 @@ button:hover,
   }
 
   .campaign-preferences,
+  .campaign-start-options,
   .campaign-technique-row,
   .campaign-recognition-check,
   .campaign-skill-row,
@@ -2589,15 +2632,14 @@ button:hover,
   }
 
   .campaign-primary-actions,
-  .campaign-activity-banner,
-  .campaign-observed-start {
+  .campaign-activity-banner {
     align-items: stretch;
     flex-direction: column;
   }
 
   .campaign-primary-actions button,
   .campaign-activity-banner button,
-  .campaign-observed-start button,
+  .campaign-puzzle-start button,
   .campaign-data-controls .tool-row button {
     width: 100%;
   }

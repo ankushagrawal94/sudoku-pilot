@@ -489,25 +489,37 @@ function renderCampaignPlacement() {
   const goal = campaignRuntime.model?.profile?.goal || "";
   const preferredMinutes = campaignRuntime.model?.profile?.preferredMinutes || 10;
   const techniques = campaignTechniqueNodes();
+  const hasTechniqueEvidence = campaignRuntime.model?.evidence?.some((event) => event.techniqueId) || false;
   return `
     <div class="campaign-shell" data-testid="campaign-view">
       <section class="panel campaign-hero">
         <p class="eyebrow">Private preview · local only</p>
         <h2 tabindex="-1" data-route-heading>Find your starting point</h2>
-        <p>Start with a complete Easy Sudoku. Sudoku Pilot will adapt from the techniques you apply and the deepest help you actually use.</p>
-        <p class="campaign-privacy-note">No questionnaire is required. This campaign stays in this browser and does not infer detailed mastery from solve counts or legacy history.</p>
+        <p>Choose how you want to begin. You can play at your preferred level or tell Sudoku Pilot what you already know.</p>
+        <p class="campaign-privacy-note">Both paths remain editable and provisional. Campaign data stays in this browser.</p>
       </section>
       <form class="panel campaign-placement" data-testid="campaign-placement">
-        <div class="campaign-observed-start">
-          <div>
-            <h3>Let your solving do the talking</h3>
-            <p>We will begin with a fresh, full Sudoku puzzle, keep what we infer provisional, and adjust immediately.</p>
-          </div>
-          <button type="button" class="primary" data-action="campaign-start-observed-placement">Start with an easy puzzle</button>
-        </div>
-        <details class="campaign-optional-placement">
-          <summary>Optional: tell us your preferences or what you know</summary>
-          <p class="caption">These answers can speed up placement, but they are never permanent proof and can be corrected later.</p>
+        <div class="campaign-start-options">
+          <section class="campaign-start-option campaign-puzzle-start" data-testid="campaign-puzzle-start">
+            <div>
+              <p class="eyebrow">Option 1</p>
+              <h3>Start with a puzzle</h3>
+              <p>Choose a level and solve a fresh, complete Sudoku. We will adapt from unambiguous techniques and the help you use.</p>
+            </div>
+            <label>Puzzle level
+              <select data-campaign-start-difficulty>
+                ${DIFFICULTY_ORDER.map((difficulty) => `<option value="${difficulty}" ${difficulty === "easy" ? "selected" : ""}>${titleCase(difficulty)}</option>`).join("")}
+              </select>
+            </label>
+            <button type="button" class="primary" data-action="campaign-start-observed-placement">Start puzzle</button>
+          </section>
+          <details class="campaign-start-option campaign-optional-placement" data-testid="campaign-knowledge-start">
+            <summary>
+              <span><span class="eyebrow">Option 2</span><strong>Tell us what you know</strong></span>
+              <small>Review our current estimate and choose your next certified puzzle.</small>
+              <span class="campaign-option-cta">Review techniques <span aria-hidden="true">›</span></span>
+            </summary>
+            <p class="caption">${campaignPlacementPerceptionText(hasTechniqueEvidence)}</p>
           <div class="campaign-preferences">
             <label>Your goal
               <select data-campaign-goal>
@@ -528,7 +540,7 @@ function renderCampaignPlacement() {
             <button type="button" data-action="campaign-mark-tier1-known">Mark Tier 1 “Know it”</button>
           </div>
           <div class="campaign-technique-list">
-            ${techniques.map((node) => renderPlacementTechnique(node, draft[node.id] || "unknown")).join("")}
+            ${techniques.map((node) => renderPlacementTechnique(node, campaignPlacementStatus(node.id, draft))).join("")}
           </div>
           <section class="campaign-recognition-check">
             <div><h3>Optional recognition check</h3><p>Try a specific certified near-miss example before using your answers.</p></div>
@@ -540,14 +552,33 @@ function renderCampaignPlacement() {
             <button type="button" data-action="campaign-placement-check">Try recognition check</button>
           </section>
           <div class="campaign-primary-actions">
-            <button type="button" data-action="campaign-skip-placement">Ignore these answers</button>
-            <button type="button" data-action="campaign-complete-placement">Use these answers</button>
+            <button type="button" data-action="campaign-skip-placement">Skip these answers</button>
+            <button type="button" class="primary" data-action="campaign-complete-placement">Choose my next puzzle</button>
           </div>
-        </details>
+          </details>
+        </div>
         ${campaignRuntime.error ? `<p class="campaign-inline-error" role="alert">${escapeHtml(campaignRuntime.error)}</p>` : ""}
       </form>
     </div>
   `;
+}
+
+function campaignPlacementStatus(techniqueId, draft) {
+  const skill = campaignRuntime.model?.skills?.find((item) => item.techniqueId === techniqueId);
+  if (Object.hasOwn(draft, techniqueId) && draft[techniqueId] !== "unknown") return draft[techniqueId];
+  if (["mastered", "review-due"].includes(skill?.state)) return "known";
+  if (["learning", "practicing"].includes(skill?.state)) return "learning";
+  return Object.hasOwn(draft, techniqueId) ? draft[techniqueId] : "unknown";
+}
+
+function campaignPlacementPerceptionText(hasTechniqueEvidence) {
+  if (hasTechniqueEvidence) {
+    return "Our current technique estimates are pre-filled below. Correct anything that looks wrong; your correction is saved as new evidence.";
+  }
+  if (state.playerStats.completed > 0) {
+    return `This browser has ${state.playerStats.completed} completed puzzle${state.playerStats.completed === 1 ? "" : "s"}, but those totals do not show which techniques you used. We left the technique estimates as Not sure.`;
+  }
+  return "We do not have technique-aware evidence in this browser yet, so every technique starts as Not sure.";
 }
 
 function renderPlacementTechnique(node, status) {
@@ -647,13 +678,14 @@ function renderRecommendationCard(activity) {
 }
 
 function renderPlacementPuzzleCard(activity) {
+  const difficulty = titleCase(activity.certificationSnapshot?.difficulty || "easy");
   return `
     <article class="panel campaign-recommendation" data-testid="campaign-recommendation" data-activity-id="${activity.activityId}">
       <div class="campaign-recommendation-topline">
         <span class="campaign-activity-badge">Starting puzzle</span>
-        <span>Easy · about ${activity.estimatedMinutes || 10} min</span>
+        <span>${difficulty} · about ${activity.estimatedMinutes || 10} min</span>
       </div>
-      <h3>Your Easy Sudoku is in progress</h3>
+      <h3>Your ${difficulty} Sudoku is in progress</h3>
       <p class="campaign-focus">Solve it normally. Assistance-aware technique evidence stays local and provisional.</p>
       <p data-testid="campaign-reason">Continue the same puzzle you started. Reloading will not create another assignment or duplicate its evidence.</p>
       <div class="campaign-primary-actions">
@@ -668,7 +700,9 @@ function renderCampaignReflection() {
   const reflection = campaignRuntime.reflection;
   if (!reflection) return "";
   const placementPuzzle = reflection.completedActivity.diagnosticPlacement;
-  const name = placementPuzzle ? "Starting puzzle" : techniqueNameForId(reflection.completedActivity.focusTechniqueId);
+  const name = placementPuzzle
+    ? `${titleCase(reflection.completedActivity.certificationSnapshot?.difficulty || "easy")} starting puzzle`
+    : techniqueNameForId(reflection.completedActivity.focusTechniqueId);
   const evidence = placementPuzzle && reflection.recognized
     ? `${reflection.observedTechniqueCount} technique pattern${reflection.observedTechniqueCount === 1 ? "" : "s"} recognized with ${campaignAssistanceLabel(reflection.assistanceLevel)} assistance.`
     : reflection.recognized
@@ -727,7 +761,7 @@ function renderCampaignSkillGraph() {
         ${model.activities.filter((activity) => activity.completedAt).length ? `
           <ol>
             ${model.activities.filter((activity) => activity.completedAt).sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 8).map((activity) => `
-              <li><strong>${activity.diagnosticPlacement ? "Easy starting puzzle" : techniqueNameForId(activity.focusTechniqueId)}</strong> · ${campaignActivityLabel(activity.activityType)} <time datetime="${activity.completedAt}">${new Date(activity.completedAt).toLocaleString()}</time></li>
+              <li><strong>${activity.diagnosticPlacement ? `${titleCase(activity.certificationSnapshot?.difficulty || "easy")} starting puzzle` : techniqueNameForId(activity.focusTechniqueId)}</strong> · ${campaignActivityLabel(activity.activityType)} <time datetime="${activity.completedAt}">${new Date(activity.completedAt).toLocaleString()}</time></li>
             `).join("")}
           </ol>
         ` : "<p>No completed campaign activities yet.</p>"}
@@ -794,11 +828,12 @@ function renderCampaignPuzzleBanner() {
     state.puzzleSource !== "campaign-placement" ||
     state.campaignPuzzleCanonicalId !== activity.canonicalPuzzleId
   ) return "";
+  const difficulty = titleCase(activity.certificationSnapshot?.difficulty || state.difficulty);
   return `
     <section class="campaign-activity-banner campaign-puzzle-banner" data-testid="campaign-placement-puzzle-banner">
       <div>
         <p class="eyebrow">Campaign starting puzzle</p>
-        <strong>Easy · complete Sudoku</strong>
+        <strong>${difficulty} · complete Sudoku</strong>
         <p>Solve normally. We use only technique and assistance evidence—not your grid, solution, notes, or exact moves.</p>
       </div>
       <button data-action="campaign-return-home">Back to campaign</button>
@@ -904,6 +939,9 @@ async function handleCampaignAction(action) {
         reports: action === "campaign-skip-placement" ? {} : placement.reports
       });
       campaignRuntime.model = await campaignRuntime.session.ensureRecommendation();
+      if (action === "campaign-complete-placement" && !campaignRuntime.model.currentActivity) {
+        await launchCampaignPlacementPuzzle("extreme", placement.goal, "knowledge-profile");
+      }
       campaignRuntime.reflection = null;
       campaignRuntime.mode = "home";
     });
@@ -911,33 +949,10 @@ async function handleCampaignAction(action) {
   }
   if (action === "campaign-start-observed-placement") {
     const placement = readPlacementForm();
+    const difficulty = app.querySelector("[data-campaign-start-difficulty]")?.value || "easy";
     await runCampaignTask(async () => {
-      const generated = generatePuzzle({ difficulty: "easy", playedCanonicalIds });
-      const allowedTechniqueIds = Object.keys(generated.rating.techniqueCounts)
-        .map(techniqueIdForName)
-        .filter(Boolean);
-      campaignRuntime.model = await campaignRuntime.session.beginPlacementPuzzle({
-        canonicalPuzzleId: generated.canonicalId,
-        sourceId: generated.sourceId,
-        allowedTechniqueIds,
-        goal: placement.goal
-      });
+      await launchCampaignPlacementPuzzle(difficulty, placement.goal);
       campaignRuntime.reflection = null;
-      state.previousPuzzle = snapshotCurrentPuzzle();
-      state.puzzle = createPuzzle(generated.grid, generated.solution);
-      state.difficulty = "easy";
-      state.selected = null;
-      state.multiSelected.clear();
-      state.multiSelectMode = false;
-      state.panel = null;
-      state.puzzleSource = "campaign-placement";
-      state.campaignPuzzleCanonicalId = generated.canonicalId;
-      resetPuzzleStats();
-      resetTimer();
-      closeHintDetails();
-      playedCanonicalIds.add(generated.canonicalId);
-      savePlayedCanonicalIds();
-      navigateTo("play", { analyticsEntryPoint: null });
     });
     return;
   }
@@ -1083,6 +1098,40 @@ function readPlacementForm() {
   };
 }
 
+async function launchCampaignPlacementPuzzle(difficulty, goal = null, selectionBasis = "learner-selected") {
+  const generated = generatePuzzle({
+    difficulty,
+    excludedTechniques: PROVISIONAL_TECHNIQUES,
+    playedCanonicalIds
+  });
+  const allowedTechniqueIds = Object.keys(generated.rating.techniqueCounts)
+    .map(techniqueIdForName)
+    .filter(Boolean);
+  campaignRuntime.model = await campaignRuntime.session.beginPlacementPuzzle({
+    canonicalPuzzleId: generated.canonicalId,
+    sourceId: generated.sourceId,
+    allowedTechniqueIds,
+    difficulty,
+    selectionBasis,
+    goal
+  });
+  state.previousPuzzle = snapshotCurrentPuzzle();
+  state.puzzle = createPuzzle(generated.grid, generated.solution);
+  state.difficulty = difficulty;
+  state.selected = null;
+  state.multiSelected.clear();
+  state.multiSelectMode = false;
+  state.panel = null;
+  state.puzzleSource = "campaign-placement";
+  state.campaignPuzzleCanonicalId = generated.canonicalId;
+  resetPuzzleStats();
+  resetTimer();
+  closeHintDetails();
+  playedCanonicalIds.add(generated.canonicalId);
+  savePlayedCanonicalIds();
+  navigateTo("play", { analyticsEntryPoint: null });
+}
+
 function restoreCampaignActivity(activity, { fresh = false } = {}) {
   if (!activity) return;
   if (activity.diagnosticPlacement) {
@@ -1141,7 +1190,12 @@ function queueCampaignAssistance(level) {
 
 function queueCampaignPlacementTechnique(techniqueName) {
   const techniqueId = techniqueIdForName(techniqueName);
-  if (!techniqueId || !campaignRuntime.model?.currentActivity?.diagnosticPlacement) return;
+  const activity = campaignRuntime.model?.currentActivity;
+  if (
+    !techniqueId ||
+    !activity?.diagnosticPlacement ||
+    !activity.certificationSnapshot?.allowedTechniqueIds?.includes(techniqueId)
+  ) return;
   campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
     .catch(() => {})
     .then(async () => {
@@ -2453,7 +2507,11 @@ function enterDigit(digit) {
 }
 
 function uniquelyRecognizedTechnique(index, digit) {
-  const techniques = new Set(findAllMoves(state.puzzle, COACHING_TIER_1)
+  const allowedTechniques = (campaignRuntime.model?.currentActivity?.certificationSnapshot?.allowedTechniqueIds || [])
+    .map((techniqueId) => techniqueNameForId(techniqueId))
+    .filter(Boolean);
+  if (!allowedTechniques.length) return null;
+  const techniques = new Set(findAllMoves(state.puzzle, allowedTechniques)
     .filter((move) => (move.fills || []).some((fill) => fill.index === index && fill.digit === digit))
     .map((move) => move.technique));
   return techniques.size === 1 ? [...techniques][0] : null;

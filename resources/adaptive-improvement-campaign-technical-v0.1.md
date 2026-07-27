@@ -630,7 +630,8 @@ Legacy data without sufficient context may influence a recommendation explanatio
 
 Use prerequisite and family structure to reduce checks:
 
-- launch a fresh, complete Sudoku from the certified Easy catalog without requiring questionnaire answers;
+- offer a puzzle-first path that launches a fresh, complete Sudoku from the learner-selected certified difficulty without requiring questionnaire answers;
+- offer a knowledge-first path whose technique controls are pre-filled from existing technique-aware campaign evidence and remain learner-correctable;
 - infer a low-confidence initial goal and technique state from correct application, errors, guesses, and deepest assistance;
 - successful recognition can skip nearby foundational checks provisionally;
 - failure narrows the next check to prerequisites;
@@ -639,7 +640,9 @@ Use prerequisite and family structure to reduce checks:
 
 The placement and goal-inference policies must be deterministic, separately versioned, visible as provisional, and capped to a product-approved maximum duration. A learner-provided goal overrides the inferred goal without rewriting prior evidence.
 
-The opening full Sudoku is a diagnostic activity, not a personalized teaching puzzle. Its certification snapshot records the Easy difficulty ceiling and every technique allowed by the catalog record. It may sample several foundational techniques, so it does not claim a one-new-technique budget. Completion alone is exposure; only assistance-aware recognized techniques affect the skill graph. Every subsequent personalized puzzle recommendation still enforces the one-new-technique budget without exception.
+The opening full Sudoku is a diagnostic activity, not a personalized teaching puzzle. Its certification snapshot records the learner-selected difficulty ceiling and every committed technique allowed by the catalog record. It may sample several techniques, so it does not claim a one-new-technique budget. Completion alone is exposure; only assistance-aware, unambiguously attributed techniques affect the skill graph. Every subsequent personalized puzzle recommendation still enforces the one-new-technique budget without exception.
+
+Technique perception may be pre-filled only from evidence that satisfies the campaign evidence contract. Aggregate puzzle-completion totals and legacy history without technique attribution remain visible as insufficient context, not converted into mastery. A future signed-in source can populate the same skill model only after the separately specified account-sync and provenance work is implemented.
 
 ## Offline behavior
 

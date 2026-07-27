@@ -511,6 +511,8 @@ assert.ok(selectionMs < 500, `100 metadata-only selections should complete under
   assert.equal(model.currentActivity.activityType, "placement-puzzle");
   assert.equal(model.currentActivity.focusTechniqueId, null);
   assert.equal(model.currentActivity.certificationSnapshot.difficulty, "easy");
+  assert.equal(model.currentActivity.estimatedMinutes, 8);
+  assert.ok(model.currentActivity.recommendationSnapshot.reasonCodes.includes("LEARNER_SELECTED_PUZZLE_LEVEL"));
   assert.equal(model.currentActivity.certificationSnapshot.diagnostic, true);
   assert.equal(model.currentActivity.certificationSnapshot.noveltyBudget, null);
   assert.equal(model.activities.length, 1);
@@ -542,6 +544,21 @@ assert.ok(selectionMs < 500, `100 metadata-only selections should complete under
     "mastered",
     "an exact-move placement must not grant mastery"
   );
+}
+
+{
+  const session = createCampaignSession({
+    storage: createMemoryCampaignStorage(),
+    now: () => new Date("2026-07-26T11:47:00Z")
+  });
+  const model = await session.beginPlacementPuzzle({
+    canonicalPuzzleId: "hard-0001",
+    sourceId: "hard-0001",
+    allowedTechniqueIds: ["last-digit", "naked-single", "hidden-single", "pointing-candidates"],
+    difficulty: "hard"
+  });
+  assert.equal(model.currentActivity.certificationSnapshot.difficulty, "hard");
+  assert.equal(model.currentActivity.estimatedMinutes, 14);
 }
 
 {

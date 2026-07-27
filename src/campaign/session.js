@@ -237,24 +237,38 @@ export function createCampaignSession({
     canonicalPuzzleId,
     sourceId,
     allowedTechniqueIds = [],
+    difficulty = "easy",
+    selectionBasis = "learner-selected",
     goal = null,
     preferredMinutes = null,
     profileId = "local"
   } = {}) {
     if (!canonicalPuzzleId || !sourceId) throw new Error("A certified catalog puzzle is required for placement.");
+    if (!["easy", "medium", "hard", "expert", "extreme"].includes(difficulty)) {
+      throw new Error(`Unknown placement puzzle difficulty: ${difficulty}`);
+    }
+    if (!["learner-selected", "knowledge-profile"].includes(selectionBasis)) {
+      throw new Error(`Unknown placement selection basis: ${selectionBasis}`);
+    }
     const normalizedTechniqueIds = [...new Set(allowedTechniqueIds)];
     normalizedTechniqueIds.forEach(assertTechnique);
     if (!normalizedTechniqueIds.length) throw new Error("A placement puzzle needs a certified technique ceiling.");
     const timestamp = currentIso();
+    const existingProfile = await storage.getProfile(profileId);
+    const followsSelfReport = ["self-report", "self-report+puzzle"].includes(existingProfile?.placementMethod);
     const profile = normalizeProfile({
-      ...(await storage.getProfile(profileId) || {}),
+      ...(existingProfile || {}),
       id: profileId,
-      goal,
-      goalSource: goal ? "learner" : "observing",
-      preferredMinutes,
-      preferredMinutesSource: preferredMinutes ? "learner" : "default",
+      goal: goal || existingProfile?.goal || null,
+      goalSource: goal || existingProfile?.goalSource === "learner"
+        ? "learner"
+        : "observing",
+      preferredMinutes: preferredMinutes || existingProfile?.preferredMinutes || null,
+      preferredMinutesSource: preferredMinutes || existingProfile?.preferredMinutesSource === "learner"
+        ? "learner"
+        : "default",
       placementCompletedAt: null,
-      placementMethod: "observed-puzzle",
+      placementMethod: followsSelfReport ? "self-report+puzzle" : "observed-puzzle",
       updatedAt: timestamp
     }, timestamp);
     await storage.putProfile(profile);
@@ -268,7 +282,7 @@ export function createCampaignSession({
       sourceKind: "catalog",
       sourceId,
       canonicalPuzzleId,
-      estimatedMinutes: 10,
+      estimatedMinutes: estimatePlacementMinutes(difficulty),
       createdAt: timestamp,
       startedAt: timestamp,
       targetReachedAt: null,
@@ -279,8 +293,14 @@ export function createCampaignSession({
       placementCheck: true,
       observationPlacement: true,
       diagnosticPlacement: true,
+      placementSelectionBasis: selectionBasis,
       recommendationSnapshot: {
-        reasonCodes: ["OBSERVED_PLACEMENT_PUZZLE"],
+        reasonCodes: [
+          selectionBasis === "knowledge-profile"
+            ? "KNOWLEDGE_PROFILE_PUZZLE_LEVEL"
+            : "LEARNER_SELECTED_PUZZLE_LEVEL",
+          "OBSERVED_PLACEMENT_PUZZLE"
+        ],
         inputVersions: inputVersions(),
         profileSnapshot: {
           goal: profile.goal,
@@ -294,7 +314,7 @@ export function createCampaignSession({
         activityIndexVersion: activityIndex.version,
         certificationVersion: 1,
         diagnostic: true,
-        difficulty: "easy",
+        difficulty,
         noveltyBudget: null,
         allowedTechniqueIds: normalizedTechniqueIds
       },
@@ -850,9 +870,11 @@ export function createCampaignSession({
       goal: profile.goalSource === "learner" ? profile.goal : inferredGoal,
       goalSource: profile.goalSource === "learner" ? "learner" : "observed",
       placementCompletedAt: placementCompleted ? timestamp : null,
-      placementMethod: model.activities.some((activity) => activity.diagnosticPlacement)
-        ? "observed-puzzle"
-        : "observed",
+      placementMethod: profile.placementMethod === "self-report+puzzle"
+        ? "self-report+puzzle"
+        : model.activities.some((activity) => activity.diagnosticPlacement)
+          ? "observed-puzzle"
+          : "observed",
       goalInference: profile.goalSource === "learner" ? null : {
         policyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION,
         evidenceEventIds: observedEvidence.map((event) => event.eventId),
@@ -894,7 +916,7 @@ function normalizeProfile(profile, timestamp) {
     avoidedTechniqueIds: Array.isArray(profile.avoidedTechniqueIds) ? profile.avoidedTechniqueIds : [],
     placementCompletedAt: profile.placementCompletedAt || null,
     placementSkippedAt: profile.placementSkippedAt || null,
-    placementMethod: ["observed", "observed-puzzle", "self-report", "skipped"].includes(profile.placementMethod)
+    placementMethod: ["observed", "observed-puzzle", "self-report", "self-report+puzzle", "skipped"].includes(profile.placementMethod)
       ? profile.placementMethod
       : null,
     placementDraftReports: normalizeReports(profile.placementDraftReports || {}),
@@ -970,4 +992,14 @@ function inferGoal(evidenceEvents) {
   }
   if (recognitions.length) return "learn-techniques";
   return "learn-techniques";
+}
+
+function estimatePlacementMinutes(difficulty) {
+  return ({
+    easy: 8,
+    medium: 10,
+    hard: 14,
+    expert: 18,
+    extreme: 25
+  })[difficulty];
 }
