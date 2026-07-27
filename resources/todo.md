@@ -4,19 +4,21 @@ This is the canonical repository backlog for product and engineering follow-ups.
 
 ## Product opportunities
 
-- [ ] **Daily personalized puzzles**
-  - Product specification: [Daily Personalized Puzzles v0.1](daily-personalized-puzzles-v0.1.md).
-  - Define which local signals should shape the daily puzzle, such as techniques being learned, recent mistakes, difficulty, and practice history.
-  - Decide how a daily puzzle remains useful offline and for people who never create an account.
+- [ ] **Adaptive improvement campaign**
+  - Product requirements: [Adaptive Improvement Campaign v0.2](adaptive-improvement-campaign-product-v0.2.md).
+  - Technical design: [Adaptive Improvement Campaign Technical Design v0.1](adaptive-improvement-campaign-technical-v0.1.md).
+  - Recommend the learner's next best activity from a personal skill graph, skip or automate demonstrated mastery, introduce at most one unfamiliar technique, and adapt the sequence from recognition, assistance, retention, goals, and available time.
+  - Keep “Today's personalized puzzle” as a home-screen entry point, not a one-puzzle-per-day limit. Learners can continue the campaign immediately.
+  - Prove that representative learner profiles receive meaningfully different sequences before treating the feature as differentiated from a fixed campaign.
 
 - [ ] **Optional login**
-  - The account, sync, and purchase-recovery boundary for personalized learning is defined in [Daily Personalized Puzzles v0.1](daily-personalized-puzzles-v0.1.md#local-first-and-account-behavior).
+  - The account, sync, and purchase-recovery boundary is defined in the campaign [product requirements](adaptive-improvement-campaign-product-v0.2.md#local-first-and-account-behavior) and [technical design](adaptive-improvement-campaign-technical-v0.1.md#optional-sync-boundary).
   - Keep sign-in optional and preserve the current local-first experience.
-  - Identify benefits that justify an account, such as cross-device progress, personalized daily puzzles, and recovery of learning history.
+  - Identify benefits that justify an account, such as cross-device campaign progress, purchase restoration, and recovery of learning history.
   - Specify consent, data minimization, export, deletion, and a safe migration path for existing browser data before choosing an identity provider.
 
 - [ ] **Evaluate technique-finding tools and coaching toggles**
-  - Their role as temporary, fading scaffolds in personalized coaching is defined in [Daily Personalized Puzzles v0.1](daily-personalized-puzzles-v0.1.md#4-tool-fading).
+  - Their role as temporary, fading campaign scaffolds is defined in the [Adaptive Improvement Campaign product requirements](adaptive-improvement-campaign-product-v0.2.md#coaching-and-tool-fading).
   - Goal: help learners reduce the visual search space and recognize a technique themselves without immediately revealing the move.
   - Current baseline: **Show line counts** displays the selected digit's occurrences in each row and column using placed values and player-entered notes. In a unit where the digit is still missing, one candidate occurrence can point toward a Hidden Single; two candidate occurrences can expose a strong link used by techniques such as Skyscraper, 2-String Kite, and W-Wing.
   - Evaluate these utilities:
