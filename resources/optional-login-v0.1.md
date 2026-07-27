@@ -297,6 +297,13 @@ Rules:
 - keep autoscaling capped and scale-to-zero enabled where compatible with the sync experience;
 - remain on the Free plan. Adding billing details, changing to a paid plan, or enabling paid usage requires separate approval.
 
+Verified email-provider state as of 2026-07-26:
+
+- Resend is the canonical transactional-email path for account verification and password recovery.
+- Neon Auth uses a dedicated sending-only Resend key restricted to the verified `ankushagrawal.com` domain. The key remains server-side in Neon and is never exposed through a `VITE_` variable.
+- `Sudoku Pilot <sudoku@ankushagrawal.com>` is the temporary sender while the existing free Resend account's single custom-domain slot is occupied. Verification and password-recovery messages have both been delivered through this path.
+- Public enablement remains blocked until `sudokupilot.com` is verified for sending and the sender is migrated to a product-domain address such as `auth@sudokupilot.com`, or a separate product decision explicitly accepts the temporary domain. This migration must not silently add billing or remove the existing verified domain.
+
 ## Data model
 
 The implementation may refine names, but it must preserve these ownership and merge semantics.

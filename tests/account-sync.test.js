@@ -7,7 +7,12 @@ import {
   mergeTechniqueRows,
   normalizeSnapshot
 } from "../src/accountSync.js";
-import { accountConfigReady, classifyAccountError, readAccountConfig } from "../src/accountClient.js";
+import {
+  accountConfigReady,
+  classifyAccountError,
+  readAccountConfig,
+  verifyEmailCode
+} from "../src/accountClient.js";
 
 assert.deepEqual(mergePlayedIds(["b", "a", "a"], ["c", "b"]), ["a", "b", "c"]);
 
@@ -76,6 +81,23 @@ const configured = readAccountConfig({}, {
 assert.equal(accountConfigReady(configured), true);
 assert.equal(classifyAccountError(new Error("Failed to fetch")), "offline");
 assert.equal(classifyAccountError(new Error("revision conflict")), "conflict");
+
+let verifyOtpRequest;
+const verifiedUser = { id: "test-user" };
+const verified = await verifyEmailCode({
+  auth: {
+    async verifyOtp(request) {
+      verifyOtpRequest = request;
+      return { data: { user: verifiedUser }, error: null };
+    }
+  }
+}, "player@example.com", "123456");
+assert.deepEqual(verifyOtpRequest, {
+  email: "player@example.com",
+  token: "123456",
+  type: "signup"
+});
+assert.deepEqual(verified, { user: verifiedUser });
 
 const sql = await readFile(new URL("../database/account/001_account_sync.sql", import.meta.url), "utf8");
 for (const table of ["account_state", "played_puzzles", "technique_progress_by_device"]) {

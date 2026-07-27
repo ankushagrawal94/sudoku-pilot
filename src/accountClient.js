@@ -71,7 +71,7 @@ export async function verifyEmailCode(client, email, code) {
   return unwrap(await client.auth.verifyOtp({
     email,
     token: code,
-    type: "email"
+    type: "signup"
   }));
 }
 
