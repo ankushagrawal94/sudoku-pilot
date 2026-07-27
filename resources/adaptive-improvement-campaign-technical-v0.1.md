@@ -619,9 +619,9 @@ Placement produces evidence rather than directly editing skill snapshots.
 
 ### Inputs
 
-- self-reported familiarity;
+- assistance-aware evidence from the first certified puzzle activities;
+- optional self-reported familiarity and goals;
 - historical local lesson/practice/hint events that meet the new evidence contract;
-- optional certified recognition checks; and
 - conservative defaults.
 
 Legacy data without sufficient context may influence a recommendation explanation but must not be converted into false unaided-recognition evidence.
@@ -630,12 +630,14 @@ Legacy data without sufficient context may influence a recommendation explanatio
 
 Use prerequisite and family structure to reduce checks:
 
+- launch a certified focused puzzle without requiring questionnaire answers;
+- infer a low-confidence initial goal and technique state from correct application, errors, guesses, and deepest assistance;
 - successful recognition can skip nearby foundational checks provisionally;
 - failure narrows the next check to prerequisites;
 - learners may stop placement at any point; and
 - the graph remains editable afterward.
 
-The placement algorithm should be deterministic and capped to a product-approved maximum duration.
+The placement and goal-inference policies must be deterministic, separately versioned, visible as provisional, and capped to a product-approved maximum duration. A learner-provided goal overrides the inferred goal without rewriting prior evidence.
 
 ## Offline behavior
 
@@ -813,15 +815,16 @@ If IndexedDB is unavailable, the campaign may run in a clearly labeled temporary
 
 At minimum:
 
-1. cold-start beginner;
-2. experienced learner who self-reports Tier 1 mastery;
-3. learner with W-Wing prerequisites but no Tier 2 mastery;
-4. learner struggling repeatedly with a focus technique;
-5. mastered learner returning after 30 days;
-6. learner with five minutes available;
-7. no certified full puzzle available;
-8. learner avoiding the top research-ranked technique; and
-9. two profiles that must produce different first-five sequences.
+1. cold-start learner who begins without profile answers;
+2. learner whose observed unaided Tier 1 application changes the next recommendation;
+3. experienced learner who optionally self-reports Tier 1 mastery;
+4. learner with W-Wing prerequisites but no Tier 2 mastery;
+5. learner struggling repeatedly with a focus technique;
+6. mastered learner returning after 30 days;
+7. learner with five minutes available;
+8. no certified full puzzle available;
+9. learner avoiding the top research-ranked technique; and
+10. two profiles that must produce different first-five sequences.
 
 ### Certification tests
 

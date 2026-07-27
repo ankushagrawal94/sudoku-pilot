@@ -11,10 +11,46 @@ test("campaign stays absent when the local feature flag is off", async ({ page }
   await expect(page.getByRole("button", { name: "Open campaign", exact: true })).toHaveCount(0);
 });
 
-test("placement can skip ahead, run an optional recognition check, and be corrected later", async ({ page }) => {
+test("campaign starts from observed solving without requiring profile answers", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
+  await expect(page.getByText("No questionnaire is required")).toBeVisible();
+  await expect(page.locator("[data-campaign-goal]")).not.toBeVisible();
 
+  await page.getByRole("button", { name: "Start with a puzzle" }).click();
+  await expect(page.getByTestId("practice-session")).toHaveAttribute("data-practice-mode", "find-pattern");
+  await expect(page.getByTestId("campaign-activity-banner")).toContainText("Starting-point puzzle");
+  await page.getByTestId("hint-button").click();
+  for (let stage = 2; stage <= 4; stage += 1) {
+    await page.getByTestId("hint-panel").getByRole("button", { name: "Next clue", exact: true }).click();
+  }
+  await page.getByTestId("hint-panel").getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByRole("button", { name: "See my next activity" }).click();
+
+  await expect(page.getByTestId("campaign-recommendation")).toBeVisible();
+  await expect(page.getByTestId("campaign-inferred-path")).toContainText("Build confidence");
+  await expect(page.getByTestId("campaign-inferred-path")).toContainText("inferred provisionally");
+  const inferredSnapshot = await readCampaignDatabase(page);
+  expect(inferredSnapshot.profiles[0].goalSource).toBe("observed");
+  expect(inferredSnapshot.profiles[0].goalInference.policyVersion).toBe(1);
+
+  await page.getByText("Adjust this path").click();
+  await page.locator("[data-campaign-goal-correction]").selectOption("learn-techniques");
+  await page.getByRole("button", { name: "Save path" }).click();
+  await expect(page.getByTestId("campaign-inferred-path")).toContainText("Learn techniques efficiently");
+  await expect(page.getByTestId("campaign-inferred-path")).not.toContainText("inferred provisionally");
+
+  const snapshot = await readCampaignDatabase(page);
+  expect(snapshot.profiles[0].goalSource).toBe("observed");
+  expect(snapshot.profiles[0].goalInference.policyVersion).toBe(1);
+  expect(snapshot.evidence_events.some((item) => item.eventType === "exact_move_revealed")).toBe(true);
+  expect(snapshot.evidence_events.some((item) => item.eventType === "placement_check_completed" && item.payload.result === "needs-practice")).toBe(true);
+  expect(snapshot.evidence_events.some((item) => item.eventType === "profile_corrected" && item.techniqueId === null && item.payload.goal === "learn-techniques")).toBe(true);
+});
+
+test("optional self-report can skip ahead, run a recognition check, and be corrected later", async ({ page }) => {
+  await page.goto(CAMPAIGN_URL);
+  await page.getByText("Optional: tell us your preferences or what you know").click();
   await page.getByRole("button", { name: "Mark Tier 1 “Know it”" }).click();
   await page.locator("[data-campaign-check-technique]").selectOption("hidden-pair");
   await page.getByRole("button", { name: "Try recognition check" }).click();
@@ -25,7 +61,8 @@ test("placement can skip ahead, run an optional recognition check, and be correc
   await page.getByRole("button", { name: "Finish check", exact: true }).click();
 
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
-  await page.getByRole("button", { name: "Build my campaign" }).click();
+  await page.getByText("Optional: tell us your preferences or what you know").click();
+  await page.getByRole("button", { name: "Use these answers" }).click();
   const recommendation = page.getByTestId("campaign-recommendation");
   await expect(recommendation).toBeVisible();
   await expect(recommendation).not.toContainText(/^Last Digit$/);
@@ -44,7 +81,8 @@ test("placement can skip ahead, run an optional recognition check, and be correc
 
 test("lesson completion persists atomically and offers another activity immediately", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
-  await page.getByRole("button", { name: "Skip placement for now" }).click();
+  await openOptionalPlacement(page);
+  await page.getByRole("button", { name: "Ignore these answers" }).click();
   const firstRecommendation = page.getByTestId("campaign-recommendation");
   const firstActivityId = await firstRecommendation.getAttribute("data-activity-id");
   await firstRecommendation.getByRole("button", { name: "Start activity" }).click();
@@ -71,7 +109,7 @@ test("lesson completion persists atomically and offers another activity immediat
 test("an incomplete focused activity resumes after reload without duplicate assignment or evidence", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
   await setPlacementExcept(page, "last-digit", "learning");
-  await page.getByRole("button", { name: "Build my campaign" }).click();
+  await page.getByRole("button", { name: "Use these answers" }).click();
   await expect(page.getByTestId("campaign-recommendation")).toContainText("Last Digit");
   await expect(page.getByTestId("campaign-recommendation")).toContainText("Find the pattern");
   const activityId = await page.getByTestId("campaign-recommendation").getAttribute("data-activity-id");
@@ -94,7 +132,7 @@ test("an incomplete focused activity resumes after reload without duplicate assi
 test("exact-move assistance is recorded and cannot grant mastery", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
   await setPlacementExcept(page, "last-digit", "learning");
-  await page.getByRole("button", { name: "Build my campaign" }).click();
+  await page.getByRole("button", { name: "Use these answers" }).click();
   await page.getByRole("button", { name: "Start activity" }).click();
 
   await page.getByTestId("hint-button").click();
@@ -120,14 +158,15 @@ test("campaign is usable at mobile width without horizontal overflow", async ({ 
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 
-  await page.getByRole("button", { name: "Skip placement for now" }).click();
-  await expect(page.getByTestId("campaign-recommendation")).toBeVisible();
+  await page.getByRole("button", { name: "Start with a puzzle" }).click();
+  await expect(page.getByTestId("practice-session")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 });
 
 test("campaign data can be exported, reset, and deleted without puzzle contents", async ({ page }) => {
   await page.goto(CAMPAIGN_URL);
-  await page.getByRole("button", { name: "Skip placement for now" }).click();
+  await openOptionalPlacement(page);
+  await page.getByRole("button", { name: "Ignore these answers" }).click();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export data" }).click();
@@ -142,7 +181,8 @@ test("campaign data can be exported, reset, and deleted without puzzle contents"
   await page.getByRole("button", { name: "Reset skill graph and history" }).click();
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
 
-  await page.getByRole("button", { name: "Skip placement for now" }).click();
+  await openOptionalPlacement(page);
+  await page.getByRole("button", { name: "Ignore these answers" }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete campaign data" }).click();
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
@@ -161,7 +201,8 @@ test("campaign placement and continuation work offline after first load", async 
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
-  await page.getByRole("button", { name: "Skip placement for now" }).click();
+  await openOptionalPlacement(page);
+  await page.getByRole("button", { name: "Ignore these answers" }).click();
   await expect(page.getByTestId("campaign-recommendation")).toBeVisible();
   await page.getByRole("button", { name: "Start activity" }).click();
   await expect(page.getByTestId("lesson-browser")).toBeVisible();
@@ -172,6 +213,7 @@ test("campaign placement and continuation work offline after first load", async 
 
 async function setPlacementExcept(page, exceptionId, exceptionStatus) {
   await expect(page.getByTestId("campaign-placement")).toBeVisible();
+  await openOptionalPlacement(page);
   await page.evaluate(({ exceptionId: id, exceptionStatus: status }) => {
     document.querySelectorAll("[data-campaign-placement-technique]").forEach((row) => {
       const value = row.dataset.campaignPlacementTechnique === id ? status : "known";
@@ -179,6 +221,13 @@ async function setPlacementExcept(page, exceptionId, exceptionStatus) {
       input.checked = true;
     });
   }, { exceptionId, exceptionStatus });
+}
+
+async function openOptionalPlacement(page) {
+  const details = page.locator(".campaign-optional-placement");
+  if (!await details.getAttribute("open")) {
+    await page.getByText("Optional: tell us your preferences or what you know").click();
+  }
 }
 
 async function readCampaignDatabase(page) {

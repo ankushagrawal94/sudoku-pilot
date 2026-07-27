@@ -2025,6 +2025,42 @@ button:hover,
   color: #5d6c7a;
 }
 
+.campaign-observed-start {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid #b8cfe8;
+  border-radius: 12px;
+  background: #f3f8fe;
+}
+
+.campaign-observed-start h3,
+.campaign-observed-start p {
+  margin: 0;
+}
+
+.campaign-observed-start p {
+  margin-top: 6px;
+}
+
+.campaign-optional-placement {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #d9e1ea;
+  border-radius: 12px;
+}
+
+.campaign-optional-placement > summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.campaign-optional-placement[open] > summary {
+  margin-bottom: 10px;
+}
+
 .campaign-preferences {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2186,6 +2222,19 @@ button:hover,
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin-top: 14px;
+}
+
+.campaign-path-editor {
+  margin-top: 10px;
+}
+
+.campaign-path-editor > summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.campaign-path-editor .campaign-correction {
+  margin-top: 10px;
 }
 
 .campaign-summary-grid div {
@@ -2540,13 +2589,15 @@ button:hover,
   }
 
   .campaign-primary-actions,
-  .campaign-activity-banner {
+  .campaign-activity-banner,
+  .campaign-observed-start {
     align-items: stretch;
     flex-direction: column;
   }
 
   .campaign-primary-actions button,
   .campaign-activity-banner button,
+  .campaign-observed-start button,
   .campaign-data-controls .tool-row button {
     width: 100%;
   }

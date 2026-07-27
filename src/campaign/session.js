@@ -5,13 +5,18 @@ import {
   deepestAssistanceLevel
 } from "./evidence.js";
 import { DEFAULT_MASTERY_POLICY, reduceAllSkills } from "./mastery.js";
-import { EMPTY_RESEARCH_PRIOR, selectNextActivity } from "./selector.js";
+import {
+  DEFAULT_SELECTOR_POLICY,
+  EMPTY_RESEARCH_PRIOR,
+  selectNextActivity
+} from "./selector.js";
 import {
   CAMPAIGN_TECHNIQUE_GRAPH,
   techniqueNameForId
 } from "./techniqueGraph.js";
 
-export const CAMPAIGN_PROFILE_SCHEMA_VERSION = 1;
+export const CAMPAIGN_PROFILE_SCHEMA_VERSION = 2;
+export const CAMPAIGN_INFERENCE_POLICY_VERSION = 1;
 
 export function createCampaignSession({
   storage,
@@ -31,6 +36,7 @@ export function createCampaignSession({
       storage.getCampaignState(profileId)
     ]);
     const techniqueIds = graph.nodes.filter((node) => node.kind === "technique").map((node) => node.id);
+    const effectiveProfile = applyProfileEvidence(profile, evidenceEvents);
     const skills = reduceAllSkills(techniqueIds, evidenceEvents, {
       now: currentDate(),
       policy: DEFAULT_MASTERY_POLICY,
@@ -44,20 +50,20 @@ export function createCampaignSession({
       ? activities.find((activity) => activity.activityId === campaignState.lastCompletedActivityId) || null
       : null;
     return {
-      profile,
+      profile: effectiveProfile,
       evidence: evidenceEvents,
       activities,
       campaignState,
       skills,
       currentActivity,
       lastCompletedActivity,
-      placementRequired: !profile?.placementCompletedAt,
+      placementRequired: !effectiveProfile?.placementCompletedAt,
       summary: summarizeSkills(skills)
     };
   }
 
   async function savePlacement({
-    goal = "learn-techniques",
+    goal = null,
     preferredMinutes = 10,
     reports = {},
     skipped = false,
@@ -68,7 +74,10 @@ export function createCampaignSession({
       ...(await storage.getProfile(profileId) || {}),
       id: profileId,
       goal,
+      goalSource: goal ? "learner" : "observing",
       preferredMinutes,
+      preferredMinutesSource: "learner",
+      placementMethod: skipped ? "skipped" : "self-report",
       placementCompletedAt: timestamp,
       placementSkippedAt: skipped ? timestamp : null,
       placementDraftReports: {},
@@ -92,7 +101,7 @@ export function createCampaignSession({
 
   async function beginPlacementCheck({
     techniqueId,
-    goal = "learn-techniques",
+    goal = null,
     preferredMinutes = 10,
     reports = {},
     profileId = "local"
@@ -103,7 +112,10 @@ export function createCampaignSession({
       ...(await storage.getProfile(profileId) || {}),
       id: profileId,
       goal,
+      goalSource: goal ? "learner" : "observing",
       preferredMinutes,
+      preferredMinutesSource: "learner",
+      placementMethod: "self-report",
       placementCompletedAt: null,
       placementDraftReports: normalizeReports(reports),
       updatedAt: timestamp
@@ -163,6 +175,64 @@ export function createCampaignSession({
     return loadModel(profileId);
   }
 
+  async function beginObservedPlacement({
+    goal = null,
+    preferredMinutes = null,
+    profileId = "local"
+  } = {}) {
+    const timestamp = currentIso();
+    const profile = normalizeProfile({
+      ...(await storage.getProfile(profileId) || {}),
+      id: profileId,
+      goal,
+      goalSource: goal ? "learner" : "observing",
+      preferredMinutes,
+      preferredMinutesSource: preferredMinutes ? "learner" : "default",
+      placementCompletedAt: null,
+      placementMethod: "observed",
+      updatedAt: timestamp
+    }, timestamp);
+    await storage.putProfile(profile);
+    const campaignState = await ensureCampaignState(profileId);
+    if (campaignState.currentActivityId) return loadModel(profileId);
+    const techniqueId = firstObservedTechniqueId();
+    const source = queryCampaignActivities(activityIndex, {
+      focusTechniqueId: techniqueId,
+      masteredTechniqueIds: [],
+      activityTypes: ["find-pattern"]
+    })[0];
+    if (!source) throw new Error(`No certified starting-point puzzle is available for ${techniqueNameForId(techniqueId, graph)}.`);
+    const activity = createPlacementActivity({
+      profileId,
+      campaignState,
+      techniqueId,
+      source,
+      activityType: "find-pattern",
+      timestamp,
+      observationPlacement: true,
+      profile
+    });
+    await storage.putActivity(activity);
+    await storage.putCampaignState({
+      ...campaignState,
+      currentActivityId: activity.activityId,
+      updatedAt: timestamp
+    });
+    await storage.appendEvidence(makeEvidence({
+      profileId,
+      activityId: activity.activityId,
+      techniqueId,
+      eventType: "placement_check_started",
+      occurredAt: timestamp,
+      payload: {
+        source: "observed",
+        activityType: activity.activityType,
+        inferencePolicyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION
+      }
+    }));
+    return loadModel(profileId);
+  }
+
   async function ensureRecommendation(profileId = "local") {
     let model = await loadModel(profileId);
     if (!model.profile?.placementCompletedAt || model.currentActivity) return model;
@@ -215,6 +285,20 @@ export function createCampaignSession({
       occurredAt: timestamp,
       payload: { activityType: activity.activityType }
     }));
+    if (activity.observationPlacement) {
+      await storage.appendEvidence(makeEvidence({
+        profileId,
+        activityId: activity.activityId,
+        techniqueId: activity.focusTechniqueId,
+        eventType: "placement_check_started",
+        occurredAt: timestamp,
+        payload: {
+          source: "observed",
+          activityType: activity.activityType,
+          inferencePolicyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION
+        }
+      }));
+    }
     return loadModel(profileId);
   }
 
@@ -256,6 +340,12 @@ export function createCampaignSession({
     const activityEvidence = model.evidence.filter((item) => item.activityId === activity.activityId);
     const assistanceLevel = deepestAssistanceLevel(activityEvidence.map((item) => item.assistanceLevel));
     const finalEvents = [];
+    const placementSuccess = (
+      activity.placementCheck &&
+      recognized &&
+      !guessed &&
+      assistanceRank(assistanceLevel) < assistanceRank("structural-location")
+    );
     if (recognized) {
       finalEvents.push(makeEvidence({
         profileId,
@@ -301,7 +391,10 @@ export function createCampaignSession({
         eventType: "placement_check_completed",
         assistanceLevel,
         occurredAt: timestamp,
-        payload: { result: recognized && !guessed ? "success" : "needs-practice" }
+        payload: {
+          result: placementSuccess ? "success" : "needs-practice",
+          source: activity.observationPlacement ? "observed" : "learner-selected"
+        }
       }));
     }
     finalEvents.push(makeEvidence({
@@ -320,6 +413,36 @@ export function createCampaignSession({
       completedAt: timestamp
     });
     const completedModel = await loadModel(profileId);
+    if (activity.observationPlacement) {
+      const nextTechniqueId = placementSuccess
+        ? nextObservedTechniqueId(completedModel.activities)
+        : null;
+      await saveObservedProfileInference({
+        model: completedModel,
+        placementCompleted: !nextTechniqueId,
+        timestamp
+      });
+      const continuedModel = nextTechniqueId
+        ? await offerObservedPlacement({
+            profileId,
+            campaignState: completedModel.campaignState,
+            techniqueId: nextTechniqueId,
+            timestamp
+          })
+        : await ensureRecommendation(profileId);
+      return {
+        ...continuedModel,
+        reflection: {
+          completedActivity: activity,
+          assistanceLevel,
+          recognized,
+          guessed,
+          observedPlacement: true,
+          previousSkill: model.skills.find((skill) => skill.techniqueId === activity.focusTechniqueId),
+          nextSkill: continuedModel.skills.find((skill) => skill.techniqueId === activity.focusTechniqueId)
+        }
+      };
+    }
     if (activity.placementCheck) return completedModel;
     const continuedModel = await ensureRecommendation(profileId);
     return {
@@ -347,15 +470,31 @@ export function createCampaignSession({
     return loadModel(profileId);
   }
 
+  async function correctGoal(goal, profileId = "local") {
+    if (!["learn-techniques", "solve-more-puzzles", "build-confidence"].includes(goal)) {
+      throw new Error("Choose a supported campaign goal.");
+    }
+    const timestamp = currentIso();
+    await storage.appendEvidence(makeEvidence({
+      profileId,
+      eventType: "profile_corrected",
+      occurredAt: timestamp,
+      payload: { goal, source: "campaign-home" }
+    }));
+    return loadModel(profileId);
+  }
+
   return Object.freeze({
     loadModel,
     savePlacement,
     beginPlacementCheck,
+    beginObservedPlacement,
     ensureRecommendation,
     startCurrentActivity,
     recordAssistance,
     completeCurrentActivity,
     correctSkill,
+    correctGoal,
     exportData: () => storage.exportData(),
     resetProgress: async (profileId = "local") => {
       await storage.resetProgress(profileId);
@@ -384,9 +523,10 @@ export function createCampaignSession({
     return {
       graphVersion: graph.version,
       masteryPolicyVersion: DEFAULT_MASTERY_POLICY.version,
-      selectorPolicyVersion: 1,
+      selectorPolicyVersion: DEFAULT_SELECTOR_POLICY.version,
       activityIndexVersion: activityIndex.version,
-      researchPriorVersion: researchPrior.version
+      researchPriorVersion: researchPrior.version,
+      inferencePolicyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION
     };
   }
 
@@ -398,6 +538,149 @@ export function createCampaignSession({
     return created;
   }
 
+  function firstObservedTechniqueId() {
+    return observedTechniqueIds()[0];
+  }
+
+  function nextObservedTechniqueId(activities) {
+    const completed = new Set(activities
+      .filter((activity) => activity.observationPlacement && activity.completedAt)
+      .map((activity) => activity.focusTechniqueId));
+    return observedTechniqueIds().find((techniqueId) => !completed.has(techniqueId)) || null;
+  }
+
+  function observedTechniqueIds() {
+    return graph.nodes
+      .filter((node) => node.kind === "technique" && node.tier === 1)
+      .sort((left, right) => left.order - right.order)
+      .slice(0, 3)
+      .map((node) => node.id);
+  }
+
+  function createPlacementActivity({
+    profileId,
+    campaignState,
+    techniqueId,
+    source,
+    activityType,
+    timestamp,
+    observationPlacement = false,
+    started = true,
+    profile = null
+  }) {
+    return {
+      activityId: `${observationPlacement ? "observed" : "placement"}-${profileId}-${campaignState.campaignSequence}-${techniqueId}`,
+      profileId,
+      activityType,
+      focusTechniqueId: techniqueId,
+      sourceKind: "practice",
+      sourceId: source.sourceId,
+      canonicalPuzzleId: null,
+      estimatedMinutes: source.estimatedMinutes,
+      fixtureIndex: campaignState.campaignSequence % 10,
+      createdAt: timestamp,
+      startedAt: started ? timestamp : null,
+      targetReachedAt: null,
+      completedAt: null,
+      replacedAt: null,
+      abandonedAt: null,
+      replacementActivityId: null,
+      placementCheck: true,
+      observationPlacement,
+      recommendationSnapshot: {
+        reasonCodes: [observationPlacement ? "OBSERVED_PLACEMENT" : "PLACEMENT_RECOGNITION_CHECK"],
+        inputVersions: inputVersions(),
+        profileSnapshot: profile ? {
+          goal: profile.goal,
+          goalSource: profile.goalSource,
+          preferredMinutes: profile.preferredMinutes,
+          preferredMinutesSource: profile.preferredMinutesSource,
+          inferencePolicyVersion: profile.inferencePolicyVersion
+        } : null
+      },
+      certificationSnapshot: {
+        activityIndexVersion: activityIndex.version,
+        certificationVersion: source.certificationVersion,
+        noveltyBudget: 1,
+        allowedTechniqueIds: [...source.allowedTechniqueIds]
+      },
+      lifecycleVersion: 1
+    };
+  }
+
+  async function offerObservedPlacement({
+    profileId,
+    campaignState,
+    techniqueId,
+    timestamp
+  }) {
+    const model = await loadModel(profileId);
+    const masteredTechniqueIds = model.skills
+      .filter((skill) => ["mastered", "review-due"].includes(skill.state))
+      .map((skill) => skill.techniqueId);
+    const source = queryCampaignActivities(activityIndex, {
+      focusTechniqueId: techniqueId,
+      masteredTechniqueIds,
+      activityTypes: ["find-pattern"]
+    })[0];
+    if (!source) throw new Error(`No certified starting-point puzzle is available for ${techniqueNameForId(techniqueId, graph)}.`);
+    const activity = createPlacementActivity({
+      profileId,
+      campaignState,
+      techniqueId,
+      source,
+      activityType: "find-pattern",
+      timestamp,
+      observationPlacement: true,
+      started: false,
+      profile: model.profile
+    });
+    await storage.putActivity(activity);
+    await storage.putCampaignState({
+      ...campaignState,
+      currentActivityId: activity.activityId,
+      updatedAt: timestamp
+    });
+    await storage.appendEvidence(makeEvidence({
+      profileId,
+      activityId: activity.activityId,
+      techniqueId,
+      eventType: "activity_offered",
+      occurredAt: timestamp,
+      payload: {
+        activityType: activity.activityType,
+        reasonCodes: ["OBSERVED_PLACEMENT"]
+      }
+    }));
+    return loadModel(profileId);
+  }
+
+  async function saveObservedProfileInference({
+    model,
+    placementCompleted,
+    timestamp
+  }) {
+    const profile = await storage.getProfile(model.profile.id);
+    const observedActivityIds = new Set(model.activities
+      .filter((activity) => activity.observationPlacement)
+      .map((activity) => activity.activityId));
+    const observedEvidence = model.evidence.filter((event) => observedActivityIds.has(event.activityId));
+    const inferredGoal = inferGoal(observedEvidence);
+    await storage.putProfile(normalizeProfile({
+      ...profile,
+      goal: profile.goalSource === "learner" ? profile.goal : inferredGoal,
+      goalSource: profile.goalSource === "learner" ? "learner" : "observed",
+      placementCompletedAt: placementCompleted ? timestamp : null,
+      placementMethod: "observed",
+      goalInference: profile.goalSource === "learner" ? null : {
+        policyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION,
+        evidenceEventIds: observedEvidence.map((event) => event.eventId),
+        confidence: "low"
+      },
+      updatedAt: timestamp
+    }, timestamp));
+  }
+
   function assertTechnique(techniqueId) {
     if (!graph.nodes.some((node) => node.kind === "technique" && node.id === techniqueId)) {
       throw new Error(`Unknown campaign technique: ${techniqueId}`);
@@ -406,25 +689,56 @@ export function createCampaignSession({
 }
 
 function normalizeProfile(profile, timestamp) {
+  const normalizedGoal = ["learn-techniques", "solve-more-puzzles", "build-confidence"].includes(profile.goal)
+    ? profile.goal
+    : null;
   return {
     id: profile.id || "local",
     schemaVersion: CAMPAIGN_PROFILE_SCHEMA_VERSION,
     createdAt: profile.createdAt || timestamp,
     updatedAt: timestamp,
-    goal: ["learn-techniques", "solve-more-puzzles", "build-confidence"].includes(profile.goal)
-      ? profile.goal
-      : "learn-techniques",
+    goal: normalizedGoal,
+    goalSource: ["learner", "observed", "observing"].includes(profile.goalSource)
+      ? profile.goalSource
+      : normalizedGoal ? "learner" : "observing",
+    goalInference: profile.goalInference || null,
     preferredMinutes: [5, 10, 15, 25].includes(Number(profile.preferredMinutes))
       ? Number(profile.preferredMinutes)
       : 10,
+    preferredMinutesSource: ["learner", "default"].includes(profile.preferredMinutesSource)
+      ? profile.preferredMinutesSource
+      : "default",
     preferredDifficulty: profile.preferredDifficulty || null,
     automationTechniqueIds: Array.isArray(profile.automationTechniqueIds) ? profile.automationTechniqueIds : [],
     avoidedTechniqueIds: Array.isArray(profile.avoidedTechniqueIds) ? profile.avoidedTechniqueIds : [],
     placementCompletedAt: profile.placementCompletedAt || null,
     placementSkippedAt: profile.placementSkippedAt || null,
+    placementMethod: ["observed", "self-report", "skipped"].includes(profile.placementMethod)
+      ? profile.placementMethod
+      : null,
     placementDraftReports: normalizeReports(profile.placementDraftReports || {}),
     masteryPolicyVersion: DEFAULT_MASTERY_POLICY.version,
-    selectorPolicyVersion: 1
+    selectorPolicyVersion: DEFAULT_SELECTOR_POLICY.version,
+    inferencePolicyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION
+  };
+}
+
+function applyProfileEvidence(profile, evidenceEvents) {
+  if (!profile) return null;
+  const correction = [...evidenceEvents]
+    .filter((event) => (
+      event.eventType === "profile_corrected" &&
+      event.techniqueId === null &&
+      ["learn-techniques", "solve-more-puzzles", "build-confidence"].includes(event.payload?.goal)
+    ))
+    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt) || left.eventId.localeCompare(right.eventId))
+    .at(-1);
+  if (!correction) return profile;
+  return {
+    ...profile,
+    goal: correction.payload.goal,
+    goalSource: "learner",
+    goalInference: null
   };
 }
 
@@ -455,4 +769,21 @@ function summarizeSkills(skills) {
   const summary = { unseen: 0, learning: 0, practicing: 0, mastered: 0, "review-due": 0 };
   for (const skill of skills) summary[skill.state] = (summary[skill.state] || 0) + 1;
   return summary;
+}
+
+function assistanceRank(level) {
+  return ["none", "tool", "search-focus", "structural-location", "exact-move"].indexOf(level);
+}
+
+function inferGoal(evidenceEvents) {
+  const observedResults = evidenceEvents
+    .filter((event) => event.eventType === "placement_check_completed")
+    .map((event) => event.payload?.result);
+  if (observedResults.includes("needs-practice")) return "build-confidence";
+  const recognitions = evidenceEvents.filter((event) => event.eventType === "target_recognized");
+  if (recognitions.length && recognitions.every((event) => assistanceRank(event.assistanceLevel) <= assistanceRank("tool"))) {
+    return "solve-more-puzzles";
+  }
+  if (recognitions.length) return "learn-techniques";
+  return "learn-techniques";
 }

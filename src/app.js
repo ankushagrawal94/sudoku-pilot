@@ -473,14 +473,17 @@ function renderCampaignView() {
   if (campaignRuntime.error && !campaignRuntime.model) {
     return `<div class="campaign-shell" data-testid="campaign-view"><section class="panel campaign-error" role="alert"><h2 tabindex="-1" data-route-heading>Adaptive campaign</h2><p>${escapeHtml(campaignRuntime.error)}</p><p>Your regular puzzles, lessons, and practice are still available.</p></section></div>`;
   }
-  if (campaignRuntime.model?.placementRequired) return renderCampaignPlacement();
+  if (
+    campaignRuntime.model?.placementRequired &&
+    !campaignRuntime.model?.currentActivity?.observationPlacement
+  ) return renderCampaignPlacement();
   if (campaignRuntime.mode === "graph") return renderCampaignSkillGraph();
   return renderCampaignHome();
 }
 
 function renderCampaignPlacement() {
   const draft = campaignRuntime.model?.profile?.placementDraftReports || {};
-  const goal = campaignRuntime.model?.profile?.goal || "learn-techniques";
+  const goal = campaignRuntime.model?.profile?.goal || "";
   const preferredMinutes = campaignRuntime.model?.profile?.preferredMinutes || 10;
   const techniques = campaignTechniqueNodes();
   return `
@@ -488,45 +491,57 @@ function renderCampaignPlacement() {
       <section class="panel campaign-hero">
         <p class="eyebrow">Private preview · local only</p>
         <h2 tabindex="-1" data-route-heading>Find your starting point</h2>
-        <p>Tell Sudoku Pilot what you already know. Self-reports are provisional: “Know it” skips the lesson now and schedules a short retrieval check later.</p>
-        <p class="campaign-privacy-note">This campaign stays in this browser. It does not infer detailed mastery from solve counts or legacy history.</p>
+        <p>Start with a short certified puzzle. Sudoku Pilot will adapt from the technique you apply and the deepest help you actually use.</p>
+        <p class="campaign-privacy-note">No questionnaire is required. This campaign stays in this browser and does not infer detailed mastery from solve counts or legacy history.</p>
       </section>
       <form class="panel campaign-placement" data-testid="campaign-placement">
-        <div class="campaign-preferences">
-          <label>Your goal
-            <select data-campaign-goal>
-              <option value="learn-techniques" ${goal === "learn-techniques" ? "selected" : ""}>Learn techniques efficiently</option>
-              <option value="solve-more-puzzles" ${goal === "solve-more-puzzles" ? "selected" : ""}>Solve more puzzles</option>
-              <option value="build-confidence" ${goal === "build-confidence" ? "selected" : ""}>Build confidence</option>
-            </select>
-          </label>
-          <label>Preferred session
-            <select data-campaign-minutes>
-              ${[5, 10, 15, 25].map((minutes) => `<option value="${minutes}" ${preferredMinutes === minutes ? "selected" : ""}>About ${minutes} minutes</option>`).join("")}
-            </select>
-          </label>
+        <div class="campaign-observed-start">
+          <div>
+            <h3>Let your solving do the talking</h3>
+            <p>We will begin with one focused puzzle, keep the result provisional, and adjust immediately.</p>
+          </div>
+          <button type="button" class="primary" data-action="campaign-start-observed-placement">Start with a puzzle</button>
         </div>
-        <div class="panel-title campaign-placement-heading">
-          <div><h3>Technique familiarity</h3><p class="caption">You can change every answer later.</p></div>
-          <button type="button" data-action="campaign-mark-tier1-known">Mark Tier 1 “Know it”</button>
-        </div>
-        <div class="campaign-technique-list">
-          ${techniques.map((node) => renderPlacementTechnique(node, draft[node.id] || "unknown")).join("")}
-        </div>
-        <section class="campaign-recognition-check">
-          <div><h3>Optional recognition check</h3><p>Try one certified near-miss example before finishing placement.</p></div>
-          <label>Technique
-            <select data-campaign-check-technique>
-              ${techniques.map((node) => `<option value="${node.id}">${node.catalogName}</option>`).join("")}
-            </select>
-          </label>
-          <button type="button" data-action="campaign-placement-check">Try recognition check</button>
-        </section>
+        <details class="campaign-optional-placement">
+          <summary>Optional: tell us your preferences or what you know</summary>
+          <p class="caption">These answers can speed up placement, but they are never permanent proof and can be corrected later.</p>
+          <div class="campaign-preferences">
+            <label>Your goal
+              <select data-campaign-goal>
+                <option value="" ${goal === "" ? "selected" : ""}>Let Sudoku Pilot adapt</option>
+                <option value="learn-techniques" ${goal === "learn-techniques" ? "selected" : ""}>Learn techniques efficiently</option>
+                <option value="solve-more-puzzles" ${goal === "solve-more-puzzles" ? "selected" : ""}>Solve more puzzles</option>
+                <option value="build-confidence" ${goal === "build-confidence" ? "selected" : ""}>Build confidence</option>
+              </select>
+            </label>
+            <label>Preferred session
+              <select data-campaign-minutes>
+                ${[5, 10, 15, 25].map((minutes) => `<option value="${minutes}" ${preferredMinutes === minutes ? "selected" : ""}>About ${minutes} minutes</option>`).join("")}
+              </select>
+            </label>
+          </div>
+          <div class="panel-title campaign-placement-heading">
+            <div><h3>Technique familiarity</h3><p class="caption">Leave anything you are unsure about unchanged.</p></div>
+            <button type="button" data-action="campaign-mark-tier1-known">Mark Tier 1 “Know it”</button>
+          </div>
+          <div class="campaign-technique-list">
+            ${techniques.map((node) => renderPlacementTechnique(node, draft[node.id] || "unknown")).join("")}
+          </div>
+          <section class="campaign-recognition-check">
+            <div><h3>Optional recognition check</h3><p>Try a specific certified near-miss example before using your answers.</p></div>
+            <label>Technique
+              <select data-campaign-check-technique>
+                ${techniques.map((node) => `<option value="${node.id}">${node.catalogName}</option>`).join("")}
+              </select>
+            </label>
+            <button type="button" data-action="campaign-placement-check">Try recognition check</button>
+          </section>
+          <div class="campaign-primary-actions">
+            <button type="button" data-action="campaign-skip-placement">Ignore these answers</button>
+            <button type="button" data-action="campaign-complete-placement">Use these answers</button>
+          </div>
+        </details>
         ${campaignRuntime.error ? `<p class="campaign-inline-error" role="alert">${escapeHtml(campaignRuntime.error)}</p>` : ""}
-        <div class="campaign-primary-actions">
-          <button type="button" data-action="campaign-skip-placement">Skip placement for now</button>
-          <button type="button" class="primary" data-action="campaign-complete-placement">Build my campaign</button>
-        </div>
       </form>
     </div>
   `;
@@ -572,6 +587,20 @@ function renderCampaignHome() {
           <div><p class="eyebrow">Personal skill graph</p><h3>${model.summary.mastered} mastered · ${model.summary.practicing} practicing · ${model.summary.learning} learning</h3></div>
           <button data-action="campaign-open-graph">Inspect and correct</button>
         </div>
+        <p data-testid="campaign-inferred-path"><strong>Current path:</strong> ${campaignGoalLabel(model.profile?.goal)}${model.profile?.goalSource === "observed" ? " · inferred provisionally from your starting puzzle" : ""}</p>
+        <details class="campaign-path-editor">
+          <summary>Adjust this path</summary>
+          <div class="campaign-correction">
+            <label>Goal
+              <select data-campaign-goal-correction>
+                <option value="learn-techniques" ${model.profile?.goal === "learn-techniques" ? "selected" : ""}>Learn techniques efficiently</option>
+                <option value="solve-more-puzzles" ${model.profile?.goal === "solve-more-puzzles" ? "selected" : ""}>Solve more puzzles</option>
+                <option value="build-confidence" ${model.profile?.goal === "build-confidence" ? "selected" : ""}>Build confidence</option>
+              </select>
+            </label>
+            <button data-action="campaign-correct-goal">Save path</button>
+          </div>
+        </details>
         <div class="campaign-summary-grid">
           ${[
             ["Mastered", model.summary.mastered],
@@ -620,11 +649,14 @@ function renderCampaignReflection() {
   const evidence = reflection.recognized
     ? `Target recognized with ${campaignAssistanceLabel(reflection.assistanceLevel)} assistance.`
     : "Completion was recorded as exposure, not proof of mastery.";
+  const observation = reflection.observedPlacement
+    ? "Sudoku Pilot used this provisional evidence to choose your starting path."
+    : "";
   return `
     <section class="panel campaign-reflection" data-testid="campaign-reflection" role="status">
       <p class="eyebrow">Activity complete</p>
       <h3>${name} evidence saved</h3>
-      <p>${evidence} ${reflection.guessed ? "Your guess correction was saved and does not count as success." : ""}</p>
+      <p>${evidence} ${observation} ${reflection.guessed ? "Your guess correction was saved and does not count as success." : ""}</p>
       <p><strong>Next activity is ready now.</strong> Same-day continuation does not change delayed mastery requirements.</p>
     </section>
   `;
@@ -704,6 +736,7 @@ function renderCampaignActivityBanner(kind) {
     state.practiceSession?.mode !== activity.activityType
   )) return "";
   const placement = activity.placementCheck;
+  const observedPlacement = activity.observationPlacement;
   let ready = kind === "lesson";
   let recognized = false;
   let incorrect = false;
@@ -717,10 +750,10 @@ function renderCampaignActivityBanner(kind) {
   }
   return `
     <section class="campaign-activity-banner" data-testid="campaign-activity-banner">
-      <div><p class="eyebrow">${placement ? "Placement recognition check" : "Campaign activity"}</p><strong>${name}</strong><p>${ready ? (recognized ? "Target recognized. Save the evidence when you are ready." : "This activity is ready to complete.") : "Your progress is saved locally. You can return to the campaign and resume."}</p></div>
+      <div><p class="eyebrow">${observedPlacement ? "Starting-point puzzle" : placement ? "Placement recognition check" : "Campaign activity"}</p><strong>${name}</strong><p>${ready ? (recognized ? "Target recognized. Save the evidence when you are ready." : "This activity is ready to complete.") : "Your progress is saved locally. You can return to the campaign and resume."}</p></div>
       <div class="tool-row">
-        <button data-action="campaign-return-home">${placement ? "Back to placement" : "Back to campaign"}</button>
-        ${ready ? `<button class="primary" data-action="${placement ? "campaign-finish-placement-check" : "campaign-complete-activity"}" data-campaign-recognized="${recognized}" data-campaign-incorrect="${incorrect}">${placement ? "Finish check" : "Continue campaign"}</button>` : ""}
+        <button data-action="campaign-return-home">${placement && !observedPlacement ? "Back to placement" : "Back to campaign"}</button>
+        ${ready ? `<button class="primary" data-action="${placement ? "campaign-finish-placement-check" : "campaign-complete-activity"}" data-campaign-recognized="${recognized}" data-campaign-incorrect="${incorrect}">${observedPlacement ? "See my next activity" : placement ? "Finish check" : "Continue campaign"}</button>` : ""}
         ${ready && !placement && kind !== "lesson" ? `<button data-action="campaign-complete-guessed">I guessed</button>` : ""}
       </div>
     </section>
@@ -743,11 +776,16 @@ function campaignActivityLabel(type) {
 
 function campaignReasonText(reasonCodes, startedAt) {
   if (startedAt) return "Continue the activity you already started. The assignment and its evidence remain stable across reloads.";
+  if (reasonCodes.includes("OBSERVED_PLACEMENT")) {
+    return "This certified starting-point puzzle helps estimate another foundational technique without asking you to label what you know.";
+  }
   const parts = [];
   if (reasonCodes.includes("REVIEW_DUE")) parts.push("A short retrieval check is due.");
+  else if (reasonCodes.includes("RECENT_STRUGGLE")) parts.push("Your starting puzzle showed this technique needs a little more supported practice.");
   else if (reasonCodes.includes("MORE_EVIDENCE_NEEDED")) parts.push("Another distinct example will make your skill estimate more reliable.");
   else parts.push("This is the next technique whose prerequisites are ready.");
   if (reasonCodes.includes("TIME_FIT")) parts.push("It fits your preferred session length.");
+  if (reasonCodes.includes("OBSERVED_PROFILE_FIT")) parts.push("It reflects the assistance-aware evidence from your starting puzzle.");
   if (reasonCodes.includes("FALLBACK_NO_CERTIFIED_PUZZLE")) parts.push("No full puzzle met the one-new-technique budget, so this focused certified activity is safer.");
   return parts.join(" ");
 }
@@ -771,6 +809,14 @@ function campaignStateLabel(skill) {
     mastered: "Mastered",
     "review-due": "Review due"
   })[skill.state] || skill.state;
+}
+
+function campaignGoalLabel(goal) {
+  return ({
+    "learn-techniques": "Learn techniques efficiently",
+    "solve-more-puzzles": "Solve more puzzles",
+    "build-confidence": "Build confidence"
+  })[goal] || "Still observing";
 }
 
 async function handleCampaignAction(action) {
@@ -816,6 +862,17 @@ async function handleCampaignAction(action) {
     });
     return;
   }
+  if (action === "campaign-start-observed-placement") {
+    const placement = readPlacementForm();
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.beginObservedPlacement({
+        goal: placement.goal
+      });
+      campaignRuntime.reflection = null;
+      restoreCampaignActivity(campaignRuntime.model.currentActivity, { fresh: true });
+    });
+    return;
+  }
   if (action === "campaign-placement-check") {
     const placement = readPlacementForm();
     const techniqueId = app.querySelector("[data-campaign-check-technique]")?.value;
@@ -839,12 +896,19 @@ async function handleCampaignAction(action) {
   if (action === "campaign-finish-placement-check") {
     await runCampaignTask(async () => {
       await campaignRuntime.pendingEvidence;
-      const recognized = state.practiceAnswer === state.practiceSession?.nearMiss.valid;
-      campaignRuntime.model = await campaignRuntime.session.completeCurrentActivity({
+      const activity = campaignRuntime.model.currentActivity;
+      const recognized = activity.activityType === "find-pattern"
+        ? Boolean(state.practiceSession?.targetApplied)
+        : state.practiceAnswer === state.practiceSession?.nearMiss.valid;
+      const nextModel = await campaignRuntime.session.completeCurrentActivity({
         recognized,
         incorrect: !recognized
       });
+      campaignRuntime.model = nextModel;
+      campaignRuntime.reflection = nextModel.reflection || null;
       campaignRuntime.mode = "home";
+      state.practiceSession = null;
+      state.practiceAnswer = null;
       navigateTo("campaign", { analyticsEntryPoint: null });
     });
     return;
@@ -870,6 +934,13 @@ async function handleCampaignAction(action) {
       state.practiceAnswer = null;
       state.completionSummary = null;
       navigateTo("campaign", { analyticsEntryPoint: null });
+    });
+    return;
+  }
+  if (action === "campaign-correct-goal") {
+    const goal = app.querySelector("[data-campaign-goal-correction]")?.value;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.correctGoal(goal);
     });
     return;
   }
@@ -929,7 +1000,7 @@ function readPlacementForm() {
     reports[node.id] = app.querySelector(`[name="placement-${node.id}"]:checked`)?.value || "unknown";
   }
   return {
-    goal: app.querySelector("[data-campaign-goal]")?.value || "learn-techniques",
+    goal: app.querySelector("[data-campaign-goal]")?.value || null,
     preferredMinutes: Number(app.querySelector("[data-campaign-minutes]")?.value) || 10,
     reports
   };

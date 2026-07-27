@@ -254,21 +254,22 @@ Only prerequisite edges block eligibility. Other edge types affect ranking, expl
 
 The campaign should not make an experienced learner begin at the first lesson.
 
-Initial placement combines:
+Initial placement is observation-first and combines:
 
-1. the learner's self-reported familiarity;
-2. optional short recognition checks;
+1. short certified puzzle activities that reveal which techniques the learner can apply and the deepest assistance used;
+2. optional self-reported familiarity and goals;
 3. existing local lesson, practice, hint, and solve history; and
 4. conservative defaults when evidence is missing.
 
 The learner can:
 
+- begin immediately without specifying a goal, session preference, or technique knowledge;
 - accept a recommended starting point;
 - inspect the inferred skill graph;
 - mark techniques familiar or unfamiliar; and
-- skip placement and begin with a recommended foundational activity.
+- stop placement and continue with the current provisional recommendation.
 
-Placement should minimize false claims of mastery. A skipped technique remains provisionally mastered until later retrieval evidence confirms or revises it.
+The campaign should infer an initial path from observed target recognition, technique application, errors, and assistance. Any inferred goal or successful placement result remains provisional, visible, and correctable. Self-report can accelerate placement but is never required and never becomes permanent proof.
 
 ## Mastery evidence
 
@@ -575,7 +576,7 @@ Do not send grid values, pencil notes, screenshots, candidates, or exact move co
 
 ### Phase 1: Placement and continuous local campaign
 
-- Ship self-report plus optional recognition placement.
+- Ship observation-first placement using certified puzzle activities, with self-report and goal selection as optional corrections.
 - Show the skill graph and allow corrections.
 - Generate a current recommendation without a daily quota.
 - Offer the next recommendation immediately after completion.
@@ -608,6 +609,8 @@ Do not send grid values, pencil notes, screenshots, candidates, or exact move co
 
 - The feature is named and described as an adaptive campaign, not a daily quota.
 - Learners can continue immediately after completing a recommendation.
+- Learners can begin without declaring a goal or technique knowledge.
+- The first certified puzzle records technique application and deepest assistance before adapting the path.
 - Initial placement can skip familiar techniques.
 - At least two meaningfully different learner profiles produce different first-five activity sequences.
 - Every recommendation stores and displays a reason.
@@ -623,7 +626,7 @@ Do not send grid values, pencil notes, screenshots, candidates, or exact move co
 
 ## Open product decisions
 
-1. What is the smallest placement flow that reliably avoids reteaching familiar skills?
+1. How many observation-first placement puzzles reliably avoid reteaching familiar skills without creating onboarding fatigue?
 2. What should the default cold-start prerequisite graph be?
 3. Which activity types appear in the free adaptive preview?
 4. What time choices should the campaign support?

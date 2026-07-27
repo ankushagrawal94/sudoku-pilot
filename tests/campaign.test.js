@@ -4,6 +4,7 @@ import {
   ASSISTANCE_LEVELS,
   buildCampaignActivityIndex,
   CAMPAIGN_ACTIVITY_INDEX_VERSION,
+  CAMPAIGN_INFERENCE_POLICY_VERSION,
   CAMPAIGN_TECHNIQUE_GRAPH,
   createEvidenceEvent,
   createCampaignSession,
@@ -397,6 +398,101 @@ assert.ok(selectionMs < 500, `100 metadata-only selections should complete under
   const placementSkill = reduceSkillState("w-wing", placementEvents, { now: "2026-01-01T11:00:00Z" });
   assert.equal(placementSkill.state, "mastered");
   assert.equal(placementSkill.provisional, true, "one successful placement check remains provisional");
+}
+
+{
+  const assistedPlacement = reduceSkillState("w-wing", [
+    event({
+      eventId: "z-recognition-sorts-after-without-policy-order",
+      eventType: "target_recognized",
+      occurredAt: "2026-01-01T10:00:00Z",
+      assistanceLevel: "exact-move",
+      puzzleStateFingerprint: "assisted-placement-state",
+      payload: { recognitionKind: "placement" }
+    }),
+    event({
+      eventId: "a-placement-result",
+      eventType: "placement_check_completed",
+      occurredAt: "2026-01-01T10:00:00Z",
+      assistanceLevel: "exact-move",
+      payload: { result: "needs-practice" }
+    })
+  ], { now: "2026-01-01T11:00:00Z" });
+  assert.equal(assistedPlacement.state, "learning");
+  assert.equal(assistedPlacement.placementNeedsPractice, true, "placement result must win same-timestamp UUID ordering");
+}
+
+{
+  let eventSequence = 0;
+  const storage = createMemoryCampaignStorage();
+  const session = createCampaignSession({
+    storage,
+    now: () => new Date("2026-07-26T11:00:00Z"),
+    eventId: () => `observed-${eventSequence++}`
+  });
+  const started = await session.beginObservedPlacement();
+  assert.equal(started.placementRequired, true, "observed placement stays provisional until the puzzle is completed");
+  assert.equal(started.profile.goal, null, "a learner does not need to declare a goal");
+  assert.equal(started.currentActivity.activityType, "find-pattern");
+  assert.equal(started.currentActivity.observationPlacement, true);
+  assert.deepEqual(started.currentActivity.certificationSnapshot.allowedTechniqueIds, ["last-digit"]);
+
+  let adapted = await session.completeCurrentActivity({ recognized: true });
+  let observedSkill = adapted.skills.find((skill) => skill.techniqueId === "last-digit");
+  assert.equal(adapted.placementRequired, true, "successful evidence should continue the capped foundation calibration");
+  assert.equal(adapted.profile.goal, "solve-more-puzzles");
+  assert.equal(adapted.profile.goalSource, "observed");
+  assert.equal(adapted.profile.goalInference.policyVersion, CAMPAIGN_INFERENCE_POLICY_VERSION);
+  assert.equal(observedSkill.state, "mastered");
+  assert.equal(observedSkill.provisional, true, "one observed application remains provisional");
+  assert.ok(adapted.currentActivity, "observed placement must immediately offer the next activity");
+  assert.notEqual(adapted.currentActivity.focusTechniqueId, "last-digit");
+  assert.equal(
+    adapted.currentActivity.recommendationSnapshot.profileSnapshot.goalSource,
+    "observed",
+    "the inferred profile basis must be reproducible"
+  );
+  for (let observation = 1; observation < 3; observation += 1) {
+    await session.startCurrentActivity();
+    adapted = await session.completeCurrentActivity({ recognized: true });
+  }
+  observedSkill = adapted.skills.find((skill) => skill.techniqueId === "last-digit");
+  assert.equal(adapted.placementRequired, false, "observed placement must stay capped");
+  assert.ok(adapted.currentActivity, "the regular campaign recommendation must be ready after calibration");
+  assert.equal(adapted.currentActivity.observationPlacement, undefined);
+
+  const corrected = await session.correctGoal("learn-techniques");
+  assert.equal(corrected.profile.goal, "learn-techniques");
+  assert.equal(corrected.profile.goalSource, "learner");
+  assert.equal(corrected.profile.goalInference, null);
+  assert.ok((await storage.listEvidence({ profileId: "local" })).some((item) => (
+    item.eventType === "profile_corrected" &&
+    item.techniqueId === null &&
+    item.payload.goal === "learn-techniques"
+  )), "goal correction must be append-only evidence");
+}
+
+{
+  let eventSequence = 0;
+  const storage = createMemoryCampaignStorage();
+  const session = createCampaignSession({
+    storage,
+    now: () => new Date("2026-07-26T11:30:00Z"),
+    eventId: () => `observed-assisted-${eventSequence++}`
+  });
+  await session.beginObservedPlacement();
+  await session.recordAssistance("exact-move");
+  const adapted = await session.completeCurrentActivity({ recognized: true });
+  const observedSkill = adapted.skills.find((skill) => skill.techniqueId === "last-digit");
+  assert.equal(adapted.profile.goal, "build-confidence");
+  assert.notEqual(observedSkill.state, "mastered", "exact-move placement cannot infer mastery");
+  assert.equal(observedSkill.placementNeedsPractice, true);
+  assert.equal(adapted.currentActivity.focusTechniqueId, "last-digit", "assisted placement should reinforce the observed gap");
+  assert.equal(adapted.currentActivity.activityType, "find-pattern");
+  assert.ok(adapted.evidence.some((item) => (
+    item.eventType === "placement_check_completed" &&
+    item.payload.result === "needs-practice"
+  )));
 }
 
 {
