@@ -9,7 +9,6 @@ import {
   readAccountConfig,
   sendPasswordReset,
   signInWithEmail,
-  signInWithGoogle,
   verifyEmailCode
 } from "./accountClient.js";
 
@@ -86,6 +85,10 @@ export function normalizeSnapshot(snapshot = {}) {
   };
 }
 
+export function accountUserChanged(currentSession, nextSession) {
+  return currentSession?.user?.id !== nextSession?.user?.id;
+}
+
 export function createAccountController({
   getLocalSnapshot,
   applySnapshot,
@@ -150,6 +153,12 @@ export function createAccountController({
       emit({ session: null, status: "signed_out", pendingConflict: null });
       return;
     }
+    const userChanged = accountUserChanged(model.session, session);
+    if (!userChanged) {
+      cacheUser(storage, session.user);
+      emit({ session });
+      return;
+    }
     const consent = consentFor(storage, session.user.id);
     emit({
       session,
@@ -158,7 +167,7 @@ export function createAccountController({
       notice: ""
     });
     cacheUser(storage, session.user);
-    if (consent) await syncNow();
+    if (consent && userChanged) await syncNow();
   }
 
   function openSurface(mode = "sign_in") {
@@ -182,6 +191,9 @@ export function createAccountController({
         ? await createEmailAccount(client, email, password)
         : await signInWithEmail(client, email, password);
       capture("account_sign_in_completed", { method: create ? "email_signup" : "email" });
+      if (!create && result?.session) {
+        await handleSession(result.session);
+      }
       if (create && !result?.session) {
         emit({ notice: "Enter the confirmation code from your email.", mode: "verify" });
       }
@@ -196,20 +208,6 @@ export function createAccountController({
       await verifyEmailCode(client, email, code);
       emit({ notice: "Email confirmed. You can now sign in.", mode: "sign_in", error: "" });
     } catch (error) {
-      emit({ error: genericAuthMessage(error) });
-    }
-  }
-
-  async function google() {
-    if (!navigator.onLine) {
-      emit({ error: "Connect to the internet to sign in." });
-      return;
-    }
-    capture("account_sign_in_started", { method: "google" });
-    try {
-      await signInWithGoogle(client);
-    } catch (error) {
-      capture("account_sign_in_failed", { method: "google", error_class: classifyAccountError(error) });
       emit({ error: genericAuthMessage(error) });
     }
   }
@@ -270,6 +268,8 @@ export function createAccountController({
 
   async function syncNow() {
     if (!client || !model.session?.user || !consentFor(storage, model.session.user.id)) return;
+    clearTimeout(syncTimer);
+    syncTimer = null;
     if (!navigator.onLine) {
       emit({ status: "offline" });
       return;
@@ -301,7 +301,7 @@ export function createAccountController({
       }
       await persistMerged(merged, stateResult.data?.revision ?? null);
       applySnapshot(merged);
-      lastLocalFingerprint = JSON.stringify(normalizeSnapshot(merged));
+      lastLocalFingerprint = JSON.stringify(normalizeSnapshot(getLocalSnapshot()));
       storage?.setItem(CACHE_KEY, JSON.stringify(merged));
       storage?.removeItem(DIRTY_KEY);
       emit({ status: "synced", pendingConflict: null, surfaceOpen: false });
@@ -446,7 +446,6 @@ export function createAccountController({
     closeSurface,
     setMode: (mode) => emit({ mode, error: "", notice: "" }),
     submitEmail,
-    google,
     reset,
     verify,
     finishPasswordReset,

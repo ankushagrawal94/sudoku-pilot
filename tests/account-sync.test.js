@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   ACCOUNT_SCHEMA_VERSION,
+  accountUserChanged,
   mergeAccountSnapshots,
   mergePlayedIds,
   mergeTechniqueRows,
@@ -62,6 +63,9 @@ assert.ok(conflict.conflict);
 assert.equal(conflict.merged, null);
 
 assert.throws(() => normalizeSnapshot({ schemaVersion: ACCOUNT_SCHEMA_VERSION + 1 }), /account_schema_future/);
+assert.equal(accountUserChanged(null, { user: { id: "user-a" } }), true);
+assert.equal(accountUserChanged({ user: { id: "user-a" } }, { user: { id: "user-a" } }), false);
+assert.equal(accountUserChanged({ user: { id: "user-a" } }, { user: { id: "user-b" } }), true);
 
 const disabled = readAccountConfig({
   VITE_ACCOUNT_SYNC_ENABLED: "false",

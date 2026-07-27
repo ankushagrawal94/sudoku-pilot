@@ -52,15 +52,6 @@ export async function createEmailAccount(client, email, password) {
   }));
 }
 
-export async function signInWithGoogle(client) {
-  return unwrap(await client.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: safeReturnUrl()
-    }
-  }));
-}
-
 export async function sendPasswordReset(client, email) {
   return unwrap(await client.auth.resetPasswordForEmail(email, {
     redirectTo: `${globalThis.location?.origin || ""}/?account=recovery`

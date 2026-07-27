@@ -73,7 +73,6 @@ export function bindAccountViewEvents({ root, controller, onChange }) {
         controller.setMode("delete");
         controller.openSurface("delete");
       }
-      if (action === "google") await controller.google();
       if (action === "sync") await controller.syncNow();
       if (action === "export") await controller.exportData();
       if (action === "sign-out") controller.requestSignOut();
@@ -137,10 +136,6 @@ function renderAuth(model) {
   return `
     <h2 id="account-dialog-title">${newPassword ? "Choose a new password" : verify ? "Confirm your email" : reset ? "Reset password" : create ? "Create an account" : "Sign in"}</h2>
     <p>${newPassword ? "Use at least eight characters." : verify ? "Enter the confirmation code sent to your email." : reset ? "We'll send a recovery message if an account matches this email." : "Sync your Sudoku progress across devices."}</p>
-    ${!reset && !verify && !newPassword ? `
-      <button class="wide google-button" data-account-action="google">Continue with Google</button>
-      <div class="account-separator"><span>or</span></div>
-    ` : ""}
     <form class="account-form" data-account-form="${newPassword ? "new_password" : verify ? "verify" : reset ? "reset" : create ? "create" : "sign_in"}">
       ${newPassword ? "" : `
         <label>Email

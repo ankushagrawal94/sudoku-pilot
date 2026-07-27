@@ -1,4 +1,4 @@
-# Optional Login and Account Sync Specification v0.2
+# Optional Login and Account Sync Specification v0.3
 
 - **Status:** Implemented behind a default-off feature flag; production acceptance pending
 - **Updated:** 2026-07-26
@@ -12,12 +12,11 @@ Sudoku Pilot will continue to work without an account. A player may optionally c
 2. resume the current puzzle and keep preferences in sync across devices;
 3. retain the learning signals that will power technique mastery and personalized daily puzzles.
 
-Version 1 uses a dedicated Sudoku Pilot Neon project for Neon Auth and account data. It reuses Sudoku Pilot's existing Neon/Vercel operational conventions, the product-isolation and live auth-test lessons proven in Personal Agent Platform, and Neon's official Vite client patterns. It does not share the private puzzle warehouse project, Personal Agent's Auth tenant, Google OAuth credentials, database, or user records.
+Version 1 uses a dedicated Sudoku Pilot Neon project for Neon Auth and account data. It reuses Sudoku Pilot's existing Neon/Vercel operational conventions, the product-isolation and live auth-test lessons proven in Personal Agent Platform, and Neon's official Vite client patterns. It does not share the private puzzle warehouse project, Personal Agent's Auth tenant, database, or user records.
 
-The two sign-in methods are:
+The version 1 sign-in method is:
 
 - **Email and password.** The email address is the account's username in v1. Arbitrary public usernames and handles are out of scope.
-- **Continue with Google.**
 
 The app must never build or store its own password system.
 
@@ -27,12 +26,17 @@ The implementation is present on `codex/login-feature-spec` and remains disabled
 
 - a dedicated Free-plan Neon project named `sudoku-account-sync` owns Auth, Data API, and account tables;
 - `@neondatabase/neon-js` is pinned exactly to `0.6.2-beta`;
-- the More-panel account surface, email/password, email verification code, password recovery completion, Google redirect, session restore, consent, offline dirty state, merge/conflict handling, export, sign-out, and deletion flows are implemented;
+- the More-panel account surface, email/password, email verification code, password recovery completion, session restore, consent, offline dirty state, merge/conflict handling, export, sign-out, and deletion confirmation UI are implemented;
 - `database/account/001_account_sync.sql` has been applied to the dedicated project, with RLS and owner-only policies on every exposed table;
 - unit, security, and intercepted desktop/mobile browser tests run in the default repository suite;
 - Production and Preview keep `VITE_ACCOUNT_SYNC_ENABLED=false`; local Development is enabled for acceptance work.
 
-Public enablement is intentionally blocked until all Phase 0 live tests pass. Remaining provider work includes a Sudoku-specific Google OAuth client, a Sudoku-specific production email sender, abuse controls, Data API Advisor review, branch-matched Preview Auth/Data API URLs, two-user RLS negatives, same-email identity behavior, and live email/password plus Google export/deletion tests. Neon Auth and the pinned browser SDK are beta, and the SDK dependency tree's current security advisories require provider clarification or a safe patched pin before launch.
+Public enablement is intentionally blocked until all Phase 0 live tests pass. Live email/password, email delivery, rate limiting, RLS, Data API Advisor, two-browser sync, conflict, offline retry, export, and password-recovery checks pass. Two launch blockers remain:
+
+1. Neon's hosted Better Auth service returns `404` from `POST /delete-user`, so the current browser deletion path removes Sudoku-owned rows but cannot delete the Auth user. Resolve this through a provider-supported client endpoint or a server-only Sudoku endpoint that verifies the current user and calls Neon's branch Auth User API with a server-side project-scoped key.
+2. The pinned beta SDK still resolves Better Auth `1.4.18`, which is affected by the email-OTP pre-account-hijacking advisory [GHSA-qq9h-g4jm-xgf3](https://github.com/advisories/GHSA-qq9h-g4jm-xgf3). The fixed Better Auth version is `1.6.22`, but no patched `@neondatabase/neon-js` release is currently available.
+
+Branch-matched Preview/Production URLs also remain to be configured. Do not merge, enable Preview/Production signup, or turn on the feature flag until deletion and the advisory are resolved and acceptance is rerun against the final deployment.
 
 ## Product principles
 
@@ -42,19 +46,18 @@ Public enablement is intentionally blocked until all Phase 0 live tests pass. Re
 - **Local first, cloud backed.** A signed-in player keeps playing when offline. Local saves remain immediate; cloud sync happens when a connection is available.
 - **No silent data loss.** First sign-in merges safe sets and asks the player to choose when two in-progress puzzles conflict.
 - **Private by default.** There are no profiles, public usernames, leaderboards, friends, or sharing in v1.
-- **Product isolation.** Reuse implementation patterns and provider organizations where sensible, but use Sudoku-specific projects, keys, OAuth configuration, sender identity, data, and budgets.
+- **Product isolation.** Reuse implementation patterns and provider organizations where sensible, but use Sudoku-specific projects, keys, sender identity, data, and budgets.
 - **Free-plan constrained.** Account sync launches only while it fits Neon's Free plan. There is no automatic paid upgrade or overage authorization; guest play remains available if a provider limit is approached or reached.
 
 ## Goals and success criteria
 
 ### Goal 1: simple optional authentication
 
-A player can create an account, sign in, restore a session, reset a password, and sign out with email/password or Google.
+A player can create an account, sign in, restore a session, reset a password, and sign out with email and password.
 
 Success means:
 
-- both methods work on the production domain and an approved localhost callback;
-- the same verified email cannot accidentally create two independent Sudoku histories;
+- the email/password lifecycle works on the production domain and an approved localhost callback;
 - a returning session restores without blocking app startup;
 - auth or network failure never prevents guest play.
 
@@ -94,11 +97,12 @@ The daily personalized puzzle feature owns selection rules and mastery threshold
 - Mandatory accounts or an auth-protected game.
 - Arbitrary usernames, public profiles, avatars managed by Sudoku Pilot, social features, or leaderboards.
 - Organizations, roles, subscriptions, payments, or administrative user management.
+- Social sign-in, including Google. It may be reconsidered only if account-conversion friction becomes a demonstrated problem.
 - Syncing imported screenshot image bytes, OCR payloads, PostHog identifiers, console logs, or raw move-by-move histories.
 - Recovering browser data that was cleared before the player created an account.
 - Replacing the private Neon puzzle warehouse. Catalog operations remain separate from public account data.
 - Shipping personalized daily-puzzle ranking in the login release.
-- Writing a custom password database, password hashing service, OAuth proxy, or token format.
+- Writing a custom password database, password hashing service, or token format.
 
 ## User experience
 
@@ -115,7 +119,7 @@ Signed out:
 
 Signed in:
 
-- display the verified email address or Google-provided name;
+- display the verified email address;
 - display sync state: **Synced**, **Saving…**, **Offline — saved on this device**, or **Needs attention**;
 - actions: **Sync now**, **Export my data**, **Sign out**, and **Delete account**.
 
@@ -125,19 +129,16 @@ Do not place a sign-in prompt over the board. A small signed-in/sync indicator m
 
 Use an accessible modal or full-height mobile sheet with:
 
-1. **Continue with Google**
-2. a visible “or” separator
-3. an **Email** field
-4. a **Password** field
-5. primary **Sign in** action
-6. **Create an account** and **Forgot password?** links
+1. an **Email** field
+2. a **Password** field
+3. primary **Sign in** action
+4. **Create an account** and **Forgot password?** links
 
 Requirements:
 
 - label the identifier **Email**, not **Username**, because arbitrary usernames are not supported;
 - support password managers and browser autofill;
 - keep the player's current route and puzzle intact if the surface is dismissed;
-- return an OAuth user to the same app view after a successful redirect;
 - use generic credential errors that do not reveal whether an account exists;
 - never send an email address, name, access token, or Neon Auth user ID to PostHog.
 
@@ -149,8 +150,6 @@ Email/password creation requires:
 - a password meeting the configured policy;
 - acceptance of the Privacy Policy and Terms/usage notice;
 - email confirmation before cloud data becomes authoritative.
-
-Google creation uses the provider's verified identity and the same consent copy. If a password account and Google identity use the same verified email, the integration must pass an identity-linking test before launch. If safe linking is not confirmed, the app must stop and guide the player to sign in with the original method rather than creating a duplicate history.
 
 ### Password recovery
 
@@ -216,7 +215,7 @@ The discard action states exactly what will be lost. It does not delete cloud da
 4. returns the app to a fresh guest state;
 5. confirms that the action is complete.
 
-Deletion must be tested with both email/password and Google accounts. Any privileged deletion credential is never exposed to the browser.
+Deletion must be tested with an email/password account. Any privileged deletion credential is never exposed to the browser.
 
 ## Technical decision
 
@@ -227,7 +226,7 @@ Use Neon Auth, Neon Postgres, and the Neon Data API for the account boundary.
 Why:
 
 - Neon keeps Auth users, sessions, configuration, and application data in one branchable Postgres project.
-- Neon Auth supports email/password and Google OAuth, and its Data API validates Neon Auth JWTs for Postgres row-level security without a custom auth server.
+- Neon Auth supports email/password, and its Data API validates Neon Auth JWTs for Postgres row-level security without a custom auth server.
 - Neon and Vercel can provision isolated Auth and data endpoints for preview branches.
 - Sudoku Pilot already operates a Neon resource through Vercel Marketplace, so provider setup, environment naming, database migrations, and usage monitoring are familiar.
 - The current Free plan is sufficient for launch: $0 without a credit card, up to 60,000 Auth MAU, 100 compute-hours, and 0.5 GB storage per project as checked on 2026-07-25. These are planning limits, not a permanent product guarantee.
@@ -237,7 +236,7 @@ Neon's current unified browser SDK, `@neondatabase/neon-js`, is still published 
 
 Do not choose:
 
-- **Hand-built auth:** creates unnecessary password, recovery, session, and OAuth security work.
+- **Hand-built auth:** creates unnecessary password, recovery, and session security work.
 - **Clerk:** capable, but introduces a new account stack and its strongest reusable components target Next.js rather than this Vite app.
 - **Supabase:** the Vite integration is proven in Triptych Studio, but it adds another backend provider when current Neon Auth covers the required methods and ownership model on a free plan.
 - **The private puzzle warehouse Neon project:** violates product isolation and would expose catalog infrastructure to public account traffic, Auth configuration, quotas, and incidents.
@@ -255,7 +254,7 @@ Reuse and adapt, rather than copy blindly:
 - Neon's official `neon-data-api-neon-auth` Vite application
   - start from `createClient()` in `@neondatabase/neon-js`;
   - configure browser-safe Auth and Data API URLs;
-  - use `client.auth.signUp.email()`, `client.auth.signIn.email()`, `client.auth.signIn.social({ provider: "google" })`, `client.auth.getSession()`, and the SDK's supported session-change mechanism;
+  - use the SDK's supported email/password signup, sign-in, session, verification, and recovery methods;
   - query account tables through the authenticated Data API client;
   - adapt the headless client calls to Sudoku Pilot's vanilla JavaScript UI instead of importing React components.
 - Triptych Studio's browser-auth test structure
@@ -288,10 +287,9 @@ Rules:
 
 - default the feature flag to false until production acceptance passes;
 - standardize implementation and CI on Node.js 22 or later before adding the client dependency;
-- never place a database connection string, OAuth client secret, email-provider secret, or other privileged credential in a `VITE_` variable;
+- never place a database connection string, email-provider secret, or other privileged credential in a `VITE_` variable;
 - use exact production and localhost redirect allowlists, never wildcards;
 - add only the exact Neon Auth and Data API origins to the current CSP `connect-src`;
-- use a Sudoku-specific Google OAuth client and consent-screen branding;
 - use Neon's shared email service only for development; configure a Sudoku-specific sender for production password confirmation and recovery, preferably through the existing Resend organization with a dedicated scoped key and verified Sudoku Pilot domain;
 - use a separate Neon project and explicit compute, storage, egress, and Auth-MAU monitoring;
 - keep autoscaling capped and scale-to-zero enabled where compatible with the sync experience;
@@ -302,7 +300,8 @@ Verified email-provider state as of 2026-07-26:
 - Resend is the canonical transactional-email path for account verification and password recovery.
 - Neon Auth uses a dedicated sending-only Resend key restricted to the verified `ankushagrawal.com` domain. The key remains server-side in Neon and is never exposed through a `VITE_` variable.
 - `Sudoku Pilot <sudoku@ankushagrawal.com>` is the temporary sender while the existing free Resend account's single custom-domain slot is occupied. Verification and password-recovery messages have both been delivered through this path.
-- Public enablement remains blocked until `sudokupilot.com` is verified for sending and the sender is migrated to a product-domain address such as `auth@sudokupilot.com`, or a separate product decision explicitly accepts the temporary domain. This migration must not silently add billing or remove the existing verified domain.
+- The product owner has accepted this temporary sender for the initial release. A future migration to `auth@sudokupilot.com` must not silently add billing or remove the existing verified domain.
+- Resend sending authorization does not itself create an inbox. Cloudflare Email Routing is enabled for `ankushagrawal.com`, but only `hello@`, `me@`, and `ankush@` currently forward to the owner's Gmail; the catch-all is disabled. Replies to `sudoku@ankushagrawal.com` therefore are not delivered. The minimal temporary fix is an exact `sudoku@ankushagrawal.com` forwarding rule; until that exists and is tested, auth-email copy must not promise that replies are monitored.
 
 ## Data model
 
@@ -374,10 +373,11 @@ The sync layer owns a versioned serializer. Database migrations and local-storag
 
 ## Security, privacy, and abuse controls
 
-- Configure email/password policy, leaked-password protection when available, provider rate limits, and Turnstile or hCaptcha before opening public signup.
+- Require verified email, the provider's minimum password policy, generic auth errors, and server-side provider rate limits before opening public signup.
+- CAPTCHA and leaked-password screening are escalation controls, not version 1 launch gates. Add them if signup or recovery abuse appears, if baseline provider limits prove insufficient, or when Neon exposes a supported configuration path.
 - Use generic auth errors to reduce account enumeration.
 - Require HTTPS outside localhost.
-- Validate OAuth `redirectTo` against an internal allowlist; never accept a user-provided redirect.
+- Validate verification and recovery return URLs against an internal allowlist; never accept a user-provided redirect.
 - Verify authenticated server requests per request against the current branch's Neon Auth contract. Create request-scoped auth/data clients so no user's session can leak through a warm Vercel function.
 - Keep access and refresh tokens in the provider-supported client storage only; never copy them into app state, analytics, logs, URLs controlled by Sudoku Pilot, or exported data.
 - Do not call PostHog `identify` with the Neon Auth user ID by default. Account analytics remain anonymous and contain only method, outcome class, sync state, and migration result.
@@ -387,6 +387,25 @@ The sync layer owns a versioned serializer. Database migrations and local-storag
 - Provide data export and account deletion from the first public release, not as follow-up work.
 
 Before launch, update all current copy that says Sudoku Pilot has no accounts or server-side sync. The replacement must make the distinction explicit: accounts remain optional; guest data remains local; signed-in data is stored for sync and personalization.
+
+### Live acceptance record — 2026-07-26
+
+Passed against the dedicated Neon branch:
+
+- verification and password-recovery messages delivered through Resend;
+- email/password signup, OTP confirmation, sign-in, session restoration, password update, and sign-out;
+- Google OAuth has no configured provider and Neon's unused Organizations plugin is disabled;
+- hosted rate limiting returned `429` after repeated invalid-password attempts;
+- two-user RLS negatives for select, insert, update, and delete across `account_state`, `played_puzzles`, and `technique_progress_by_device`;
+- Neon Data API Advisors reported no security or performance issues;
+- first-sign-in consent, initial merge, two-browser session/sync, active-puzzle conflict choice, export, offline dirty state, reconnect retry, and session refresh behavior;
+- no-repeat and sync requests completed without the auth-callback resync loop found during acceptance.
+
+Failed or blocked:
+
+- browser account deletion: Sudoku-owned row deletes return `204`, but Neon's hosted `POST /delete-user` returns `404` and the Auth user remains;
+- dependency acceptance: the current beta Neon SDK has no patched release for the Better Auth email-OTP advisory;
+- deployed Preview/Production callback and branch URL verification, which must use the final Vercel environment bindings.
 
 ## Analytics
 
@@ -413,10 +432,10 @@ Allowed properties are bounded enums such as `method`, `outcome`, `error_class`,
 - Create a dedicated Sudoku Pilot Neon project on the Free plan. Do not reuse the private puzzle warehouse.
 - Record the current Free-plan limits and configure monitoring at 80% of compute, storage, egress, and Auth-MAU allowances. Do not add a payment method for this phase.
 - Build a disposable vanilla-JavaScript Vite spike using an exact pinned `@neondatabase/neon-js` beta version; do not use React-only Auth UI components.
-- Configure exact production/local URLs, email/password, Google, production email delivery, abuse controls, Data API, RLS, and preview-branch integration.
-- Prove real signup, email confirmation, sign-in, session restoration, token refresh, password recovery, Google sign-in, same-email identity behavior, sign-out, deletion, and Data API ownership in a non-production branch.
+- Configure exact production/local URLs, email/password, production email delivery, baseline rate limiting, Data API, RLS, and preview-branch integration.
+- Prove real signup, email confirmation, sign-in, session restoration, token refresh, password recovery, sign-out, deletion, and Data API ownership in a non-production branch.
 - Prove a Vercel preview receives its matching branch-specific Auth and Data API URLs without trusting arbitrary preview origins.
-- Stop if vanilla-JavaScript session handling, identity linking, callback, email delivery, Free-plan limits, SDK stability, JWT, RLS, or deletion behavior differs from this contract. Reconsider Supabase only through a new explicit decision.
+- Stop if vanilla-JavaScript session handling, callback, email delivery, Free-plan limits, SDK stability, JWT, RLS, or deletion behavior differs from this contract. Reconsider Supabase only through a new explicit decision.
 
 ### Phase 1: auth foundation behind a flag
 
@@ -450,8 +469,6 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 ### Authentication
 
 - [ ] Email/password create, confirm, sign in, restore, reset, and sign out work with generic failure copy.
-- [ ] Google create/sign-in returns to the prior app view.
-- [ ] Same-email password and Google flows cannot create two unnoticed Sudoku histories.
 - [ ] Password managers, keyboard navigation, focus trapping, error announcements, and a 320 px viewport work.
 
 ### Migration and sync
@@ -467,12 +484,12 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 ### Security and privacy
 
 - [ ] A user cannot read, write, or delete another user's rows in local SQL tests or live negative tests.
-- [ ] No database URL, OAuth secret, email-provider secret, or privileged credential is present in browser assets, source maps, logs, or `VITE_` variables.
-- [ ] OAuth redirects are allowlisted and the CSP permits only the exact required Neon Auth and Data API origins.
+- [ ] No database URL, email-provider secret, or privileged credential is present in browser assets, source maps, logs, or `VITE_` variables.
+- [ ] Verification and recovery redirects are allowlisted, and the CSP permits only the exact required Neon Auth and Data API origins.
 - [ ] Data API Advisors report no unresolved security errors, and two-user negative tests prove every ownership policy.
 - [ ] Free-plan usage monitoring is active; no billing method, paid plan, or paid overage has been enabled.
 - [ ] Analytics contain no account identifiers or puzzle content.
-- [ ] Export and deletion pass for email/password and Google accounts.
+- [ ] Export and deletion pass for an email/password account.
 - [ ] Privacy, account-free, About, and offline copy accurately distinguish guest-local from signed-in-cloud behavior.
 
 ## Verification plan
@@ -481,7 +498,7 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 - Browser tests with intercepted Neon Auth and Data API endpoints for every auth state and failure mode.
 - Branch-isolated Neon SQL/Data API tests with two users proving positive ownership and negative cross-user access for every operation.
 - Two-browser end-to-end tests for no-repeat history, current-puzzle conflicts, offline edits, and eventual sync.
-- Live non-production tests using real email/password and Google accounts, including recovery, refresh, sign-out, export, deletion, and same-email behavior.
+- Live non-production tests using real email/password accounts, including recovery, refresh, sign-out, export, and deletion.
 - Production smoke test from the exact `origin/main` commit before the feature flag is enabled.
 
 ## Current references
@@ -496,7 +513,6 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 - [Neon Auth and Data API Vite example](https://github.com/neondatabase/neon-data-api-neon-auth)
 - [Neon row-level security](https://neon.com/docs/guides/row-level-security)
 - [Neon Auth SDK and Vite demo update](https://neon.com/docs/changelog/2026-01-30)
-- [Neon Google OAuth provider configuration](https://neon.com/docs/changelog/2025-07-04)
 
 ## Decision log
 
@@ -506,3 +522,9 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 - **2026-07-25:** Replaced Supabase with a dedicated Neon project after current Neon Auth review. The deciding factors are the $0 Free plan, existing Neon operations, branchable Auth/data, and lower provider sprawl; the beta vanilla-JavaScript SDK remains a Phase 0 gate.
 - **2026-07-25:** Sync no-repeat history and current progress before adding mastery-driven recommendations.
 - **2026-07-25:** Require consent, safe migration, export, and deletion in the first public account release.
+- **2026-07-26:** Deferred Google and all other social sign-in. Email/password is the complete version 1 authentication scope.
+- **2026-07-26:** Accepted `Sudoku Pilot <sudoku@ankushagrawal.com>` as the temporary initial sender. Replyability remains unproven until an inbound alias or mailbox is verified.
+- **2026-07-26:** Kept provider rate limiting as the baseline abuse control. CAPTCHA and leaked-password screening become escalation controls rather than launch gates.
+- **2026-07-26:** Verified the provider rate limiter, two-user RLS negatives, Data API Advisors, email/password recovery, two-browser sync/conflicts, offline retry, export, and session refresh live.
+- **2026-07-26:** Removed the shared Google provider and disabled Neon's unused Organizations plugin so the hosted Auth surface matches the email/password-only scope.
+- **2026-07-26:** Kept the launch flag off because hosted Auth user deletion returns `404` and the pinned beta SDK resolves an affected Better Auth version. PR #34 must not merge until both are resolved and final deployment acceptance passes.

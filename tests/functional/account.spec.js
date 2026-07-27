@@ -32,7 +32,7 @@ test("optional account surface preserves guest play and works at 320px", async (
   await account.getByRole("button", { name: "Sign in" }).click();
   const dialog = page.getByTestId("account-dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
   await expect(dialog.getByLabel("Email")).toHaveAttribute("autocomplete", "email");
   await expect(dialog.getByLabel("Password")).toHaveAttribute("autocomplete", "current-password");
   await expect(dialog.getByRole("button", { name: "Close account dialog" })).toBeFocused();

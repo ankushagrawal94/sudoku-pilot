@@ -108,24 +108,6 @@
   font-weight: 500 !important;
 }
 
-.account-separator {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 14px 0;
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.account-separator::before,
-.account-separator::after {
-  content: "";
-  height: 1px;
-  flex: 1;
-  background: #dce3e9;
-}
-
 .account-links {
   display: flex;
   justify-content: space-between;
