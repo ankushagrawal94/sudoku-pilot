@@ -22,7 +22,7 @@ The app must never build or store its own password system.
 
 ## Implementation status
 
-The implementation is merged on `main` and remains disabled in Production until the final launch smoke test:
+The implementation is merged on `main` and enabled in Production:
 
 - a dedicated Free-plan Neon project named `sudoku-account-sync` owns Auth, Data API, and account tables;
 - `@neondatabase/neon-js` is pinned exactly to `0.6.2-beta`;
@@ -30,13 +30,13 @@ The implementation is merged on `main` and remains disabled in Production until 
 - `database/account/001_account_sync.sql` and `002_account_delete.sql` have been applied to the main and PR-preview branches, with RLS and owner-only policies on every exposed table;
 - account deletion now uses a same-origin Vercel Function that verifies the current JWT through the Data API, derives the user ID server-side, deletes only that user's Sudoku rows, and calls Neon's branch Auth User API with a project-scoped server key;
 - unit, security, and intercepted desktop/mobile browser tests run in the default repository suite;
-- Production keeps `VITE_ACCOUNT_SYNC_ENABLED=false` until the final launch smoke test; local Development remains enabled for acceptance work.
+- Production has `VITE_ACCOUNT_SYNC_ENABLED=true`; guest play remains the default and the optional account surface stays in More.
 
 Live email/password, email delivery, rate limiting, RLS, Data API Advisor, two-browser sync, conflict, offline retry, export, password recovery, and deployed account-deletion checks pass. One dependency advisory remains:
 
 1. The pinned beta SDK still resolves Better Auth `1.4.18`, which is affected by the email-OTP pre-account-hijacking advisory [GHSA-qq9h-g4jm-xgf3](https://github.com/advisories/GHSA-qq9h-g4jm-xgf3). The fixed Better Auth version is `1.6.22`, but no patched `@neondatabase/neon-js` release is currently available as of 2026-07-27. The product owner accepted this advisory as a launch risk on 2026-07-27; it is tracked for a future SDK upgrade and is not a public-launch blocker.
 
-Production is bound to Neon's main branch. PR #34's Preview environment is bound to dedicated branch `preview-login-pr-34`; its Auth, Data API, database URL, deletion branch ID, and project-scoped deletion key are scoped to `codex/login-feature-spec`. Enable Production only after the current public copy is deployed and a final production account lifecycle passes; if that smoke test fails, turn the feature flag back off.
+Production is bound to Neon's main branch. PR #34's Preview environment is bound to dedicated branch `preview-login-pr-34`; its Auth, Data API, database URL, deletion branch ID, and project-scoped deletion key are scoped to `codex/login-feature-spec`. Production was enabled after the corrected public copy and final account lifecycle passed.
 
 ## Product principles
 
@@ -546,3 +546,4 @@ Each phase requires a clean commit, current-main rebase, `npm run build`, `npm t
 - **2026-07-27:** Accepted the Better Auth email-OTP advisory as a tracked launch risk rather than a public-launch blocker.
 - **2026-07-27:** Rotated the Sudoku Resend credential to a sending-only key restricted to `ankushagrawal.com` and installed it on Neon's main and Preview branches.
 - **2026-07-27:** Passed deployed email/password deletion acceptance on the isolated Preview branch. Approved merging the disabled implementation while keeping both flags off because the pinned Neon SDK still resolves the affected Better Auth version.
+- **2026-07-27:** Enabled optional accounts in Production after one disposable account passed verification email delivery, sign-in, sync, export, returning login, authenticated deletion, and post-deletion login rejection. The test user was removed.
