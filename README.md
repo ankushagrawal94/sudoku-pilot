@@ -106,11 +106,14 @@ npm test
 npm run test:solver
 npm run test:coaching
 npm run test:learning-practice
+npm run practice:fixtures:check
 npm run test:functional
 npm run review:coaching
 npm run measure:learning-practice
 npm run review:learning-practice
 ```
+
+Certified practice boards are generated offline and checked into `src/generated/practice-fixtures.js`; the browser hydrates those boards instead of replaying and certifying complete solution paths during lesson or practice startup. Run `npm run practice:fixtures:build` after intentionally changing practice generation, then use `npm run test:learning-practice` or `npm run practice:fixtures:check` to exhaustively confirm that the checked-in boards still match deterministic generation.
 
 ## Production puzzle catalog
 

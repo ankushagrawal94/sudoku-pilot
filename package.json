@@ -26,6 +26,8 @@
     "campaign:simulate": "node scripts/simulate-adaptive-campaign.mjs",
     "capture:article-images": "node scripts/capture-article-images.mjs",
     "measure:learning-practice": "npm run build && node scripts/measure-learning-practice.mjs",
+    "practice:fixtures:build": "node scripts/build-practice-fixtures.mjs",
+    "practice:fixtures:check": "node scripts/build-practice-fixtures.mjs --check",
     "trusted-import:verify": "node scripts/validate-trusted-import-corpus.mjs",
     "audit:puzzles": "node scripts/audit-puzzles.mjs",
     "catalog:build": "node --no-warnings scripts/catalog/build-catalog.mjs",

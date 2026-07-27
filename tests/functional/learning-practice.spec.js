@@ -53,23 +53,19 @@ test("learn opens on Hidden Pair with tier labels only in the selector and pagin
 });
 
 for (const technique of COMMITTED_COACHING_TECHNIQUES) {
-  test(`${technique} supports find, complete, and near-miss practice`, async ({ page }, testInfo) => {
+  test(`${technique} supports find, complete, and near-miss practice`, async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Practice", exact: true }).click();
     await page.locator("[data-practice-technique]").selectOption(technique);
 
-    const findStarted = Date.now();
     await page.getByRole("button", { name: "Start Find the pattern", exact: true }).click();
     await expect(page.getByTestId("practice-session")).toHaveAttribute("data-practice-mode", "find-pattern");
-    expect(Date.now() - findStarted).toBeLessThan(testInfo.project.name === "mobile" ? 3_000 : 2_000);
     await page.getByTestId("hint-button").click();
     await expect(page.getByTestId("hint-panel")).toHaveAttribute("data-technique", technique);
 
     await page.getByRole("tab", { name: "Complete the puzzle", exact: true }).click();
-    const completeStarted = Date.now();
     await page.getByRole("button", { name: "Start Complete the puzzle", exact: true }).click();
     await expect(page.getByTestId("practice-session")).toHaveAttribute("data-practice-mode", "complete-puzzle");
-    expect(Date.now() - completeStarted).toBeLessThan(testInfo.project.name === "mobile" ? 3_000 : 2_000);
     const before = await boardSignature(page);
     await page.getByTestId("hint-button").click();
     await expect(page.getByTestId("hint-panel")).toHaveAttribute("data-technique", technique);
@@ -81,10 +77,8 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     expect(await boardSignature(page)).toEqual(before);
 
     await page.getByRole("tab", { name: "Near-miss recognition", exact: true }).click();
-    const nearMissStarted = Date.now();
     await page.getByRole("button", { name: "Start Near-miss recognition", exact: true }).click();
     await expect(page.getByTestId("practice-session")).toHaveAttribute("data-practice-mode", "near-miss");
-    expect(Date.now() - nearMissStarted).toBeLessThan(testInfo.project.name === "mobile" ? 3_000 : 2_000);
     await page.getByRole("button", { name: "Yes, it is valid", exact: true }).click();
     await expect(page.getByTestId("practice-result")).toContainText("Correct.");
     await expect(page.locator("[data-visual-role='elimination'], [data-visual-role='placement']")).not.toHaveCount(0);

@@ -1,4 +1,5 @@
 import { buildCoachingMove } from "./coaching.js";
+import { PRECOMPUTED_PRACTICE_FIXTURES } from "./generated/practice-fixtures.js";
 import { getTechniqueLesson } from "./learning.js";
 import { COMMITTED_COACHING_TECHNIQUES } from "./puzzles.js";
 import {
@@ -160,8 +161,17 @@ export function buildTechniqueFixtureSuite(technique) {
 
 export function getCertifiedPracticeFixtures(technique) {
   assertCommittedTechnique(technique);
-  if (!practiceCache.has(technique)) practiceCache.set(technique, buildCertifiedPracticeFixtures(technique));
+  if (!practiceCache.has(technique)) {
+    const sources = PRECOMPUTED_PRACTICE_FIXTURES[technique];
+    if (!sources?.length) throw new Error(`Missing precomputed practice fixtures for ${technique}.`);
+    practiceCache.set(technique, sources.map(hydratePracticeFixture));
+  }
   return practiceCache.get(technique);
+}
+
+export function getPrecomputedPracticeFixtureSources(technique) {
+  assertCommittedTechnique(technique);
+  return PRECOMPUTED_PRACTICE_FIXTURES[technique] || [];
 }
 
 export function createPracticeState(technique, mode, index = 0) {
@@ -177,7 +187,6 @@ export function createPracticeState(technique, mode, index = 0) {
     puzzle: clonePuzzle(fixture.puzzle),
     targetMove: cloneMove(fixture.targetMove),
     coaching: fixture.coaching,
-    completionTrace: fixture.completionTrace.map(cloneMove),
     nearMiss: {
       ...fixture.nearMiss,
       evidenceCandidates: fixture.nearMiss.evidenceCandidates.map((item) => ({ ...item })),
@@ -218,7 +227,8 @@ export function validatePracticeFixture(fixture) {
   return true;
 }
 
-function buildCertifiedPracticeFixtures(technique) {
+export function buildCertifiedPracticeFixturesForGeneration(technique) {
+  assertCommittedTechnique(technique);
   const lesson = getTechniqueLesson(technique);
   const positive = buildPositiveFixtures(technique);
   return positive.map((fixture, index) => {
@@ -248,6 +258,67 @@ function buildCertifiedPracticeFixtures(technique) {
     validatePracticeFixture(result);
     return Object.freeze(result);
   });
+}
+
+export function compactPracticeFixtures(fixtures) {
+  return fixtures.map((fixture) => ({
+    id: fixture.id,
+    technique: fixture.technique,
+    puzzle: {
+      values: fixture.puzzle.values.join(""),
+      solution: fixture.puzzle.solution.join(""),
+      notes: compactDigitSets(fixture.puzzle.notes),
+      eliminated: compactDigitSets(fixture.puzzle.eliminated)
+    }
+  }));
+}
+
+function hydratePracticeFixture(source, index) {
+  const values = parseDigits(source.puzzle.values);
+  const puzzle = {
+    values,
+    givens: values.map(Boolean),
+    notes: hydrateDigitSets(source.puzzle.notes),
+    eliminated: hydrateDigitSets(source.puzzle.eliminated),
+    history: [],
+    solution: parseDigits(source.puzzle.solution)
+  };
+  const targetMoves = findAllMoves(puzzle, [source.technique]);
+  if (targetMoves.length !== 1) {
+    throw new Error(`${source.id} precomputed fixture must expose exactly one ${source.technique} action, not ${targetMoves.length}.`);
+  }
+  const targetMove = cloneMove(targetMoves[0]);
+  const coaching = buildCoachingMove(targetMove, puzzle);
+  const lesson = getTechniqueLesson(source.technique);
+  return Object.freeze({
+    id: source.id,
+    technique: source.technique,
+    puzzle,
+    targetMove,
+    coaching,
+    nearMiss: buildRecognitionClaim(puzzle, targetMove, coaching, index % 2 === 0, lesson),
+    certification: {
+      unique: true,
+      targetAvailable: true,
+      candidateCorrect: true,
+      solutionPreserved: true,
+      focusedStart: true,
+      unsupportedTechniques: false,
+      source: "precomputed-deterministic-focused-checkpoint-and-sudoku-isomorphism"
+    }
+  });
+}
+
+function compactDigitSets(sets) {
+  return sets.map((digits) => [...digits].sort((a, b) => a - b).join("")).join(".");
+}
+
+function hydrateDigitSets(sets) {
+  return sets.split(".").map((digits) => new Set(parseDigits(digits)));
+}
+
+function parseDigits(value) {
+  return Array.from(value, Number);
 }
 
 function buildCompletionTrace(source, targetMove) {
