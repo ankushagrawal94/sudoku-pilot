@@ -3,8 +3,11 @@ import { performance } from "node:perf_hooks";
 import { countSolutions } from "../src/difficulty.js";
 import { LEARNER_GLOSSARY, TECHNIQUE_LESSONS, validateLessonCatalog } from "../src/learning.js";
 import {
+  buildCertifiedPracticeFixturesForGeneration,
+  compactPracticeFixtures,
   createPracticeState,
   getCertifiedPracticeFixtures,
+  getPrecomputedPracticeFixtureSources,
   PRACTICE_MODES,
   validatePracticeFixture
 } from "../src/practice.js";
@@ -50,14 +53,20 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
 
   const started = performance.now();
   const fixtures = getCertifiedPracticeFixtures(technique);
-  const coldStartMs = performance.now() - started;
-  assert.ok(coldStartMs < 2_000, `${technique} deterministic fixture startup ${coldStartMs.toFixed(1)}ms must stay below 2 seconds`);
+  const fixtureLoadMs = performance.now() - started;
+  const generatedFixtures = buildCertifiedPracticeFixturesForGeneration(technique);
+  assert.deepEqual(
+    getPrecomputedPracticeFixtureSources(technique),
+    compactPracticeFixtures(generatedFixtures),
+    `${technique} precomputed fixtures must exactly match exhaustive deterministic generation`
+  );
   assert.equal(fixtures.length, 10, `${technique} needs 10 deterministic certified practice fixtures`);
   assert.equal(fixtures.filter(({ nearMiss }) => nearMiss.valid).length, 5, `${technique} needs valid recognition cases`);
   assert.equal(fixtures.filter(({ nearMiss }) => !nearMiss.valid).length, 5, `${technique} needs invalid recognition cases`);
 
-  for (const fixture of fixtures) {
-    assert.ok(validatePracticeFixture(fixture));
+  for (const [fixtureIndex, fixture] of fixtures.entries()) {
+    const generatedFixture = generatedFixtures[fixtureIndex];
+    assert.ok(validatePracticeFixture(generatedFixture));
     assert.equal(countSolutions(fixture.puzzle.values, 2), 1, `${fixture.id} must remain uniquely solvable`);
     assert.equal(findAllMoves(fixture.puzzle, [technique]).length, 1, `${fixture.id} must offer exactly one ${technique} action`);
     if (["Last Digit", "Naked Single", "Hidden Single"].includes(technique)) {
@@ -77,7 +86,7 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     }
     for (const fill of fixture.targetMove.fills) assert.equal(fill.digit, fixture.puzzle.solution[fill.index], `${fixture.id} fill must match the solution`);
     for (const elimination of fixture.targetMove.eliminations) assert.notEqual(elimination.digit, fixture.puzzle.solution[elimination.index], `${fixture.id} elimination must preserve the solution`);
-    assertCompletionTrace(fixture);
+    assertCompletionTrace(generatedFixture);
     assert.match(fixture.nearMiss.explanation, fixture.nearMiss.valid ? /^Yes\./ : /^No\./);
     assert.doesNotMatch(fixture.nearMiss.explanation, /Every defining precondition is present/i, `${fixture.id} recognition feedback must name the checks instead of declaring success abstractly`);
     if (!fixture.nearMiss.valid) assert.doesNotMatch(fixture.nearMiss.explanation, /does not keep the required pattern positions/i, `${fixture.id} invalid feedback must name the broken rule`);
@@ -95,17 +104,16 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     }
     const elapsedMs = performance.now() - attemptsStarted;
     assert.ok(successes >= 99, `${technique} ${mode.label} must start at least 99 of 100 attempts`);
-    assert.ok(elapsedMs < 2_000, `${technique} ${mode.label} 100-attempt startup ${elapsedMs.toFixed(1)}ms must stay below 2 seconds`);
-    measurements.push({ technique, mode: mode.id, successes, attempts: 100, coldStartMs, hundredStartsMs: elapsedMs });
+    measurements.push({ technique, mode: mode.id, successes, attempts: 100, fixtureLoadMs, hundredStartsMs: elapsedMs });
   }
 }
 
 for (const mode of PRACTICE_MODES) assert.doesNotMatch(mode.description, learnerJargon, `${mode.label} description must avoid internal certification language`);
 
-const slowestCold = measurements.reduce((slowest, item) => item.coldStartMs > slowest.coldStartMs ? item : slowest, measurements[0]);
+const slowestLoad = measurements.reduce((slowest, item) => item.fixtureLoadMs > slowest.fixtureLoadMs ? item : slowest, measurements[0]);
 const slowestHundred = measurements.reduce((slowest, item) => item.hundredStartsMs > slowest.hundredStartsMs ? item : slowest, measurements[0]);
 console.log(`learning and practice contracts passed: ${measurements.length} strategies, 5100/5100 starts`);
-console.log(`slowest cold fixture build: ${slowestCold.technique} ${slowestCold.coldStartMs.toFixed(1)}ms`);
+console.log(`slowest precomputed fixture load: ${slowestLoad.technique} ${slowestLoad.fixtureLoadMs.toFixed(1)}ms`);
 console.log(`slowest 100-start strategy: ${slowestHundred.technique} ${slowestHundred.mode} ${slowestHundred.hundredStartsMs.toFixed(1)}ms`);
 
 function assertCompletionTrace(fixture) {

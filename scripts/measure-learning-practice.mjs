@@ -15,12 +15,15 @@ const viewports = {
   desktop: { width: 1280, height: 900, thresholdMs: 2_000 },
   mobile: { width: 393, height: 852, thresholdMs: 3_000 }
 };
+const fixtureLoadThresholdMs = 2_000;
+const hundredStartsThresholdMs = 2_000;
 const reliability = [];
 
 for (const technique of COMMITTED_COACHING_TECHNIQUES) {
   const coldStarted = performance.now();
   getCertifiedPracticeFixtures(technique);
-  const coldFixtureBuildMs = performance.now() - coldStarted;
+  const fixtureLoadMs = performance.now() - coldStarted;
+  assert.ok(fixtureLoadMs < fixtureLoadThresholdMs, `${technique} precomputed fixture load ${fixtureLoadMs.toFixed(1)}ms exceeded ${fixtureLoadThresholdMs}ms.`);
   for (const mode of PRACTICE_MODES) {
     const started = performance.now();
     let successes = 0;
@@ -28,8 +31,10 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
       const state = createPracticeState(technique, mode.id, attempt);
       if (state.technique === technique && state.mode === mode.id && state.certification.targetAvailable) successes += 1;
     }
-    reliability.push({ technique, mode: mode.id, attempts: 100, successes, coldFixtureBuildMs, hundredStartsMs: performance.now() - started });
+    const hundredStartsMs = performance.now() - started;
+    reliability.push({ technique, mode: mode.id, attempts: 100, successes, fixtureLoadMs, hundredStartsMs });
     assert.ok(successes >= 99, `${technique} ${mode.label} missed the 99/100 reliability threshold.`);
+    assert.ok(hundredStartsMs < hundredStartsThresholdMs, `${technique} ${mode.label} 100-attempt startup ${hundredStartsMs.toFixed(1)}ms exceeded ${hundredStartsThresholdMs}ms.`);
   }
 }
 
@@ -71,9 +76,15 @@ const report = {
   strategyCount: reliability.length,
   totalAttempts: reliability.reduce((sum, item) => sum + item.attempts, 0),
   totalSuccesses: reliability.reduce((sum, item) => sum + item.successes, 0),
-  thresholds: { reliability: "at least 99 of 100", desktopMs: 2_000, mobileMs: 3_000 },
+  thresholds: {
+    reliability: "at least 99 of 100",
+    fixtureLoadMs: fixtureLoadThresholdMs,
+    hundredStartsMs: hundredStartsThresholdMs,
+    desktopMs: 2_000,
+    mobileMs: 3_000
+  },
   summary: {
-    slowestColdFixtureBuild: maxBy(reliability, "coldFixtureBuildMs"),
+    slowestFixtureLoad: maxBy(reliability, "fixtureLoadMs"),
     slowestHundredStarts: maxBy(reliability, "hundredStartsMs"),
     slowestDesktop: maxBy(browserTiming.filter(({ viewport }) => viewport === "desktop"), "startupMs"),
     slowestMobile: maxBy(browserTiming.filter(({ viewport }) => viewport === "mobile"), "startupMs")
