@@ -1,7 +1,7 @@
 # Optional Login and Account Sync Specification v0.2
 
-- **Status:** Proposed
-- **Updated:** 2026-07-25
+- **Status:** Implemented behind a default-off feature flag; production acceptance pending
+- **Updated:** 2026-07-26
 - **Backlog:** [Optional login](todo.md#product-opportunities)
 
 ## Summary
@@ -20,6 +20,19 @@ The two sign-in methods are:
 - **Continue with Google.**
 
 The app must never build or store its own password system.
+
+## Implementation status
+
+The implementation is present on `codex/login-feature-spec` and remains disabled in Production and Preview:
+
+- a dedicated Free-plan Neon project named `sudoku-account-sync` owns Auth, Data API, and account tables;
+- `@neondatabase/neon-js` is pinned exactly to `0.6.2-beta`;
+- the More-panel account surface, email/password, email verification code, password recovery completion, Google redirect, session restore, consent, offline dirty state, merge/conflict handling, export, sign-out, and deletion flows are implemented;
+- `database/account/001_account_sync.sql` has been applied to the dedicated project, with RLS and owner-only policies on every exposed table;
+- unit, security, and intercepted desktop/mobile browser tests run in the default repository suite;
+- Production and Preview keep `VITE_ACCOUNT_SYNC_ENABLED=false`; local Development is enabled for acceptance work.
+
+Public enablement is intentionally blocked until all Phase 0 live tests pass. Remaining provider work includes a Sudoku-specific Google OAuth client, a Sudoku-specific production email sender, abuse controls, Data API Advisor review, branch-matched Preview Auth/Data API URLs, two-user RLS negatives, same-email identity behavior, and live email/password plus Google export/deletion tests. Neon Auth and the pinned browser SDK are beta, and the SDK dependency tree's current security advisories require provider clarification or a safe patched pin before launch.
 
 ## Product principles
 

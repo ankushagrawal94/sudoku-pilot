@@ -26,13 +26,13 @@ When you get stuck, the coach shows the logical moves available from the techniq
 - **Automation for familiar techniques.** Let Sudoku Pilot handle deductions you already know until the puzzle reaches a move worth your attention, or run one named technique at a time.
 - **Import a puzzle for review.** Start from a screenshot, correct the recognized filled digits and pencil notes in an editable grid, and then solve or ask the coach to review the board.
 - **Input that works the way you solve.** Choose cell-first or digit-first entry, use the on-screen number pad or keyboard, and add a note to several cells at once. Fill or clear all pencil notes, undo moves, and configure peer highlights, matching-digit highlights, the timer, and live mistake feedback.
-- **Local-first and offline-friendly.** Your puzzle progress stays in your browser, and the installable app works offline after loading. Screenshot OCR is an optional online action that sends the selected puzzle image to Sudoku OCR through RapidAPI.
+- **Local-first and offline-friendly.** Guest puzzle progress stays in your browser, and the installable app works offline after loading. Optional signed-in sync stores selected progress in a dedicated account backend. Screenshot OCR is a separate optional online action that sends the selected puzzle image to Sudoku OCR through RapidAPI.
 
 Technique detection never repairs an imported puzzle or overwrites a player's decisions. The solver tracks logical candidates separately from player-entered notes, so partial notes cannot create false deductions.
 
 ## Local, installable, and offline-friendly
 
-Sudoku Pilot is a local-first Vite app with one serverless endpoint for optional screenshot OCR. It can be installed as a PWA, its app shell works offline after loading, and the current puzzle, notes, undo history, and technique selections are stored locally in the browser.
+Sudoku Pilot is a local-first Vite app with one serverless endpoint for optional screenshot OCR and a default-off optional account sync integration. It can be installed as a PWA, its app shell works offline after loading, and guest puzzle data is stored locally in the browser. A signed-in player may explicitly merge that browser data into a dedicated Neon account for cross-device sync.
 
 Generated puzzles, manual entry, solving, notes, hints, and practice stay available without the OCR endpoint. Screenshot recognition requires a connection and available provider quota.
 

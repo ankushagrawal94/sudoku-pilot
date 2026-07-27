@@ -2,6 +2,8 @@ import "./styles.css";
 import { inject } from "@vercel/analytics";
 import { createPuzzleJourney } from "./analytics.js";
 import { createBrowserProductAnalytics } from "./browserAnalytics.js";
+import { createAccountController, getAccountDeviceId } from "./accountSync.js";
+import { bindAccountViewEvents, renderAccountDialog, renderAccountPanel } from "./accountView.js";
 import { DIFFICULTY_ORDER } from "./difficulty.js";
 import { generatePuzzle } from "./generator.js";
 import { buildCoachingMove } from "./coaching.js";
@@ -45,6 +47,7 @@ const STORAGE_KEY = "sudoku-pilot-state-v1";
 const LEGACY_STORAGE_KEY = "sudoku-method-state-v1";
 const PLAYED_PUZZLES_KEY = "sudoku-pilot-played-canonical-v1";
 const PLAYER_STATS_KEY = "sudoku-pilot-player-stats-v1";
+const ACCOUNT_TECHNIQUE_PROGRESS_KEY = "sudoku-pilot-account-techniques-v1";
 const TECHNIQUE_DEFAULTS_VERSION = 2;
 const playedCanonicalIds = loadPlayedCanonicalIds();
 const MAX_HISTORY = 40;
@@ -59,6 +62,13 @@ const viewedLessons = new Set();
 let deferredInstallPrompt = null;
 
 const state = createInitialState();
+const accountController = createAccountController({
+  getLocalSnapshot: createAccountSnapshot,
+  applySnapshot: applyAccountSnapshot,
+  clearAccountData: clearLocalData,
+  onChange: render,
+  capture: (event, properties) => productAnalytics.capture(event, properties)
+});
 initializeNavigation();
 const puzzleJourney = createPuzzleJourney((event, properties) => productAnalytics.capture(event, properties));
 const hasSavedProgress = hasPlayerProgress() || state.hintRequested;
@@ -79,6 +89,7 @@ registerInstallEvents();
 registerServiceWorker();
 window.addEventListener("popstate", handlePopState);
 render();
+void accountController.init();
 startTimer();
 
 function routeFromLocation() {
@@ -201,6 +212,7 @@ function render() {
       ${state.completionSummary ? renderCompletionCelebration() : ""}
       ${renderSaveOfflineButton()}
       ${state.installPromptOpen ? renderInstallPrompt() : ""}
+      ${renderAccountDialog(accountController.getViewModel())}
     </section>
   `;
 
@@ -210,6 +222,7 @@ function render() {
   focusRequestedRoute();
   activateCompletionDialog();
   activateInstallDialog();
+  activateAccountDialog();
 }
 
 function activateCompletionDialog() {
@@ -224,6 +237,15 @@ function activateInstallDialog() {
   if (!dialog) return;
   [...dialog.parentElement.children].filter((child) => child !== dialog).forEach((child) => { child.inert = true; });
   dialog.querySelector("[data-action='install-app'], [data-action='dismiss-install-prompt']")?.focus();
+}
+
+function activateAccountDialog() {
+  const dialog = app.querySelector("[data-testid='account-dialog']");
+  if (!dialog) return;
+  [...dialog.parentElement.parentElement.children].filter((child) => child !== dialog.parentElement).forEach((child) => {
+    child.inert = true;
+  });
+  dialog.querySelector("button, input")?.focus();
 }
 
 function dismissCompletionCelebration() {
@@ -706,13 +728,14 @@ function renderMorePanel() {
         <h2 tabindex="-1" data-route-heading>More</h2>
         <button class="primary" data-action="toggle-more">Close</button>
       </div>
+      ${renderAccountPanel(accountController.getViewModel())}
       ${renderPreferencesPanel()}
       ${renderAutomationPanel()}
       ${renderTechniqueFilters()}
       ${renderInfoPanel()}
       <section class="sub-panel">
         <h2>Local data</h2>
-        <p class="caption">Puzzle progress is stored only in this browser.</p>
+        <p class="caption">Guest progress stays in this browser. Signed-in progress is stored for account sync.</p>
         <button data-action="clear-local-data">Clear local data</button>
       </section>
     </section>
@@ -1185,6 +1208,7 @@ function renderImportPanel() {
 }
 
 function bindEvents() {
+  bindAccountViewEvents({ root: app, controller: accountController, onChange: render });
   app.querySelectorAll("[data-cell]").forEach((button) => {
     button.addEventListener("click", () => selectCell(Number(button.dataset.cell)));
   });
@@ -1806,6 +1830,13 @@ function answerNearMiss(answer) {
     practice_mode: state.practiceSession.mode,
     correct: answer === state.practiceSession.nearMiss.valid
   });
+  if (answer === state.practiceSession.nearMiss.valid) {
+    incrementTechniqueProgress(state.practiceSession.technique, {
+      opportunities: 1,
+      independent_successes: 1,
+      practice_completions: 1
+    });
+  }
 }
 
 function selectNextPracticeTechnique() {
@@ -1867,6 +1898,8 @@ function requestHint() {
     state.runMessage = "Fix the board issue before asking for a hint.";
     return;
   }
+  const technique = state.moves[state.hintIndex]?.technique;
+  if (technique) incrementTechniqueProgress(technique, { opportunities: 1, hint_reveals: 1 });
   state.hintMode = "coach";
   state.allMovesVisible = false;
   state.skipNoteDiagnosis = false;
@@ -1876,6 +1909,8 @@ function requestHint() {
 }
 
 function showTechniqueHint() {
+  const technique = state.moves[state.hintIndex]?.technique;
+  if (technique) incrementTechniqueProgress(technique, { opportunities: 1, hint_reveals: 1 });
   state.hintMode = "coach";
   state.allMovesVisible = false;
   state.skipNoteDiagnosis = true;
@@ -1922,7 +1957,13 @@ function applyCurrentHint() {
     state.puzzleMoveCount += (move.fills || []).length;
     puzzleJourney.recordMove(state.puzzleMoveCount);
     state.hintCount += 1;
-    if (state.practiceSession && sameMoveAction(move, state.practiceSession.targetMove)) state.practiceSession.targetApplied = true;
+    const completedPractice = Boolean(state.practiceSession && sameMoveAction(move, state.practiceSession.targetMove));
+    if (completedPractice) state.practiceSession.targetApplied = true;
+    incrementTechniqueProgress(move.technique, {
+      assisted_successes: 1,
+      hint_applies: 1,
+      ...(completedPractice ? { practice_completions: 1 } : {})
+    });
     state.runMessage = `Applied ${move.technique}: ${move.title}.`;
   }
   closeHintDetails();
@@ -2082,6 +2123,7 @@ function clearLocalData() {
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
     window.localStorage.removeItem(PLAYER_STATS_KEY);
+    window.localStorage.removeItem(ACCOUNT_TECHNIQUE_PROGRESS_KEY);
     productAnalytics.reset();
     clearInstallPromotionStatus();
     playedCanonicalIds.clear();
@@ -2415,8 +2457,120 @@ function saveState() {
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    accountController?.markDirty();
   } catch {
     state.runMessage = "Progress could not be saved locally. Your browser storage is unavailable.";
+  }
+}
+
+function createAccountSnapshot() {
+  return {
+    schemaVersion: 1,
+    activePuzzle: {
+      puzzle: serializePuzzle(state.puzzle),
+      difficulty: state.difficulty,
+      allowedTechniques: [...state.allowedTechniques],
+      selected: state.selected,
+      numberMode: state.numberMode,
+      startedAt: state.startedAt,
+      elapsedBeforeStart: elapsedSeconds(),
+      puzzleMoveCount: state.puzzleMoveCount,
+      hintCount: state.hintCount,
+      hintRequested: state.hintRequested,
+      puzzleSource: state.puzzleSource,
+      puzzlePracticeTechnique: state.puzzlePracticeTechnique,
+      puzzlePracticeMode: state.puzzlePracticeMode,
+      completionRecorded: state.completionRecorded
+    },
+    preferences: {
+      showMistakes: state.showMistakes,
+      showTimer: state.showTimer,
+      highlightPeers: state.highlightPeers,
+      highlightMatches: state.highlightMatches,
+      entryMethod: state.entryMethod,
+      lineCountsVisible: state.lineCountsVisible,
+      practiceTechnique: state.practiceTechnique,
+      practiceMode: state.practiceMode
+    },
+    playedIds: [...playedCanonicalIds],
+    legacyCompletedCount: state.playerStats.completed,
+    techniqueRows: loadTechniqueProgressRows()
+  };
+}
+
+function incrementTechniqueProgress(technique, increments) {
+  if (!COMMITTED_COACHING_TECHNIQUES.includes(technique)) return;
+  const rows = loadTechniqueProgressRows();
+  const deviceId = getAccountDeviceId();
+  let row = rows.find((candidate) => candidate.device_id === deviceId && candidate.technique_id === technique);
+  if (!row) {
+    row = {
+      device_id: deviceId,
+      technique_id: technique,
+      opportunities: 0,
+      independent_successes: 0,
+      assisted_successes: 0,
+      hint_reveals: 0,
+      hint_applies: 0,
+      practice_completions: 0
+    };
+    rows.push(row);
+  }
+  for (const [key, value] of Object.entries(increments)) {
+    row[key] = Math.max(0, Number(row[key]) || 0) + Math.max(0, Number(value) || 0);
+  }
+  try {
+    window.localStorage.setItem(ACCOUNT_TECHNIQUE_PROGRESS_KEY, JSON.stringify(rows));
+  } catch {
+    // Account learning signals are optional and never block practice.
+  }
+}
+
+function loadTechniqueProgressRows() {
+  try {
+    const rows = JSON.parse(window.localStorage.getItem(ACCOUNT_TECHNIQUE_PROGRESS_KEY) || "[]");
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+function applyAccountSnapshot(snapshot) {
+  const active = snapshot?.activePuzzle;
+  const puzzle = deserializePuzzle(active?.puzzle);
+  if (puzzle) {
+    state.puzzle = puzzle;
+    state.difficulty = DIFFICULTY_ORDER.includes(active.difficulty) ? active.difficulty : state.difficulty;
+    state.allowedTechniques = new Set((active.allowedTechniques || []).filter((technique) => ALL_TECHNIQUES.includes(technique)));
+    state.selected = typeof active.selected === "number" ? active.selected : null;
+    state.numberMode = active.numberMode === "note" ? "note" : "value";
+    state.startedAt = Date.now();
+    state.elapsedBeforeStart = Math.max(0, Number(active.elapsedBeforeStart) || 0);
+    state.puzzleMoveCount = Math.max(0, Number(active.puzzleMoveCount) || 0);
+    state.hintCount = Math.max(0, Number(active.hintCount) || 0);
+    state.hintRequested = Boolean(active.hintRequested);
+    state.puzzleSource = ["generated", "import", "practice"].includes(active.puzzleSource) ? active.puzzleSource : "generated";
+    state.puzzlePracticeTechnique = active.puzzlePracticeTechnique || null;
+    state.puzzlePracticeMode = active.puzzlePracticeMode || null;
+    state.completionRecorded = Boolean(active.completionRecorded);
+    state.wasSolved = isSolved(puzzle.values);
+  }
+  const preferences = snapshot?.preferences || {};
+  for (const key of ["showMistakes", "showTimer", "highlightPeers", "highlightMatches", "lineCountsVisible"]) {
+    if (typeof preferences[key] === "boolean") state[key] = preferences[key];
+  }
+  if (preferences.entryMethod === "cell-first" || preferences.entryMethod === "digit-first") state.entryMethod = preferences.entryMethod;
+  if (COMMITTED_COACHING_TECHNIQUES.includes(preferences.practiceTechnique)) state.practiceTechnique = preferences.practiceTechnique;
+  if (PRACTICE_MODES.some(({ id }) => id === preferences.practiceMode)) state.practiceMode = preferences.practiceMode;
+  playedCanonicalIds.clear();
+  for (const id of snapshot?.playedIds || []) playedCanonicalIds.add(id);
+  savePlayedCanonicalIds();
+  state.playerStats.completed = Math.max(state.playerStats.completed, Number(snapshot?.legacyCompletedCount) || 0);
+  savePlayerStats();
+  try {
+    window.localStorage.setItem(ACCOUNT_TECHNIQUE_PROGRESS_KEY, JSON.stringify(snapshot?.techniqueRows || []));
+  } catch {
+    // Puzzle and preference sync still succeeds when optional aggregates cannot be cached.
   }
 }
 

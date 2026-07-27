@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 
-const [vercelConfig, appSource, browserAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient, sudokuOcrRoute] = await Promise.all([
+const [vercelConfig, appSource, accountClientSource, accountSyncSource, browserAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient, sudokuOcrRoute] = await Promise.all([
   readFile(new URL("../vercel.json", import.meta.url), "utf8"),
   readFile(new URL("../src/app.js", import.meta.url), "utf8"),
+  readFile(new URL("../src/accountClient.js", import.meta.url), "utf8"),
+  readFile(new URL("../src/accountSync.js", import.meta.url), "utf8"),
   readFile(new URL("../src/browserAnalytics.js", import.meta.url), "utf8"),
   readFile(new URL("../.env.example", import.meta.url), "utf8"),
   readFile(new URL("../.gitignore", import.meta.url), "utf8"),
@@ -19,6 +21,8 @@ assert.match(headers["content-security-policy"] || "", /default-src 'self'/);
 assert.match(headers["content-security-policy"] || "", /script-src 'self'/);
 assert.match(headers["content-security-policy"] || "", /style-src 'self' 'unsafe-inline'/, "PostHog popup and widget surveys require their bundled inline styles.");
 assert.match(headers["content-security-policy"] || "", /connect-src 'self' https:\/\/us\.i\.posthog\.com https:\/\/eu\.i\.posthog\.com/);
+assert.match(headers["content-security-policy"] || "", /https:\/\/ep-still-dream-a6at2pib\.neonauth\.us-west-2\.aws\.neon\.tech/);
+assert.match(headers["content-security-policy"] || "", /https:\/\/ep-still-dream-a6at2pib\.apirest\.us-west-2\.aws\.neon\.tech/);
 assert.match(headers["content-security-policy"] || "", /frame-ancestors 'none'/);
 assert.equal(headers["x-frame-options"], "DENY");
 assert.equal(headers["x-content-type-options"], "nosniff");
@@ -50,6 +54,10 @@ for (const asset of ["eng.traineddata.gz", "tesseract-core.wasm", "tesseract-cor
 }
 assert.match(envExample, /^VITE_POSTHOG_KEY=\s*$/m);
 assert.match(envExample, /^VITE_POSTHOG_HOST=https:\/\/us\.i\.posthog\.com$/m);
+assert.match(envExample, /^VITE_ACCOUNT_SYNC_ENABLED=false$/m);
+assert.match(envExample, /^VITE_NEON_AUTH_URL=\s*$/m);
+assert.match(envExample, /^VITE_NEON_DATA_API_URL=\s*$/m);
+assert.match(envExample, /^ACCOUNT_DATABASE_URL_UNPOOLED=\s*$/m);
 assert.match(envExample, /^RAPIDAPI_KEY=\s*$/m);
 assert.match(envExample, /^SUDOKU_OCR_ENABLED=false$/m);
 assert.match(envExample, /^SUDOKU_OCR_MAX_CALLS_PER_IP_PER_HOUR=3$/m);
@@ -58,6 +66,10 @@ assert.match(gitignore, /^!\.env\.example$/m);
 assert.match(readme, /VITE_POSTHOG_KEY/);
 assert.match(readme, /VITE_POSTHOG_HOST/);
 assert.doesNotMatch(browserAnalyticsSource, /phc_[A-Za-z0-9]/, "Production source must not embed a PostHog project key.");
+assert.doesNotMatch(accountClientSource, /DATABASE_URL|client_secret|clientSecret/i, "The browser account client must contain only browser-safe configuration.");
+assert.doesNotMatch(accountSyncSource, /capture\([^\n]*(email:|user_id:|userId:|token:)/i, "Account analytics must not include identifiers or tokens.");
+assert.match(accountSyncSource, /account_export_completed/);
+assert.match(accountSyncSource, /account_deleted/);
 assert.match(browserAnalyticsSource, /posthog-js\/dist\/module\.full\.no-external\.js/, "The bundled full SDK must include replay, surveys, and other optional product modules.");
 assert.doesNotMatch(appSource, /board-frame analytics-block/, "Session replay should include puzzle interactions.");
 assert.match(appSource, /import-panel analytics-image-block/, "Session replay must continue excluding the imported image itself.");
