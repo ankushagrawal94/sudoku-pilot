@@ -5,6 +5,8 @@ import { spawnSync } from "node:child_process";
 const articleFiles = (await readdir("content/articles")).filter((file) => file.endsWith(".json")).sort();
 const articles = await Promise.all(articleFiles.map(async (file) => JSON.parse(await readFile(`content/articles/${file}`, "utf8"))));
 const pages = articles.map((article) => article.path);
+const contentPaths = ["about", "contact", "privacy", ...pages];
+const trailingContentHref = new RegExp(`href="/(?:${contentPaths.join("|")})/"`);
 
 const build = spawnSync(process.execPath, ["scripts/build-content.mjs"], {
   cwd: process.cwd(),
@@ -15,7 +17,8 @@ assert.equal(build.status, 0, build.stderr);
 for (const page of pages) {
   const html = await readFile(`public/${page}/index.html`, "utf8");
   assert.match(html, /<title>[^<]+ \| Sudoku Pilot<\/title>/);
-  assert.match(html, /<link rel="canonical" href="https:\/\/sudokupilot\.com\//);
+  assert.match(html, new RegExp(`<link rel="canonical" href="https://sudokupilot\\.com/${page}"`));
+  assert.doesNotMatch(html, trailingContentHref);
   assert.match(html, /<meta name="description" content="[^"]+"/);
   assert.match(html, /<h1>[^<]+<\/h1>/);
   assert.doesNotMatch(html, /<p class="eyebrow">/);
@@ -81,18 +84,21 @@ for (const page of pages) assert.match(sitemap, new RegExp(`<loc>https://sudokup
 assert.match(sitemap, /<loc>https:\/\/sudokupilot\.com\/contact<\/loc>/);
 assert.match(sitemap, /<loc>https:\/\/sudokupilot\.com\/about<\/loc>/);
 assert.match(sitemap, /<loc>https:\/\/sudokupilot\.com\/privacy<\/loc>/);
+assert.doesNotMatch(sitemap, new RegExp(`https://sudokupilot\\.com/(?:${contentPaths.join("|")})/`));
 
 const about = await readFile("public/about/index.html", "utf8");
 assert.match(about, /<title>About \| Sudoku Pilot<\/title>/);
 assert.match(about, /<link rel="canonical" href="https:\/\/sudokupilot\.com\/about"/);
 assert.doesNotMatch(about, /<p class="eyebrow">/);
 for (const article of articles) {
-  assert.match(about, new RegExp(`href="/${article.path}/"`));
+  assert.match(about, new RegExp(`href="/${article.path}"`));
 }
+assert.doesNotMatch(about, trailingContentHref);
 
 const contact = await readFile("public/contact/index.html", "utf8");
 assert.match(contact, /<title>Contact \| Sudoku Pilot<\/title>/);
 assert.match(contact, /<link rel="canonical" href="https:\/\/sudokupilot\.com\/contact"/);
+assert.doesNotMatch(contact, trailingContentHref);
 assert.doesNotMatch(contact, /<p class="eyebrow">/);
 assert.match(contact, /mailto:hello@sudokupilot\.com/);
 assert.match(contact, />hello@sudokupilot\.com</);
@@ -100,6 +106,7 @@ assert.match(contact, />hello@sudokupilot\.com</);
 const privacy = await readFile("public/privacy/index.html", "utf8");
 assert.match(privacy, /<title>Privacy \| Sudoku Pilot<\/title>/);
 assert.match(privacy, /<link rel="canonical" href="https:\/\/sudokupilot\.com\/privacy"/);
+assert.doesNotMatch(privacy, trailingContentHref);
 assert.match(privacy, /Guest data stays in your browser/);
 assert.match(privacy, /Optional accounts and sync/);
 assert.match(privacy, /Neon Auth stores your email address/);
@@ -132,6 +139,15 @@ assert.match(home, /<link rel="canonical" href="https:\/\/sudokupilot\.com\/"/);
 assert.match(home, /<meta property="og:title" content="Sudoku Pilot/);
 assert.match(home, /<meta property="og:url" content="https:\/\/sudokupilot\.com\/"/);
 assert.doesNotMatch(home, /sudoku method|sudoku-method|sudoku-app-wine\.vercel\.app/i);
+
+for (const source of ["src/app.js", "src/accountView.js"]) {
+  const contents = await readFile(source, "utf8");
+  assert.doesNotMatch(contents, trailingContentHref, `${source} must link to canonical no-trailing-slash content URLs`);
+}
+
+const vercelConfig = JSON.parse(await readFile("vercel.json", "utf8"));
+assert.equal(vercelConfig.cleanUrls, true);
+assert.equal(vercelConfig.trailingSlash, false);
 
 const manifest = await readFile("public/manifest.webmanifest", "utf8");
 assert.match(manifest, /"name": "Sudoku Pilot"/);
