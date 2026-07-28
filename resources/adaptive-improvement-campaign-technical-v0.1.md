@@ -180,6 +180,21 @@ Append-only evidence keyed by `eventId`, with indexes on `techniqueId`, `activit
 
 Do not store a full grid, candidate map, note set, or exact move in campaign evidence. Existing puzzle persistence remains authoritative for resumable gameplay.
 
+#### `sudoku-pilot-solve-transcripts`
+
+A separate IndexedDB database stores bounded, replayable solve runs for private detector validation. This database is not campaign evidence and is not part of account sync.
+
+Each run stores:
+
+- schema, codec, and analyzer versions;
+- source, difficulty, and optional canonical/source IDs;
+- an 81-digit initial-value encoding plus sparse initial solver eliminations;
+- a compact ordered array of elapsed-time, action, value-patch, elimination-patch, technique-reference, and assistance fields;
+- terminal status and completion time; and
+- explicit `local-only` and `containsPuzzleContent` markers.
+
+Retain at most 100 runs and delete completed runs older than 90 days. Persist one run record rather than one database row per move. Export and deletion are separate from the grid-free campaign export. Account sync receives only bounded technique aggregates derived on-device; raw transcripts never enter the account snapshot.
+
 #### `skill_snapshots`
 
 Materialized reducer output for fast reads.
@@ -619,9 +634,9 @@ Placement produces evidence rather than directly editing skill snapshots.
 
 ### Inputs
 
-- self-reported familiarity;
+- assistance-aware evidence from the first certified puzzle activities;
+- optional self-reported familiarity and goals;
 - historical local lesson/practice/hint events that meet the new evidence contract;
-- optional certified recognition checks; and
 - conservative defaults.
 
 Legacy data without sufficient context may influence a recommendation explanation but must not be converted into false unaided-recognition evidence.
@@ -630,12 +645,21 @@ Legacy data without sufficient context may influence a recommendation explanatio
 
 Use prerequisite and family structure to reduce checks:
 
+- offer a puzzle-first path that launches a fresh, complete Sudoku from the learner-selected certified difficulty without requiring questionnaire answers;
+- offer a knowledge-first path whose technique controls are pre-filled from existing technique-aware campaign evidence and remain learner-correctable;
+- infer a low-confidence initial goal and technique state from correct application, errors, guesses, and deepest assistance;
 - successful recognition can skip nearby foundational checks provisionally;
 - failure narrows the next check to prerequisites;
 - learners may stop placement at any point; and
 - the graph remains editable afterward.
 
-The placement algorithm should be deterministic and capped to a product-approved maximum duration.
+The placement and goal-inference policies must be deterministic, separately versioned, visible as provisional, and capped to a product-approved maximum duration. A learner-provided goal overrides the inferred goal without rewriting prior evidence.
+
+The opening full Sudoku is a diagnostic activity, not a personalized teaching puzzle. Its certification snapshot records the learner-selected difficulty ceiling and every committed technique allowed by the catalog record. It may sample several techniques, so it does not claim a one-new-technique budget. Completion alone is exposure; only assistance-aware, unambiguously attributed techniques affect the skill graph. Every subsequent personalized puzzle recommendation still enforces the one-new-technique budget without exception.
+
+Technique perception may be pre-filled only from evidence that satisfies the campaign evidence contract. Aggregate puzzle-completion totals and legacy history without technique attribution remain visible as insufficient context, not converted into mastery. A future signed-in source can populate the same skill model only after the separately specified account-sync and provenance work is implemented.
+
+For prospective play, evaluate a manual fill against every committed detector allowed by the current puzzle's certification. Attribute the move only when exactly one detector yields the same cell and digit. Record the conclusion and assistance separately from the replay transcript. Device-level technique aggregates may pre-fill **Learning**, but cannot pre-fill durable **Know it** because aggregate counters lack distinct-state and distinct-date provenance.
 
 ## Offline behavior
 
@@ -813,15 +837,16 @@ If IndexedDB is unavailable, the campaign may run in a clearly labeled temporary
 
 At minimum:
 
-1. cold-start beginner;
-2. experienced learner who self-reports Tier 1 mastery;
-3. learner with W-Wing prerequisites but no Tier 2 mastery;
-4. learner struggling repeatedly with a focus technique;
-5. mastered learner returning after 30 days;
-6. learner with five minutes available;
-7. no certified full puzzle available;
-8. learner avoiding the top research-ranked technique; and
-9. two profiles that must produce different first-five sequences.
+1. cold-start learner who begins without profile answers;
+2. learner whose observed unaided Tier 1 application changes the next recommendation;
+3. experienced learner who optionally self-reports Tier 1 mastery;
+4. learner with W-Wing prerequisites but no Tier 2 mastery;
+5. learner struggling repeatedly with a focus technique;
+6. mastered learner returning after 30 days;
+7. learner with five minutes available;
+8. no certified full puzzle available;
+9. learner avoiding the top research-ranked technique; and
+10. two profiles that must produce different first-five sequences.
 
 ### Certification tests
 
@@ -865,6 +890,7 @@ Cover desktop Chromium and Pixel 5:
 - assistance-depth evidence;
 - review-due activity;
 - export, reset, and deletion;
+- compact solve-transcript replay, retention, separate export, and deletion;
 - entitlement loss without data loss; and
 - accessibility at 320 px.
 
@@ -874,6 +900,7 @@ Cover desktop Chromium and Pixel 5:
 - forbidden key and value detection;
 - no puzzle data in selector diagnostics;
 - export contains only documented campaign data; and
+- raw solve transcripts remain local-only and never appear in campaign or account exports; and
 - deletion removes campaign stores without affecting unrelated preferences unless requested.
 
 ## Rollout and migrations

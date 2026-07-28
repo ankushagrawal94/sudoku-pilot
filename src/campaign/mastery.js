@@ -11,6 +11,13 @@ export const DEFAULT_MASTERY_POLICY = Object.freeze({
 
 const SUCCESS_EVENT = "target_recognized";
 const CONTRADICTION_EVENTS = new Set(["focus_action_incorrect", "learner_reported_guess"]);
+const SAME_TIME_EVENT_ORDER = Object.freeze({
+  target_recognized: 10,
+  focus_action_incorrect: 20,
+  learner_reported_guess: 30,
+  placement_check_completed: 40,
+  activity_completed: 50
+});
 const EXPOSURE_EVENTS = new Set([
   "activity_started",
   "tool_used",
@@ -40,6 +47,7 @@ export function reduceSkillState(techniqueId, events, {
   let assistedSuccessCount = 0;
   let withoutLocationCount = 0;
   let contradictionCount = 0;
+  let placementNeedsPractice = false;
   let lastExposureAt = null;
   let lastSelfReportAt = null;
   let lastUnaidedSuccessAt = null;
@@ -72,6 +80,11 @@ export function reduceSkillState(techniqueId, events, {
       state = "mastered";
       provisional = true;
       lastSelfReportAt = event.occurredAt;
+      placementNeedsPractice = false;
+    } else if (event.eventType === "placement_check_completed" && event.payload?.result === "needs-practice") {
+      state = "learning";
+      provisional = false;
+      placementNeedsPractice = true;
     }
 
     if (CONTRADICTION_EVENTS.has(event.eventType)) {
@@ -83,6 +96,13 @@ export function reduceSkillState(techniqueId, events, {
 
     if (event.eventType !== SUCCESS_EVENT) continue;
     const wasMastered = state === "mastered" || state === "review-due";
+    const placementRecognition = event.payload?.recognitionKind === "placement";
+    if (
+      !placementRecognition &&
+      ASSISTANCE_LEVELS.indexOf(event.assistanceLevel) < ASSISTANCE_LEVELS.indexOf("structural-location")
+    ) {
+      placementNeedsPractice = false;
+    }
     recentCorrectness.push(true);
     trimWindow(recentCorrectness, policy.contradictionWindow);
     lastSuccessAt = event.occurredAt;
@@ -100,7 +120,7 @@ export function reduceSkillState(techniqueId, events, {
     }
 
     if (state === "unseen" || state === "learning") state = "practicing";
-    if (wasMastered && event.assistanceLevel !== "exact-move") {
+    if (wasMastered && !placementRecognition && event.assistanceLevel !== "exact-move") {
       successfulRetrievalsAfterMastery += 1;
       if (provisional && ASSISTANCE_LEVELS.indexOf(event.assistanceLevel) < ASSISTANCE_LEVELS.indexOf("structural-location")) {
         provisional = false;
@@ -159,6 +179,7 @@ export function reduceSkillState(techniqueId, events, {
     withoutLocationCount,
     contradictionCount,
     recentContradictionCount: recentContradictions,
+    placementNeedsPractice,
     successCount: totalSuccesses,
     lastExposureAt,
     lastUnaidedSuccessAt,
@@ -179,7 +200,9 @@ function normalizeSelfReport(payload) {
 }
 
 function compareEvidence(left, right) {
-  return left.occurredAt.localeCompare(right.occurredAt) || left.eventId.localeCompare(right.eventId);
+  return left.occurredAt.localeCompare(right.occurredAt) ||
+    (SAME_TIME_EVENT_ORDER[left.eventType] || 0) - (SAME_TIME_EVENT_ORDER[right.eventType] || 0) ||
+    left.eventId.localeCompare(right.eventId);
 }
 
 function trimWindow(values, size) {

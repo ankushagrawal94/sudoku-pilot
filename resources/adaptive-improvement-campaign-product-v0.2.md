@@ -254,21 +254,22 @@ Only prerequisite edges block eligibility. Other edge types affect ranking, expl
 
 The campaign should not make an experienced learner begin at the first lesson.
 
-Initial placement combines:
+Initial placement is observation-first and combines:
 
-1. the learner's self-reported familiarity;
-2. optional short recognition checks;
+1. short certified puzzle activities that reveal which techniques the learner can apply and the deepest assistance used;
+2. optional self-reported familiarity and goals;
 3. existing local lesson, practice, hint, and solve history; and
 4. conservative defaults when evidence is missing.
 
 The learner can:
 
+- begin immediately without specifying a goal, session preference, or technique knowledge;
 - accept a recommended starting point;
 - inspect the inferred skill graph;
 - mark techniques familiar or unfamiliar; and
-- skip placement and begin with a recommended foundational activity.
+- stop placement and continue with the current provisional recommendation.
 
-Placement should minimize false claims of mastery. A skipped technique remains provisionally mastered until later retrieval evidence confirms or revises it.
+The campaign should infer an initial path from observed target recognition, technique application, errors, and assistance. Any inferred goal or successful placement result remains provisional, visible, and correctable. Self-report can accelerate placement but is never required and never becomes permanent proof.
 
 ## Mastery evidence
 
@@ -457,9 +458,12 @@ The complete placement, campaign, skill graph, recommendation, activity, and mas
 - Select activities on-device from shipped, certified data.
 - Cache the current activity and core coaching for offline use.
 - Export, reset, and delete the skill graph and campaign history.
+- Retain a bounded, separately controlled local solve transcript for prospective technique inference.
 - Explain that clearing site data or changing devices loses unsynced history.
 
 Local calendar dates are used only for evidence spacing and review timing.
+
+Private solve transcripts are distinct from campaign evidence. They may contain the starting grid and exact value/elimination changes needed to replay detector decisions, but remain local-only, use a versioned compact format, retain at most 100 runs for 90 days, and have separate export and deletion controls. Campaign evidence continues to exclude grids and exact moves.
 
 ### Optional account
 
@@ -471,6 +475,8 @@ An account may later add:
 - continuity across installed devices.
 
 Sign-in remains optional for free gameplay and a local campaign. Before sync is implemented, define consent, data minimization, conflict resolution, export, deletion, and local-to-account migration separately.
+
+Account sync may receive bounded technique aggregates derived on-device from unambiguous moves. It must not upload raw solve transcripts, starting grids, or exact actions under this campaign phase.
 
 ## Paid product hypothesis
 
@@ -504,6 +510,8 @@ Pricing and packaging remain hypotheses. "Lifetime" must define whether it cover
 ## Privacy and analytics
 
 Keep the full skill graph, puzzle state, notes, exact moves, and evidence history on-device by default.
+
+Technique inference runs against the board state immediately before a manual value entry. When exactly one committed, source-certified detector produces that exact fill, store a provisional technique observation with the deepest assistance used. Ambiguous moves produce no technique attribution. One observation does not grant durable mastery.
 
 Product analytics may record only coarse, consented events such as:
 
@@ -575,7 +583,7 @@ Do not send grid values, pencil notes, screenshots, candidates, or exact move co
 
 ### Phase 1: Placement and continuous local campaign
 
-- Ship self-report plus optional recognition placement.
+- Ship observation-first placement using certified puzzle activities, with self-report and goal selection as optional corrections.
 - Show the skill graph and allow corrections.
 - Generate a current recommendation without a daily quota.
 - Offer the next recommendation immediately after completion.
@@ -608,10 +616,14 @@ Do not send grid values, pencil notes, screenshots, candidates, or exact move co
 
 - The feature is named and described as an adaptive campaign, not a daily quota.
 - Learners can continue immediately after completing a recommendation.
+- Learners can begin without declaring a goal or technique knowledge by choosing a puzzle difficulty.
+- Learners may instead review a pre-filled technique perception, correct it, and receive a certified puzzle or activity selected from the resulting skill graph.
+- The first puzzle is a fresh, complete Sudoku at the learner-selected level that records unambiguous technique application and deepest assistance before adapting the path.
+- The opening diagnostic puzzle uses its certified difficulty ceiling and does not claim a single new technique or grant mastery from completion.
 - Initial placement can skip familiar techniques.
 - At least two meaningfully different learner profiles produce different first-five activity sequences.
 - Every recommendation stores and displays a reason.
-- Every puzzle activity passes novelty-budget and replay checks.
+- Every personalized learning puzzle passes novelty-budget and replay checks; the separately labeled opening diagnostic puzzle passes Easy-ceiling and replay checks.
 - Mastered techniques are skipped or explicitly eligible for automation.
 - Exact-move reveal and completion alone cannot grant mastery.
 - Delayed evidence is required for durable mastery.
@@ -623,7 +635,7 @@ Do not send grid values, pencil notes, screenshots, candidates, or exact move co
 
 ## Open product decisions
 
-1. What is the smallest placement flow that reliably avoids reteaching familiar skills?
+1. How many observation-first placement puzzles reliably avoid reteaching familiar skills without creating onboarding fatigue?
 2. What should the default cold-start prerequisite graph be?
 3. Which activity types appear in the free adaptive preview?
 4. What time choices should the campaign support?

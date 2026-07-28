@@ -10,6 +10,13 @@ import { buildCoachingMove } from "./coaching.js";
 import { getTechniqueLesson } from "./learning.js";
 import { createPracticeState, PRACTICE_MODES } from "./practice.js";
 import {
+  CAMPAIGN_TECHNIQUE_GRAPH,
+  createCampaignSession,
+  openCampaignStorage,
+  techniqueIdForName,
+  techniqueNameForId
+} from "./campaign/index.js";
+import {
   clearInstallPromotionStatus,
   installPlatform,
   installPromotionStatus,
@@ -38,6 +45,13 @@ import {
   legalCandidates,
   rowOf
 } from "./solver.js";
+import {
+  createSolveTranscriptManager,
+  openSolveTranscriptStorage,
+  replaySolveRun,
+  SOLVE_TRANSCRIPT_MAX_RUNS,
+  SOLVE_TRANSCRIPT_RETENTION_DAYS
+} from "./solveTranscript.js";
 
 const app = document.querySelector("#app");
 const productAnalytics = createBrowserProductAnalytics();
@@ -55,11 +69,40 @@ const MAX_PERSISTED_HISTORY = 12;
 const FEEDBACK_EMAIL = "hello@sudokupilot.com";
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
-const PRIMARY_VIEWS = new Set(["play", "learn", "practice", "import"]);
+const CAMPAIGN_FEATURE_STORAGE_KEY = "sudoku-pilot-feature-adaptive-campaign-phase1a";
+const CAMPAIGN_FEATURE_ENABLED = isCampaignFeatureEnabled();
+const PRIMARY_VIEWS = new Set([
+  "play",
+  "learn",
+  "practice",
+  "import",
+  ...(CAMPAIGN_FEATURE_ENABLED ? ["campaign"] : [])
+]);
 const PLAY_PANELS = new Set(["more", "about"]);
 let timerInterval = null;
 const viewedLessons = new Set();
 let deferredInstallPrompt = null;
+const campaignRuntime = {
+  enabled: CAMPAIGN_FEATURE_ENABLED,
+  loading: CAMPAIGN_FEATURE_ENABLED,
+  busy: false,
+  error: "",
+  mode: "home",
+  model: null,
+  session: null,
+  storage: null,
+  reflection: null,
+  pendingEvidence: Promise.resolve()
+};
+const solveTranscriptRuntime = {
+  enabled: CAMPAIGN_FEATURE_ENABLED,
+  manager: null,
+  initializing: null,
+  currentRunId: null,
+  summary: null,
+  pending: Promise.resolve(),
+  error: ""
+};
 
 const state = createInitialState();
 const accountController = createAccountController({
@@ -91,6 +134,10 @@ window.addEventListener("popstate", handlePopState);
 render();
 void accountController.init();
 startTimer();
+if (CAMPAIGN_FEATURE_ENABLED) {
+  solveTranscriptRuntime.initializing = initializeSolveTranscripts();
+  initializeCampaign();
+}
 
 function routeFromLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -99,6 +146,17 @@ function routeFromLocation() {
   const requestedPanel = params.get("panel");
   const panel = view === "play" && PLAY_PANELS.has(requestedPanel) ? requestedPanel : null;
   return { view, panel };
+}
+
+function isCampaignFeatureEnabled() {
+  try {
+    const value = new URLSearchParams(window.location.search).get("campaign");
+    if (value === "1") return true;
+    if (value === "0") return false;
+    return window.localStorage.getItem(CAMPAIGN_FEATURE_STORAGE_KEY) === "enabled";
+  } catch {
+    return false;
+  }
 }
 
 function navigationUrl({ view, panel }) {
@@ -120,6 +178,7 @@ function initializeNavigation() {
 }
 
 function navigateTo(view, { panel = null, replace = false, analyticsEntryPoint = "navigation" } = {}) {
+  const previousView = state.view;
   const route = {
     view: PRIMARY_VIEWS.has(view) ? view : "play",
     panel: view === "play" && PLAY_PANELS.has(panel) ? panel : null
@@ -135,11 +194,13 @@ function navigateTo(view, { panel = null, replace = false, analyticsEntryPoint =
   const currentDepth = Number(window.history.state?.sudokuPilotDepth) || 0;
   const nextState = { sudokuPilot: true, sudokuPilotDepth: replace ? currentDepth : currentDepth + 1, ...route };
   window.history[replace ? "replaceState" : "pushState"](nextState, "", navigationUrl(route));
-  productAnalytics.capture("app_view_changed", {
-    view: route.view,
-    panel: route.panel || "none",
-    entry_point: analyticsEntryPoint
-  });
+  if (route.view !== "campaign" && previousView !== "campaign" && analyticsEntryPoint) {
+    productAnalytics.capture("app_view_changed", {
+      view: route.view,
+      panel: route.panel || "none",
+      entry_point: analyticsEntryPoint
+    });
+  }
   return true;
 }
 
@@ -173,6 +234,9 @@ function focusRequestedRoute() {
 
 function render() {
   state.moves = findAllMoves(state.puzzle, activeHintTechniques());
+  if (state.practiceSession && !state.practiceSession.targetApplied && practiceTargetEffectApplied(state.practiceSession)) {
+    state.practiceSession.targetApplied = true;
+  }
   if (state.practiceSession && !state.practiceSession.targetApplied) {
     const targetIndex = state.moves.findIndex((move) => sameMoveAction(move, state.practiceSession.targetMove));
     if (targetIndex > 0) state.moves.unshift(...state.moves.splice(targetIndex, 1));
@@ -199,10 +263,11 @@ function render() {
         ` : ""}
       </header>
 
-      ${state.view === "learn" ? renderLessonBrowser() : state.view === "practice" ? renderPracticeBrowser() : state.view === "import" ? renderImportPanel() : state.panel === "more" ? renderMorePanel() : state.panel === "about" ? renderAboutPanel() : `
+      ${state.view === "campaign" ? renderCampaignView() : state.view === "learn" ? renderLessonBrowser() : state.view === "practice" ? renderPracticeBrowser() : state.view === "import" ? renderImportPanel() : state.panel === "more" ? renderMorePanel() : state.panel === "about" ? renderAboutPanel() : `
         ${state.showMistakes && check.status !== "ok" ? renderCheckPanel(check) : ""}
         <section class="game-layout">
           <section class="play-area">
+            ${renderCampaignPuzzleBanner()}
             ${renderBoard()}
             ${renderKeypad()}
             ${renderHintPanel()}
@@ -229,7 +294,7 @@ function activateCompletionDialog() {
   const dialog = app.querySelector("[data-testid='completion-celebration']");
   if (!dialog) return;
   [...dialog.parentElement.children].filter((child) => child !== dialog).forEach((child) => { child.inert = true; });
-  dialog.querySelector("[data-action='new-puzzle-after-completion']")?.focus();
+  dialog.querySelector("[data-action='campaign-continue-after-placement'], [data-action='new-puzzle-after-completion']")?.focus();
 }
 
 function activateInstallDialog() {
@@ -258,6 +323,7 @@ function dismissCompletionCelebration() {
 function renderCompletionCelebration() {
   const summary = state.completionSummary;
   const promoteInstall = shouldPromoteInstall();
+  const campaignPlacement = Boolean(summary.campaignPlacement);
   return `
     <section class="celebration-backdrop" data-testid="completion-celebration" role="dialog" aria-modal="true" aria-labelledby="completion-title">
       <div class="celebration-card">
@@ -282,7 +348,7 @@ function renderCompletionCelebration() {
         ` : ""}
         <div class="celebration-actions">
           <button data-action="dismiss-celebration">Keep admiring</button>
-          <button class="primary" data-action="new-puzzle-after-completion">Fly another puzzle</button>
+          <button class="primary" data-action="${campaignPlacement ? "campaign-continue-after-placement" : "new-puzzle-after-completion"}">${campaignPlacement ? "Continue campaign" : "Fly another puzzle"}</button>
         </div>
       </div>
     </section>
@@ -400,6 +466,978 @@ async function installApp() {
   render();
 }
 
+async function initializeCampaign() {
+  try {
+    campaignRuntime.storage = await openCampaignStorage();
+    campaignRuntime.session = createCampaignSession({ storage: campaignRuntime.storage });
+    let model = await campaignRuntime.session.loadModel();
+    if (model.profile?.placementCompletedAt && !model.currentActivity) {
+      model = await campaignRuntime.session.ensureRecommendation();
+    }
+    campaignRuntime.model = model;
+    campaignRuntime.loading = false;
+    const activity = model.currentActivity;
+    if (activity?.startedAt && ["learn", "practice"].includes(state.view)) {
+      restoreCampaignActivity(activity);
+    }
+  } catch (error) {
+    campaignRuntime.loading = false;
+    campaignRuntime.error = error.message || "Campaign storage is unavailable.";
+  }
+  render();
+}
+
+async function initializeSolveTranscripts() {
+  try {
+    const storage = await openSolveTranscriptStorage();
+    solveTranscriptRuntime.manager = createSolveTranscriptManager({ storage });
+    const resumable = state.solveRunId
+      ? await solveTranscriptRuntime.manager.getRun(state.solveRunId)
+      : null;
+    if (resumable && !resumable.completedAt) {
+      solveTranscriptRuntime.currentRunId = resumable.runId;
+      const replayed = replaySolveRun(resumable);
+      const current = snapshotTranscriptPuzzle(state.puzzle);
+      await solveTranscriptRuntime.manager.appendTransition(resumable.runId, {
+        action: "resumeReconcile",
+        before: replayed,
+        after: current,
+        elapsedMs: runningElapsedSeconds() * 1000,
+        assistanceLevel: state.solveAssistanceLevel
+      });
+    } else if (!state.completionRecorded || !isSolved(state.puzzle.values)) {
+      const run = await solveTranscriptRuntime.manager.startRun({
+        source: state.puzzleSource,
+        difficulty: state.puzzleSource === "import" ? "custom" : state.difficulty,
+        canonicalPuzzleId: state.puzzle.canonicalId || state.campaignPuzzleCanonicalId || null,
+        sourceId: state.puzzle.sourceId || null,
+        puzzle: snapshotTranscriptPuzzle(state.puzzle)
+      });
+      solveTranscriptRuntime.currentRunId = run.runId;
+      state.solveRunId = run.runId;
+      saveState();
+    } else {
+      state.solveRunId = null;
+    }
+    solveTranscriptRuntime.summary = await solveTranscriptRuntime.manager.summary();
+  } catch (error) {
+    solveTranscriptRuntime.error = error.message || "Private solve history is unavailable.";
+  }
+  render();
+}
+
+function queueSolveTranscriptTask(task, { refreshSummary = false } = {}) {
+  if (!solveTranscriptRuntime.enabled) return Promise.resolve(null);
+  solveTranscriptRuntime.pending = solveTranscriptRuntime.pending
+    .catch(() => {})
+    .then(async () => {
+      if (solveTranscriptRuntime.initializing) await solveTranscriptRuntime.initializing;
+      if (!solveTranscriptRuntime.manager) return null;
+      const result = await task(solveTranscriptRuntime.manager);
+      if (refreshSummary) solveTranscriptRuntime.summary = await solveTranscriptRuntime.manager.summary();
+      return result;
+    })
+    .catch((error) => {
+      solveTranscriptRuntime.error = error.message || "Private solve history could not be saved.";
+      return null;
+    });
+  return solveTranscriptRuntime.pending;
+}
+
+function startSolveTranscriptForCurrentPuzzle({ preserveCurrent = false } = {}) {
+  if (!solveTranscriptRuntime.enabled) return Promise.resolve(null);
+  const previousRunId = solveTranscriptRuntime.currentRunId || state.solveRunId;
+  const runInput = {
+    source: state.puzzleSource,
+    difficulty: state.puzzleSource === "import" ? "custom" : state.difficulty,
+    canonicalPuzzleId: state.puzzle.canonicalId || state.campaignPuzzleCanonicalId || null,
+    sourceId: state.puzzle.sourceId || null,
+    puzzle: snapshotTranscriptPuzzle(state.puzzle)
+  };
+  state.solveRunId = null;
+  return queueSolveTranscriptTask(async (manager) => {
+    if (previousRunId && !preserveCurrent) await manager.completeRun(previousRunId, "replaced");
+    const run = await manager.startRun(runInput);
+    solveTranscriptRuntime.currentRunId = run.runId;
+    state.solveRunId = run.runId;
+    saveState();
+    return run;
+  }, { refreshSummary: true });
+}
+
+function queueSolveTransition(action, before, after, {
+  techniqueId = null,
+  observedTechniqueId = null,
+  assistanceLevel = "none"
+} = {}) {
+  if (!solveTranscriptRuntime.enabled) return;
+  const input = {
+    action,
+    before,
+    after,
+    elapsedMs: runningElapsedSeconds() * 1000,
+    techniqueId,
+    observedTechniqueId,
+    assistanceLevel
+  };
+  void queueSolveTranscriptTask(async (manager) => {
+    if (!solveTranscriptRuntime.currentRunId) {
+      const run = await manager.startRun({
+        source: state.puzzleSource,
+        difficulty: state.puzzleSource === "import" ? "custom" : state.difficulty,
+        canonicalPuzzleId: state.puzzle.canonicalId || state.campaignPuzzleCanonicalId || null,
+        sourceId: state.puzzle.sourceId || null,
+        puzzle: before
+      });
+      solveTranscriptRuntime.currentRunId = run.runId;
+      state.solveRunId = run.runId;
+      saveState();
+    }
+    await manager.appendTransition(solveTranscriptRuntime.currentRunId, input);
+  });
+}
+
+function completeSolveTranscript(status = "completed") {
+  if (!solveTranscriptRuntime.enabled) return Promise.resolve(null);
+  return queueSolveTranscriptTask(async (manager) => {
+    if (!solveTranscriptRuntime.currentRunId) return null;
+    const completed = await manager.completeRun(solveTranscriptRuntime.currentRunId, status);
+    solveTranscriptRuntime.currentRunId = null;
+    state.solveRunId = null;
+    saveState();
+    return completed;
+  }, { refreshSummary: true });
+}
+
+function snapshotTranscriptPuzzle(puzzle) {
+  return {
+    values: [...puzzle.values],
+    eliminated: puzzle.eliminated.map((digits) => new Set(digits))
+  };
+}
+
+function renderCampaignView() {
+  if (!campaignRuntime.enabled) return "";
+  if (campaignRuntime.loading) {
+    return `<div class="campaign-shell" data-testid="campaign-view"><section class="panel campaign-loading" aria-live="polite"><h2 tabindex="-1" data-route-heading>Adaptive campaign</h2><p>Loading your local campaign…</p></section></div>`;
+  }
+  if (campaignRuntime.error && !campaignRuntime.model) {
+    return `<div class="campaign-shell" data-testid="campaign-view"><section class="panel campaign-error" role="alert"><h2 tabindex="-1" data-route-heading>Adaptive campaign</h2><p>${escapeHtml(campaignRuntime.error)}</p><p>Your regular puzzles, lessons, and practice are still available.</p></section></div>`;
+  }
+  if (
+    campaignRuntime.model?.placementRequired &&
+    !campaignRuntime.model?.currentActivity?.observationPlacement
+  ) return renderCampaignPlacement();
+  if (campaignRuntime.mode === "graph") return renderCampaignSkillGraph();
+  return renderCampaignHome();
+}
+
+function renderCampaignPlacement() {
+  const draft = campaignRuntime.model?.profile?.placementDraftReports || {};
+  const goal = campaignRuntime.model?.profile?.goal || "";
+  const preferredMinutes = campaignRuntime.model?.profile?.preferredMinutes || 10;
+  const techniques = campaignTechniqueNodes();
+  const hasTechniqueEvidence = (
+    campaignRuntime.model?.evidence?.some((event) => event.techniqueId) ||
+    loadTechniqueProgressRows().some((row) => techniqueRowHasPerception(row))
+  );
+  return `
+    <div class="campaign-shell" data-testid="campaign-view">
+      <section class="panel campaign-hero">
+        <p class="eyebrow">Private preview · local only</p>
+        <h2 tabindex="-1" data-route-heading>Find your starting point</h2>
+        <p>Choose how you want to begin. You can play at your preferred level or tell Sudoku Pilot what you already know.</p>
+        <p class="campaign-privacy-note">Both paths remain editable and provisional. Campaign data stays in this browser.</p>
+      </section>
+      <form class="panel campaign-placement" data-testid="campaign-placement">
+        <div class="campaign-start-options">
+          <section class="campaign-start-option campaign-puzzle-start" data-testid="campaign-puzzle-start">
+            <div>
+              <p class="eyebrow">Option 1</p>
+              <h3>Start with a puzzle</h3>
+              <p>Choose a level and solve a fresh, complete Sudoku. We will adapt from unambiguous techniques and the help you use.</p>
+            </div>
+            <label>Puzzle level
+              <select data-campaign-start-difficulty>
+                ${DIFFICULTY_ORDER.map((difficulty) => `<option value="${difficulty}" ${difficulty === "easy" ? "selected" : ""}>${titleCase(difficulty)}</option>`).join("")}
+              </select>
+            </label>
+            <button type="button" class="primary" data-action="campaign-start-observed-placement">Start puzzle</button>
+          </section>
+          <details class="campaign-start-option campaign-optional-placement" data-testid="campaign-knowledge-start">
+            <summary>
+              <span><span class="eyebrow">Option 2</span><strong>Tell us what you know</strong></span>
+              <small>Review our current estimate and choose your next certified puzzle.</small>
+              <span class="campaign-option-cta">Review techniques <span aria-hidden="true">›</span></span>
+            </summary>
+            <p class="caption">${campaignPlacementPerceptionText(hasTechniqueEvidence)}</p>
+          <div class="campaign-preferences">
+            <label>Your goal
+              <select data-campaign-goal>
+                <option value="" ${goal === "" ? "selected" : ""}>Let Sudoku Pilot adapt</option>
+                <option value="learn-techniques" ${goal === "learn-techniques" ? "selected" : ""}>Learn techniques efficiently</option>
+                <option value="solve-more-puzzles" ${goal === "solve-more-puzzles" ? "selected" : ""}>Solve more puzzles</option>
+                <option value="build-confidence" ${goal === "build-confidence" ? "selected" : ""}>Build confidence</option>
+              </select>
+            </label>
+            <label>Preferred session
+              <select data-campaign-minutes>
+                ${[5, 10, 15, 25].map((minutes) => `<option value="${minutes}" ${preferredMinutes === minutes ? "selected" : ""}>About ${minutes} minutes</option>`).join("")}
+              </select>
+            </label>
+          </div>
+          <div class="panel-title campaign-placement-heading">
+            <div><h3>Technique familiarity</h3><p class="caption">Leave anything you are unsure about unchanged.</p></div>
+            <button type="button" data-action="campaign-mark-tier1-known">Mark Tier 1 “Know it”</button>
+          </div>
+          <div class="campaign-technique-list">
+            ${techniques.map((node) => renderPlacementTechnique(node, campaignPlacementStatus(node.id, draft))).join("")}
+          </div>
+          <section class="campaign-recognition-check">
+            <div><h3>Optional recognition check</h3><p>Try a specific certified near-miss example before using your answers.</p></div>
+            <label>Technique
+              <select data-campaign-check-technique>
+                ${techniques.map((node) => `<option value="${node.id}">${node.catalogName}</option>`).join("")}
+              </select>
+            </label>
+            <button type="button" data-action="campaign-placement-check">Try recognition check</button>
+          </section>
+          <div class="campaign-primary-actions">
+            <button type="button" data-action="campaign-skip-placement">Skip these answers</button>
+            <button type="button" class="primary" data-action="campaign-complete-placement">Choose my next puzzle</button>
+          </div>
+          </details>
+        </div>
+        ${campaignRuntime.error ? `<p class="campaign-inline-error" role="alert">${escapeHtml(campaignRuntime.error)}</p>` : ""}
+      </form>
+    </div>
+  `;
+}
+
+function campaignPlacementStatus(techniqueId, draft) {
+  const skill = campaignRuntime.model?.skills?.find((item) => item.techniqueId === techniqueId);
+  if (Object.hasOwn(draft, techniqueId) && draft[techniqueId] !== "unknown") return draft[techniqueId];
+  if (["mastered", "review-due"].includes(skill?.state)) return "known";
+  if (["learning", "practicing"].includes(skill?.state)) return "learning";
+  const catalogName = techniqueNameForId(techniqueId);
+  if (loadTechniqueProgressRows().some((row) => row.technique_id === catalogName && techniqueRowHasPerception(row))) {
+    return "learning";
+  }
+  return Object.hasOwn(draft, techniqueId) ? draft[techniqueId] : "unknown";
+}
+
+function campaignPlacementPerceptionText(hasTechniqueEvidence) {
+  if (hasTechniqueEvidence) {
+    return "Our current technique estimates are pre-filled below. Correct anything that looks wrong; your correction is saved as new evidence.";
+  }
+  if (state.playerStats.completed > 0) {
+    return `This browser has ${state.playerStats.completed} completed puzzle${state.playerStats.completed === 1 ? "" : "s"}, but those totals do not show which techniques you used. We left the technique estimates as Not sure.`;
+  }
+  return "We do not have technique-aware evidence in this browser yet, so every technique starts as Not sure.";
+}
+
+function techniqueRowHasPerception(row) {
+  return [
+    "independent_successes",
+    "assisted_successes",
+    "hint_reveals",
+    "hint_applies",
+    "practice_completions"
+  ].some((key) => Number(row?.[key]) > 0);
+}
+
+function renderPlacementTechnique(node, status) {
+  const options = [
+    ["known", "Know it"],
+    ["learning", "Learning"],
+    ["unknown", "Not sure"]
+  ];
+  return `
+    <fieldset class="campaign-technique-row" data-campaign-placement-technique="${node.id}">
+      <legend><span>${node.catalogName}</span><small>Tier ${node.tier}</small></legend>
+      <div class="campaign-status-choices">
+        ${options.map(([value, label]) => `
+          <label><input type="radio" name="placement-${node.id}" value="${value}" aria-label="${node.catalogName}: ${label}" ${status === value ? "checked" : ""} /> <span>${label}</span></label>
+        `).join("")}
+      </div>
+    </fieldset>
+  `;
+}
+
+function renderCampaignHome() {
+  const model = campaignRuntime.model;
+  const activity = model?.currentActivity;
+  return `
+    <div class="campaign-shell" data-testid="campaign-view">
+      <section class="panel campaign-hero">
+        <p class="eyebrow">Adaptive improvement campaign</p>
+        <h2 tabindex="-1" data-route-heading>Your next best activity</h2>
+        <p>Continue as long as you like. Calendar dates affect later retrieval evidence, never access.</p>
+      </section>
+      ${renderCampaignReflection()}
+      ${activity ? renderRecommendationCard(activity) : `
+        <section class="panel campaign-empty" role="status">
+          <h3>No personalized activity is available</h3>
+          <p>${escapeHtml(model?.selectionFailure?.explanation?.text || "The campaign kept the novelty budget intact. Standard lessons and practice remain available.")}</p>
+        </section>
+      `}
+      <section class="panel campaign-skill-summary" data-testid="campaign-skill-summary">
+        <div class="panel-title">
+          <div><p class="eyebrow">Personal skill graph</p><h3>${model.summary.mastered} mastered · ${model.summary.practicing} practicing · ${model.summary.learning} learning</h3></div>
+          <button data-action="campaign-open-graph">Inspect and correct</button>
+        </div>
+        <p data-testid="campaign-inferred-path"><strong>Current path:</strong> ${campaignGoalLabel(model.profile?.goal)}${model.profile?.goalSource === "observed" ? " · inferred provisionally from your starting puzzle" : ""}</p>
+        <details class="campaign-path-editor">
+          <summary>Adjust this path</summary>
+          <div class="campaign-correction">
+            <label>Goal
+              <select data-campaign-goal-correction>
+                <option value="learn-techniques" ${model.profile?.goal === "learn-techniques" ? "selected" : ""}>Learn techniques efficiently</option>
+                <option value="solve-more-puzzles" ${model.profile?.goal === "solve-more-puzzles" ? "selected" : ""}>Solve more puzzles</option>
+                <option value="build-confidence" ${model.profile?.goal === "build-confidence" ? "selected" : ""}>Build confidence</option>
+              </select>
+            </label>
+            <button data-action="campaign-correct-goal">Save path</button>
+          </div>
+        </details>
+        <div class="campaign-summary-grid">
+          ${[
+            ["Mastered", model.summary.mastered],
+            ["Review due", model.summary["review-due"]],
+            ["Practicing", model.summary.practicing],
+            ["Learning", model.summary.learning],
+            ["Unseen", model.summary.unseen]
+          ].map(([label, count]) => `<div><strong>${count}</strong><span>${label}</span></div>`).join("")}
+        </div>
+      </section>
+      ${renderCampaignDataControls()}
+    </div>
+  `;
+}
+
+function renderRecommendationCard(activity) {
+  if (activity.diagnosticPlacement) return renderPlacementPuzzleCard(activity);
+  const name = techniqueNameForId(activity.focusTechniqueId);
+  const started = Boolean(activity.startedAt);
+  const reasonCodes = activity.recommendationSnapshot?.reasonCodes || [];
+  return `
+    <article class="panel campaign-recommendation" data-testid="campaign-recommendation" data-activity-id="${activity.activityId}">
+      <div class="campaign-recommendation-topline">
+        <span class="campaign-activity-badge">${campaignActivityLabel(activity.activityType)}</span>
+        <span>About ${activity.estimatedMinutes || 5} min</span>
+      </div>
+      <h3>${name}</h3>
+      <p class="campaign-focus">Focus technique: <strong>${name}</strong></p>
+      <p data-testid="campaign-reason">${campaignReasonText(reasonCodes, activity.startedAt)}</p>
+      <details>
+        <summary>Why this activity is safe</summary>
+        <p>Its certified path introduces at most one technique outside your current mastered set. If no full puzzle qualifies, Sudoku Pilot keeps the budget and uses focused certified practice.</p>
+        <p class="caption">Graph ${activity.recommendationSnapshot?.inputVersions?.graphVersion}; selector ${activity.recommendationSnapshot?.inputVersions?.selectorPolicyVersion}; index ${activity.certificationSnapshot?.activityIndexVersion}; research ${activity.recommendationSnapshot?.inputVersions?.researchPriorVersion}.</p>
+      </details>
+      <div class="campaign-primary-actions">
+        <button data-action="campaign-open-graph">Edit skill graph</button>
+        <button class="primary" data-action="campaign-start-activity">${started ? "Resume activity" : "Start activity"}</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderPlacementPuzzleCard(activity) {
+  const difficulty = titleCase(activity.certificationSnapshot?.difficulty || "easy");
+  return `
+    <article class="panel campaign-recommendation" data-testid="campaign-recommendation" data-activity-id="${activity.activityId}">
+      <div class="campaign-recommendation-topline">
+        <span class="campaign-activity-badge">Starting puzzle</span>
+        <span>${difficulty} · about ${activity.estimatedMinutes || 10} min</span>
+      </div>
+      <h3>Your ${difficulty} Sudoku is in progress</h3>
+      <p class="campaign-focus">Solve it normally. Assistance-aware technique evidence stays local and provisional.</p>
+      <p data-testid="campaign-reason">Continue the same puzzle you started. Reloading will not create another assignment or duplicate its evidence.</p>
+      <div class="campaign-primary-actions">
+        <button data-action="campaign-open-graph">Edit skill graph</button>
+        <button class="primary" data-action="campaign-start-activity">Resume puzzle</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderCampaignReflection() {
+  const reflection = campaignRuntime.reflection;
+  if (!reflection) return "";
+  const placementPuzzle = reflection.completedActivity.diagnosticPlacement;
+  const name = placementPuzzle
+    ? `${titleCase(reflection.completedActivity.certificationSnapshot?.difficulty || "easy")} starting puzzle`
+    : techniqueNameForId(reflection.completedActivity.focusTechniqueId);
+  const evidence = placementPuzzle && reflection.recognized
+    ? `${reflection.observedTechniqueCount} technique pattern${reflection.observedTechniqueCount === 1 ? "" : "s"} recognized with ${campaignAssistanceLabel(reflection.assistanceLevel)} assistance.`
+    : reflection.recognized
+      ? `Target recognized with ${campaignAssistanceLabel(reflection.assistanceLevel)} assistance.`
+    : "Completion was recorded as exposure, not proof of mastery.";
+  const observation = reflection.observedPlacement
+    ? "Sudoku Pilot used this provisional evidence to choose your starting path."
+    : "";
+  return `
+    <section class="panel campaign-reflection" data-testid="campaign-reflection" role="status">
+      <p class="eyebrow">Activity complete</p>
+      <h3>${name} evidence saved</h3>
+      <p>${evidence} ${observation} ${reflection.guessed ? "Your guess correction was saved and does not count as success." : ""}</p>
+      <p><strong>Next activity is ready now.</strong> Same-day continuation does not change delayed mastery requirements.</p>
+    </section>
+  `;
+}
+
+function renderCampaignSkillGraph() {
+  const model = campaignRuntime.model;
+  const skillById = new Map(model.skills.map((skill) => [skill.techniqueId, skill]));
+  return `
+    <div class="campaign-shell" data-testid="campaign-view">
+      <section class="panel campaign-hero">
+        <div class="panel-title">
+          <div><p class="eyebrow">Personal skill graph</p><h2 tabindex="-1" data-route-heading>Inspect and correct</h2></div>
+          <button class="primary" data-action="campaign-open-home">Back to recommendation</button>
+        </div>
+        <p>Corrections are saved as new evidence. Earlier history is preserved so future policy versions remain reproducible.</p>
+      </section>
+      <section class="panel campaign-graph" data-testid="campaign-skill-graph">
+        ${campaignTechniqueNodes().map((node) => {
+          const skill = skillById.get(node.id);
+          return `
+            <article class="campaign-skill-row" data-campaign-skill="${node.id}">
+              <div>
+                <h3>${node.catalogName}</h3>
+                <p><span class="campaign-state campaign-state-${skill.state}">${campaignStateLabel(skill)}</span> · ${skill.successCount} recognition${skill.successCount === 1 ? "" : "s"} · ${skill.distinctDateCount} date${skill.distinctDateCount === 1 ? "" : "s"}</p>
+              </div>
+              <div class="campaign-correction">
+                <label>Correct to
+                  <select data-campaign-correction>
+                    <option value="known">Know it</option>
+                    <option value="learning">Learning</option>
+                    <option value="unknown">Not sure</option>
+                  </select>
+                </label>
+                <button data-action="campaign-correct-${node.id}">Save correction</button>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </section>
+      <section class="panel campaign-history">
+        <h3>Recent campaign history</h3>
+        ${model.activities.filter((activity) => activity.completedAt).length ? `
+          <ol>
+            ${model.activities.filter((activity) => activity.completedAt).sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 8).map((activity) => `
+              <li><strong>${activity.diagnosticPlacement ? `${titleCase(activity.certificationSnapshot?.difficulty || "easy")} starting puzzle` : techniqueNameForId(activity.focusTechniqueId)}</strong> · ${campaignActivityLabel(activity.activityType)} <time datetime="${activity.completedAt}">${new Date(activity.completedAt).toLocaleString()}</time></li>
+            `).join("")}
+          </ol>
+        ` : "<p>No completed campaign activities yet.</p>"}
+      </section>
+      ${renderCampaignDataControls()}
+    </div>
+  `;
+}
+
+function renderCampaignDataControls() {
+  const summary = solveTranscriptRuntime.summary;
+  const transcriptCount = summary?.runCount ?? 0;
+  return `
+    <section class="panel campaign-data-controls">
+      <h3>Your local campaign data</h3>
+      <p>Export includes the versioned skill graph history and evidence metadata, never grids, solutions, candidates, notes, or exact moves.</p>
+      <div class="tool-row">
+        <button data-action="campaign-export">Export data</button>
+        <button data-action="campaign-reset">Reset skill graph and history</button>
+        <button class="danger-button" data-action="campaign-delete">Delete campaign data</button>
+      </div>
+      <div class="campaign-transcript-controls">
+        <h4>Private solve transcripts</h4>
+        <p data-testid="campaign-transcript-summary">${transcriptCount} local run${transcriptCount === 1 ? "" : "s"} retained. These compact replays contain starting grids and exact actions, stay in this browser, and are never included in account sync or campaign evidence. Sudoku Pilot keeps at most ${summary?.maxRuns || SOLVE_TRANSCRIPT_MAX_RUNS} runs for ${summary?.retentionDays || SOLVE_TRANSCRIPT_RETENTION_DAYS} days.</p>
+        ${solveTranscriptRuntime.error ? `<p class="campaign-inline-error" role="alert">${escapeHtml(solveTranscriptRuntime.error)}</p>` : ""}
+        <div class="tool-row">
+          <button data-action="campaign-export-transcripts" ${transcriptCount ? "" : "disabled"}>Export solve transcripts</button>
+          <button class="danger-button" data-action="campaign-delete-transcripts" ${transcriptCount ? "" : "disabled"}>Delete solve transcripts</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCampaignActivityBanner(kind) {
+  const activity = campaignRuntime.model?.currentActivity;
+  if (!activity?.startedAt || activity.activityType !== kind) return "";
+  const name = techniqueNameForId(activity.focusTechniqueId);
+  if (kind === "lesson" && state.lessonTechnique !== name) return "";
+  if (kind !== "lesson" && (
+    state.practiceTechnique !== name ||
+    state.practiceSession?.mode !== activity.activityType
+  )) return "";
+  const placement = activity.placementCheck;
+  const observedPlacement = activity.observationPlacement;
+  let ready = kind === "lesson";
+  let recognized = false;
+  let incorrect = false;
+  if (kind === "near-miss") {
+    ready = state.practiceAnswer !== null;
+    recognized = ready && state.practiceAnswer === state.practiceSession?.nearMiss.valid;
+    incorrect = ready && !recognized;
+  } else if (kind === "find-pattern") {
+    ready = Boolean(state.practiceSession?.targetApplied);
+    recognized = ready;
+  }
+  return `
+    <section class="campaign-activity-banner" data-testid="campaign-activity-banner">
+      <div><p class="eyebrow">${observedPlacement ? "Starting-point puzzle" : placement ? "Placement recognition check" : "Campaign activity"}</p><strong>${name}</strong><p>${ready ? (recognized ? "Target recognized. Save the evidence when you are ready." : "This activity is ready to complete.") : "Your progress is saved locally. You can return to the campaign and resume."}</p></div>
+      <div class="tool-row">
+        <button data-action="campaign-return-home">${placement && !observedPlacement ? "Back to placement" : "Back to campaign"}</button>
+        ${ready ? `<button class="primary" data-action="${placement ? "campaign-finish-placement-check" : "campaign-complete-activity"}" data-campaign-recognized="${recognized}" data-campaign-incorrect="${incorrect}">${observedPlacement ? "See my next activity" : placement ? "Finish check" : "Continue campaign"}</button>` : ""}
+        ${ready && !placement && kind !== "lesson" ? `<button data-action="campaign-complete-guessed">I guessed</button>` : ""}
+      </div>
+    </section>
+  `;
+}
+
+function renderCampaignPuzzleBanner() {
+  const activity = campaignRuntime.model?.currentActivity;
+  if (
+    !campaignRuntime.enabled ||
+    !activity?.diagnosticPlacement ||
+    !activity.startedAt ||
+    state.puzzleSource !== "campaign-placement" ||
+    state.campaignPuzzleCanonicalId !== activity.canonicalPuzzleId
+  ) return "";
+  const difficulty = titleCase(activity.certificationSnapshot?.difficulty || state.difficulty);
+  return `
+    <section class="campaign-activity-banner campaign-puzzle-banner" data-testid="campaign-placement-puzzle-banner">
+      <div>
+        <p class="eyebrow">Campaign starting puzzle</p>
+        <strong>${difficulty} · complete Sudoku</strong>
+        <p>Solve normally. We use only technique and assistance evidence—not your grid, solution, notes, or exact moves.</p>
+      </div>
+      <button data-action="campaign-return-home">Back to campaign</button>
+    </section>
+  `;
+}
+
+function campaignTechniqueNodes() {
+  return CAMPAIGN_TECHNIQUE_GRAPH.nodes.filter((node) => node.kind === "technique");
+}
+
+function campaignActivityLabel(type) {
+  return ({
+    lesson: "Technique lesson",
+    "find-pattern": "Find the pattern",
+    "near-miss": "Near-miss recognition",
+    "placement-puzzle": "Diagnostic puzzle",
+    "full-puzzle": "Certified full puzzle",
+    "focused-puzzle": "Focused puzzle"
+  })[type] || type.replaceAll("-", " ");
+}
+
+function campaignReasonText(reasonCodes, startedAt) {
+  if (startedAt) return "Continue the activity you already started. The assignment and its evidence remain stable across reloads.";
+  if (reasonCodes.includes("OBSERVED_PLACEMENT")) {
+    return "This certified starting-point puzzle helps estimate another foundational technique without asking you to label what you know.";
+  }
+  const parts = [];
+  if (reasonCodes.includes("REVIEW_DUE")) parts.push("A short retrieval check is due.");
+  else if (reasonCodes.includes("RECENT_STRUGGLE")) parts.push("Your starting puzzle showed this technique needs a little more supported practice.");
+  else if (reasonCodes.includes("MORE_EVIDENCE_NEEDED")) parts.push("Another distinct example will make your skill estimate more reliable.");
+  else parts.push("This is the next technique whose prerequisites are ready.");
+  if (reasonCodes.includes("TIME_FIT")) parts.push("It fits your preferred session length.");
+  if (reasonCodes.includes("OBSERVED_PROFILE_FIT")) parts.push("It reflects the assistance-aware evidence from your starting puzzle.");
+  if (reasonCodes.includes("FALLBACK_NO_CERTIFIED_PUZZLE")) parts.push("No full puzzle met the one-new-technique budget, so this focused certified activity is safer.");
+  return parts.join(" ");
+}
+
+function campaignAssistanceLabel(level) {
+  return ({
+    none: "no",
+    tool: "tool",
+    "search-focus": "search-focus",
+    "structural-location": "structural-location",
+    "exact-move": "exact-move"
+  })[level] || level;
+}
+
+function campaignStateLabel(skill) {
+  if (skill.state === "mastered" && skill.provisional) return "Provisionally mastered";
+  return ({
+    unseen: "Unseen",
+    learning: "Learning",
+    practicing: "Practicing",
+    mastered: "Mastered",
+    "review-due": "Review due"
+  })[skill.state] || skill.state;
+}
+
+function campaignGoalLabel(goal) {
+  return ({
+    "learn-techniques": "Learn techniques efficiently",
+    "solve-more-puzzles": "Solve more puzzles",
+    "build-confidence": "Build confidence"
+  })[goal] || "Still observing";
+}
+
+async function handleCampaignAction(action) {
+  if (!campaignRuntime.enabled || campaignRuntime.busy) return;
+  if (action === "open-campaign" || action === "campaign-return-home") {
+    campaignRuntime.mode = "home";
+    campaignRuntime.error = "";
+    navigateTo("campaign", { analyticsEntryPoint: null });
+    render();
+    return;
+  }
+  if (action === "campaign-open-graph") {
+    campaignRuntime.mode = "graph";
+    campaignRuntime.error = "";
+    navigateTo("campaign", { analyticsEntryPoint: null });
+    render();
+    return;
+  }
+  if (action === "campaign-open-home") {
+    campaignRuntime.mode = "home";
+    campaignRuntime.error = "";
+    render();
+    return;
+  }
+  if (action === "campaign-mark-tier1-known") {
+    for (const node of campaignTechniqueNodes().filter((item) => item.tier === 1)) {
+      const input = app.querySelector(`[name="placement-${node.id}"][value="known"]`);
+      if (input) input.checked = true;
+    }
+    return;
+  }
+  if (action === "campaign-complete-placement" || action === "campaign-skip-placement") {
+    const placement = readPlacementForm();
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.savePlacement({
+        ...placement,
+        skipped: action === "campaign-skip-placement",
+        reports: action === "campaign-skip-placement" ? {} : placement.reports
+      });
+      campaignRuntime.model = await campaignRuntime.session.ensureRecommendation();
+      if (action === "campaign-complete-placement" && !campaignRuntime.model.currentActivity) {
+        await launchCampaignPlacementPuzzle("extreme", placement.goal, "knowledge-profile");
+      }
+      campaignRuntime.reflection = null;
+      campaignRuntime.mode = "home";
+    });
+    return;
+  }
+  if (action === "campaign-start-observed-placement") {
+    const placement = readPlacementForm();
+    const difficulty = app.querySelector("[data-campaign-start-difficulty]")?.value || "easy";
+    await runCampaignTask(async () => {
+      await launchCampaignPlacementPuzzle(difficulty, placement.goal);
+      campaignRuntime.reflection = null;
+    });
+    return;
+  }
+  if (action === "campaign-placement-check") {
+    const placement = readPlacementForm();
+    const techniqueId = app.querySelector("[data-campaign-check-technique]")?.value;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.beginPlacementCheck({
+        ...placement,
+        techniqueId
+      });
+      restoreCampaignActivity(campaignRuntime.model.currentActivity, { fresh: true });
+    });
+    return;
+  }
+  if (action === "campaign-start-activity") {
+    await runCampaignTask(async () => {
+      const wasStarted = Boolean(campaignRuntime.model.currentActivity?.startedAt);
+      campaignRuntime.model = await campaignRuntime.session.startCurrentActivity();
+      restoreCampaignActivity(campaignRuntime.model.currentActivity, { fresh: !wasStarted });
+    });
+    return;
+  }
+  if (action === "campaign-continue-after-placement") {
+    await runCampaignTask(async () => {
+      await campaignRuntime.pendingEvidence;
+      state.completionSummary = null;
+      campaignRuntime.mode = "home";
+      navigateTo("campaign", { analyticsEntryPoint: null });
+    });
+    return;
+  }
+  if (action === "campaign-finish-placement-check") {
+    await runCampaignTask(async () => {
+      await campaignRuntime.pendingEvidence;
+      const activity = campaignRuntime.model.currentActivity;
+      const recognized = activity.activityType === "find-pattern"
+        ? Boolean(state.practiceSession?.targetApplied)
+        : state.practiceAnswer === state.practiceSession?.nearMiss.valid;
+      const nextModel = await campaignRuntime.session.completeCurrentActivity({
+        recognized,
+        incorrect: !recognized
+      });
+      campaignRuntime.model = nextModel;
+      campaignRuntime.reflection = nextModel.reflection || null;
+      campaignRuntime.mode = "home";
+      state.practiceSession = null;
+      state.practiceAnswer = null;
+      navigateTo("campaign", { analyticsEntryPoint: null });
+    });
+    return;
+  }
+  if (action === "campaign-complete-activity" || action === "campaign-complete-guessed") {
+    await runCampaignTask(async () => {
+      await campaignRuntime.pendingEvidence;
+      const activity = campaignRuntime.model.currentActivity;
+      const guessed = action === "campaign-complete-guessed";
+      const recognized = !guessed && (
+        activity.activityType === "find-pattern"
+          ? Boolean(state.practiceSession?.targetApplied)
+          : activity.activityType === "near-miss"
+            ? state.practiceAnswer === state.practiceSession?.nearMiss.valid
+            : false
+      );
+      const incorrect = activity.activityType === "near-miss" && state.practiceAnswer !== state.practiceSession?.nearMiss.valid;
+      const nextModel = await campaignRuntime.session.completeCurrentActivity({ recognized, incorrect, guessed });
+      campaignRuntime.model = nextModel;
+      campaignRuntime.reflection = nextModel.reflection || null;
+      campaignRuntime.mode = "home";
+      state.practiceSession = null;
+      state.practiceAnswer = null;
+      state.completionSummary = null;
+      navigateTo("campaign", { analyticsEntryPoint: null });
+    });
+    return;
+  }
+  if (action === "campaign-correct-goal") {
+    const goal = app.querySelector("[data-campaign-goal-correction]")?.value;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.correctGoal(goal);
+    });
+    return;
+  }
+  if (action.startsWith("campaign-correct-")) {
+    const techniqueId = action.slice("campaign-correct-".length);
+    const row = app.querySelector(`[data-campaign-skill="${techniqueId}"]`);
+    const status = row?.querySelector("[data-campaign-correction]")?.value;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.correctSkill(techniqueId, status);
+      if (!campaignRuntime.model.currentActivity) campaignRuntime.model = await campaignRuntime.session.ensureRecommendation();
+    });
+    return;
+  }
+  if (action === "campaign-export") {
+    await runCampaignTask(async () => {
+      const data = await campaignRuntime.session.exportData();
+      downloadCampaignExport(data);
+    });
+    return;
+  }
+  if (action === "campaign-export-transcripts") {
+    await runCampaignTask(async () => {
+      await queueSolveTranscriptTask(async (manager) => {
+        downloadSolveTranscriptExport(await manager.exportData());
+      });
+    });
+    return;
+  }
+  if (action === "campaign-delete-transcripts") {
+    if (!window.confirm("Delete every private solve transcript from this browser? Campaign evidence and skill history will remain.")) return;
+    await runCampaignTask(async () => {
+      await queueSolveTranscriptTask(async (manager) => {
+        await manager.clearAll();
+        solveTranscriptRuntime.currentRunId = null;
+        state.solveRunId = null;
+        solveTranscriptRuntime.summary = await manager.summary();
+        saveState();
+      });
+    });
+    return;
+  }
+  if (action === "campaign-reset") {
+    if (!window.confirm("Reset the campaign skill graph and history? Export first if you want a copy.")) return;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.resetProgress();
+      campaignRuntime.reflection = null;
+      campaignRuntime.mode = "home";
+    });
+    return;
+  }
+  if (action === "campaign-delete") {
+    if (!window.confirm("Delete all adaptive campaign data from this browser? This cannot be undone.")) return;
+    await runCampaignTask(async () => {
+      campaignRuntime.model = await campaignRuntime.session.deleteData();
+      campaignRuntime.reflection = null;
+      campaignRuntime.mode = "home";
+    });
+  }
+}
+
+async function runCampaignTask(task) {
+  campaignRuntime.busy = true;
+  campaignRuntime.error = "";
+  render();
+  try {
+    await task();
+  } catch (error) {
+    campaignRuntime.error = error.message || "The campaign could not complete that action.";
+  } finally {
+    campaignRuntime.busy = false;
+    render();
+  }
+}
+
+function readPlacementForm() {
+  const reports = {};
+  for (const node of campaignTechniqueNodes()) {
+    reports[node.id] = app.querySelector(`[name="placement-${node.id}"]:checked`)?.value || "unknown";
+  }
+  return {
+    goal: app.querySelector("[data-campaign-goal]")?.value || null,
+    preferredMinutes: Number(app.querySelector("[data-campaign-minutes]")?.value) || 10,
+    reports
+  };
+}
+
+async function launchCampaignPlacementPuzzle(difficulty, goal = null, selectionBasis = "learner-selected") {
+  const generated = generatePuzzle({
+    difficulty,
+    excludedTechniques: PROVISIONAL_TECHNIQUES,
+    playedCanonicalIds
+  });
+  const allowedTechniqueIds = Object.keys(generated.rating.techniqueCounts)
+    .map(techniqueIdForName)
+    .filter(Boolean);
+  campaignRuntime.model = await campaignRuntime.session.beginPlacementPuzzle({
+    canonicalPuzzleId: generated.canonicalId,
+    sourceId: generated.sourceId,
+    allowedTechniqueIds,
+    difficulty,
+    selectionBasis,
+    goal
+  });
+  state.previousPuzzle = snapshotCurrentPuzzle();
+  state.puzzle = createGeneratedPuzzle(generated);
+  state.difficulty = difficulty;
+  state.selected = null;
+  state.multiSelected.clear();
+  state.multiSelectMode = false;
+  state.panel = null;
+  state.puzzleSource = "campaign-placement";
+  state.campaignPuzzleCanonicalId = generated.canonicalId;
+  resetPuzzleStats();
+  resetTimer();
+  closeHintDetails();
+  void startSolveTranscriptForCurrentPuzzle({ preserveCurrent: true });
+  playedCanonicalIds.add(generated.canonicalId);
+  savePlayedCanonicalIds();
+  navigateTo("play", { analyticsEntryPoint: null });
+}
+
+function restoreCampaignActivity(activity, { fresh = false } = {}) {
+  if (!activity) return;
+  if (activity.diagnosticPlacement) {
+    if (
+      state.puzzleSource !== "campaign-placement" ||
+      state.campaignPuzzleCanonicalId !== activity.canonicalPuzzleId
+    ) {
+      throw new Error("This starting puzzle is not available in local puzzle storage. Reset campaign progress to begin another.");
+    }
+    navigateTo("play", { analyticsEntryPoint: null });
+    return;
+  }
+  const technique = techniqueNameForId(activity.focusTechniqueId);
+  if (activity.activityType === "lesson") {
+    state.lessonTechnique = technique;
+    state.lessonStage = 1;
+    navigateTo("learn", { analyticsEntryPoint: null });
+    return;
+  }
+  if (!["find-pattern", "near-miss"].includes(activity.activityType)) {
+    throw new Error("This activity type is intentionally gated until its runtime certification is complete.");
+  }
+  state.practiceTechnique = technique;
+  state.practiceMode = activity.activityType;
+  const sameSession = (
+    state.practiceSession?.technique === technique &&
+    state.practiceSession?.mode === activity.activityType &&
+    state.practiceSession?.fixtureIndex === activity.fixtureIndex
+  );
+  const resumableSavedPuzzle = (
+    !fresh &&
+    state.puzzleSource === "practice" &&
+    state.puzzlePracticeTechnique === technique &&
+    state.puzzlePracticeMode === activity.activityType
+  );
+  if (!sameSession && resumableSavedPuzzle) {
+    state.practiceSession = createPracticeState(technique, activity.activityType, activity.fixtureIndex || 0);
+    state.practiceSession.targetApplied = false;
+    state.practiceFixtureIndex = state.practiceSession.fixtureIndex;
+    state.practiceAnswer = null;
+    syncPracticeProgress();
+  } else if (!sameSession) {
+    startCertifiedPractice(activity.fixtureIndex || 0);
+  }
+  navigateTo("practice", { analyticsEntryPoint: null });
+}
+
+function queueCampaignAssistance(level) {
+  recordSolveAssistance(level);
+  if (!level || !campaignRuntime.session || !campaignRuntime.model?.currentActivity?.startedAt) return;
+  campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
+    .catch(() => {})
+    .then(async () => {
+      campaignRuntime.model = await campaignRuntime.session.recordAssistance(level);
+    });
+}
+
+function recordSolveAssistance(level) {
+  const levels = ["none", "tool", "search-focus", "structural-location", "exact-move"];
+  if (!levels.includes(level)) return;
+  if (levels.indexOf(level) > levels.indexOf(state.solveAssistanceLevel || "none")) {
+    state.solveAssistanceLevel = level;
+  }
+}
+
+function queueCampaignPlacementTechnique(techniqueName) {
+  const techniqueId = techniqueIdForName(techniqueName);
+  const activity = campaignRuntime.model?.currentActivity;
+  if (
+    !techniqueId ||
+    !activity?.diagnosticPlacement ||
+    !activity.certificationSnapshot?.allowedTechniqueIds?.includes(techniqueId)
+  ) return;
+  campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
+    .catch(() => {})
+    .then(async () => {
+      campaignRuntime.model = await campaignRuntime.session.recordPlacementTechnique(techniqueId);
+    });
+}
+
+function assistanceForStage(stage) {
+  return ({
+    2: "search-focus",
+    3: "structural-location",
+    4: "exact-move"
+  })[stage] || null;
+}
+
+function downloadCampaignExport(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `sudoku-pilot-campaign-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadSolveTranscriptExport(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `sudoku-pilot-private-solves-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function recordPuzzleCompletion() {
   const solved = isSolved(state.puzzle.values);
   if (!solved) {
@@ -417,12 +1455,23 @@ function recordPuzzleCompletion() {
   }
   const elapsed = runningElapsedSeconds();
   if (firstCompletion) {
-    puzzleJourney.complete({
-      active_seconds: elapsed,
-      moves: state.puzzleMoveCount,
-      hints_used: state.hintCount,
-      local_completed_puzzles: state.playerStats.completed
-    });
+    void completeSolveTranscript("completed");
+    if (state.puzzleSource !== "campaign-placement") {
+      puzzleJourney.complete({
+        active_seconds: elapsed,
+        moves: state.puzzleMoveCount,
+        hints_used: state.hintCount,
+        local_completed_puzzles: state.playerStats.completed
+      });
+    } else {
+      campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
+        .catch(() => {})
+        .then(async () => {
+          const completed = await campaignRuntime.session.completePlacementPuzzle();
+          campaignRuntime.model = completed;
+          campaignRuntime.reflection = completed.reflection || null;
+        });
+    }
   }
   state.elapsedBeforeStart = elapsed;
   state.startedAt = Date.now();
@@ -430,6 +1479,7 @@ function recordPuzzleCompletion() {
     elapsed,
     moves: state.puzzleMoveCount,
     completed: state.playerStats.completed,
+    campaignPlacement: state.puzzleSource === "campaign-placement",
     analysis: state.hintCount
       ? `You finished with ${state.hintCount} coach assist${state.hintCount === 1 ? "" : "s"}. Every assist is another pattern in your toolkit.`
       : "You solved this one without a hint. Crisp, clean flying."
@@ -454,6 +1504,7 @@ function renderLessonBrowser() {
         <header class="lesson-heading">
           <h2 tabindex="-1" data-route-heading>${lesson.technique}</h2>
         </header>
+        ${renderCampaignActivityBanner("lesson")}
 
         ${renderLessonVisual(example)}
 
@@ -558,6 +1609,7 @@ function renderPracticeSession(session) {
         ${targetApplied ? `<p class="practice-success" role="status">Nice, the ${session.technique} move is applied. Keep solving or open another example.</p>` : ""}
         <div class="tool-row"><button data-action="back-to-lesson">Review lesson</button><button class="primary" data-action="next-practice-example">Start another example</button></div>
       </section>
+      ${renderCampaignActivityBanner(session.mode)}
       ${session.mode === "near-miss" ? renderNearMissPractice(session) : `
         <section class="practice-board-area">
           ${renderBoard()}
@@ -730,6 +1782,14 @@ function renderMorePanel() {
       </div>
       ${renderAccountPanel(accountController.getViewModel())}
       ${renderPreferencesPanel()}
+      ${CAMPAIGN_FEATURE_ENABLED ? `
+        <section class="sub-panel campaign-entry">
+          <p class="eyebrow">Private preview</p>
+          <h2>Adaptive improvement campaign</h2>
+          <p class="caption">Get a local, personalized next activity with no daily limit.</p>
+          <button class="primary" data-action="open-campaign">Open campaign</button>
+        </section>
+      ` : ""}
       ${renderAutomationPanel()}
       ${renderTechniqueFilters()}
       ${renderInfoPanel()}
@@ -1466,6 +2526,10 @@ function handleImportPaste(event) {
 }
 
 function handleAction(action) {
+  if (action?.startsWith("campaign-") || action === "open-campaign") {
+    void handleCampaignAction(action);
+    return;
+  }
   if (action === "undo") undo();
   if (action === "erase") eraseSelected();
   if (action === "toggle-notes") setNumberMode(state.numberMode === "note" ? "value" : "note");
@@ -1489,7 +2553,10 @@ function handleAction(action) {
   if (action === "previous-lesson") changeLesson(-1);
   if (action === "next-lesson") changeLesson(1);
   if (action === "previous-lesson-stage") state.lessonStage = Math.max(1, state.lessonStage - 1);
-  if (action === "next-lesson-stage") state.lessonStage = Math.min(4, state.lessonStage + 1);
+  if (action === "next-lesson-stage") {
+    state.lessonStage = Math.min(4, state.lessonStage + 1);
+    queueCampaignAssistance(assistanceForStage(state.lessonStage));
+  }
   if (action === "select-basic") selectTechniqueSet(BASIC_TECHNIQUES);
   if (action === "select-advanced") selectTechniqueSet([...BASIC_TECHNIQUES, ...ADVANCED_TECHNIQUES]);
   if (action === "select-all") selectTechniqueSet(ALL_TECHNIQUES);
@@ -1501,8 +2568,14 @@ function handleAction(action) {
   }
   if (action === "hint") requestHint();
   if (action === "show-technique") showTechniqueHint();
-  if (action === "show-exact-hint") state.hintStage = 4;
-  if (action === "next-hint-stage") state.hintStage = Math.min(4, (state.hintStage || 1) + 1);
+  if (action === "show-exact-hint") {
+    state.hintStage = 4;
+    queueCampaignAssistance("exact-move");
+  }
+  if (action === "next-hint-stage") {
+    state.hintStage = Math.min(4, (state.hintStage || 1) + 1);
+    queueCampaignAssistance(assistanceForStage(state.hintStage));
+  }
   if (action === "previous-hint-stage") state.hintStage = Math.max(1, (state.hintStage || 1) - 1);
   if (action === "toggle-all-moves") toggleAllMoves();
   if (action === "prev-hint") state.hintIndex = Math.max(0, state.hintIndex - 1);
@@ -1621,6 +2694,10 @@ function enterDigit(digit) {
   if (state.selected === null || state.puzzle.givens[state.selected]) return;
   if (state.numberMode === "note" && state.puzzle.values[state.selected]) return;
   if (state.numberMode === "value" && state.puzzle.values[state.selected] === digit) return;
+  const transcriptBefore = state.numberMode === "value" ? snapshotTranscriptPuzzle(state.puzzle) : null;
+  const observedTechnique = state.numberMode === "value"
+    ? uniquelyRecognizedTechnique(state.selected, digit)
+    : null;
   state.runMessage = "";
   pushHistory(clonePuzzle(state.puzzle));
   if (state.numberMode === "note") {
@@ -1638,9 +2715,40 @@ function enterDigit(digit) {
         state.puzzle.notes[index].delete(digit);
       }
     }
+    queueSolveTransition("manualEntry", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+      observedTechniqueId: techniqueIdForName(observedTechnique),
+      assistanceLevel: state.solveAssistanceLevel
+    });
+    if (observedTechnique) {
+      queueCampaignPlacementTechnique(observedTechnique);
+      if (state.puzzleSource !== "practice") {
+        incrementTechniqueProgress(observedTechnique, {
+          opportunities: 1,
+          ...(state.solveAssistanceLevel === "none"
+            ? { independent_successes: 1 }
+            : { assisted_successes: 1 })
+        });
+      }
+    }
   }
   closeHintDetails();
   render();
+}
+
+function uniquelyRecognizedTechnique(index, digit) {
+  const campaignTechniqueIds = campaignRuntime.model?.currentActivity?.diagnosticPlacement
+    ? campaignRuntime.model.currentActivity.certificationSnapshot?.allowedTechniqueIds || []
+    : [];
+  const allowedTechniques = campaignTechniqueIds.length
+    ? campaignTechniqueIds.map((techniqueId) => techniqueNameForId(techniqueId)).filter(Boolean)
+    : (state.puzzle.certifiedTechniques?.length
+        ? state.puzzle.certifiedTechniques
+        : COMMITTED_COACHING_TECHNIQUES);
+  if (!allowedTechniques.length) return null;
+  const techniques = new Set(findAllMoves(state.puzzle, allowedTechniques)
+    .filter((move) => (move.fills || []).some((fill) => fill.index === index && fill.digit === digit))
+    .map((move) => move.technique));
+  return techniques.size === 1 ? [...techniques][0] : null;
 }
 
 function selectCell(index) {
@@ -1713,15 +2821,20 @@ function toggleMultiNote(digit) {
 
 function eraseSelected() {
   if (state.selected === null || state.puzzle.givens[state.selected]) return;
+  const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
   state.runMessage = "";
   pushHistory(clonePuzzle(state.puzzle));
   state.puzzle.values[state.selected] = 0;
   state.puzzle.notes[state.selected].clear();
+  queueSolveTransition("erase", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+    assistanceLevel: state.solveAssistanceLevel
+  });
   closeHintDetails();
   render();
 }
 
 function undo() {
+  const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
   const last = state.puzzle.history.pop();
   if (!last) return;
   const history = state.puzzle.history;
@@ -1729,6 +2842,9 @@ function undo() {
   state.puzzle.history = history;
   state.completionSummary = null;
   syncPracticeProgress();
+  queueSolveTransition("undo", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+    assistanceLevel: state.solveAssistanceLevel
+  });
   state.runMessage = "Undid last change.";
   closeHintDetails();
 }
@@ -1812,7 +2928,7 @@ function startCertifiedPractice(index = 0) {
       practice_mode: session.mode,
       fixture_index: session.fixtureIndex
     });
-    if (session.mode !== "near-miss") startTrackedPuzzle("practice");
+    if (session.mode !== "near-miss") startTrackedPuzzle("practice", { preserveCurrent: true });
     resetTimer();
     closeHintDetails();
   } catch (error) {
@@ -1889,6 +3005,7 @@ function requestHint() {
   }
   const check = checkBoard();
   state.hintRequested = true;
+  recordSolveAssistance("tool");
   puzzleJourney.recordHint({
     board_status: check.status,
     technique: state.moves[state.hintIndex]?.technique || "note-diagnosis",
@@ -1909,6 +3026,7 @@ function requestHint() {
 }
 
 function showTechniqueHint() {
+  recordSolveAssistance("tool");
   const technique = state.moves[state.hintIndex]?.technique;
   if (technique) incrementTechniqueProgress(technique, { opportunities: 1, hint_reveals: 1 });
   state.hintMode = "coach";
@@ -1953,6 +3071,9 @@ function applyCurrentHint() {
   }
   const move = state.moves[state.hintIndex];
   if (move) {
+    const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
+    queueCampaignAssistance("exact-move");
+    queueCampaignPlacementTechnique(move.technique);
     applyMove(state.puzzle, move);
     state.puzzleMoveCount += (move.fills || []).length;
     puzzleJourney.recordMove(state.puzzleMoveCount);
@@ -1964,6 +3085,10 @@ function applyCurrentHint() {
       hint_applies: 1,
       ...(completedPractice ? { practice_completions: 1 } : {})
     });
+    queueSolveTransition("hintApply", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+      techniqueId: techniqueIdForName(move.technique),
+      assistanceLevel: "exact-move"
+    });
     state.runMessage = `Applied ${move.technique}: ${move.title}.`;
   }
   closeHintDetails();
@@ -1971,8 +3096,17 @@ function applyCurrentHint() {
 
 function syncPracticeProgress() {
   if (!state.practiceSession) return;
-  state.practiceSession.targetApplied = !findAllMoves(state.puzzle, [state.practiceSession.technique])
-    .some((move) => sameMoveAction(move, state.practiceSession.targetMove));
+  state.practiceSession.targetApplied = practiceTargetEffectApplied(state.practiceSession);
+}
+
+function practiceTargetEffectApplied(session) {
+  if (!session?.targetMove) return false;
+  const fillsApplied = (session.targetMove.fills || []).every(({ index, digit }) => state.puzzle.values[index] === digit);
+  const eliminationsApplied = (session.targetMove.eliminations || []).every(({ index, digit }) => (
+    state.puzzle.eliminated[index]?.has(digit)
+  ));
+  const hasEffect = (session.targetMove.fills || []).length || (session.targetMove.eliminations || []).length;
+  return Boolean(hasEffect && fillsApplied && eliminationsApplied);
 }
 
 function sameMoveAction(a, b) {
@@ -1995,14 +3129,21 @@ function runSelectedTechniques() {
     state.runMessage = "Select at least one technique to run.";
     return;
   }
+  const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
   const applied = applySelectedTechniques(state.puzzle, allowed);
   if (!applied.length) {
     state.runMessage = "No selected techniques can move this board forward.";
     return;
   }
+  queueCampaignAssistance("exact-move");
+  applied.forEach((move) => queueCampaignPlacementTechnique(move.technique));
   state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
   puzzleJourney.recordMove(state.puzzleMoveCount);
   state.hintCount += 1;
+  queueSolveTransition("automation", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+    techniqueId: applied.length === 1 ? techniqueIdForName(applied[0].technique) : null,
+    assistanceLevel: "exact-move"
+  });
   const counts = groupMoves(applied).map(([technique, count]) => `${count} ${technique}`).join(", ");
   state.runMessage = `Applied ${applied.length} move${applied.length === 1 ? "" : "s"}: ${counts}.`;
   closeHintDetails();
@@ -2014,11 +3155,18 @@ function runOneTechnique(technique) {
     state.runMessage = `Fix the board issue before running ${technique}.`;
     return;
   }
+  const transcriptBefore = snapshotTranscriptPuzzle(state.puzzle);
   const applied = applySelectedTechniques(state.puzzle, [technique]);
   if (applied.length) {
+    queueCampaignAssistance("exact-move");
+    applied.forEach((move) => queueCampaignPlacementTechnique(move.technique));
     state.puzzleMoveCount += applied.reduce((total, move) => total + (move.fills || []).length, 0);
     puzzleJourney.recordMove(state.puzzleMoveCount);
     state.hintCount += 1;
+    queueSolveTransition("automation", transcriptBefore, snapshotTranscriptPuzzle(state.puzzle), {
+      techniqueId: techniqueIdForName(technique),
+      assistanceLevel: "exact-move"
+    });
   }
   state.runMessage = applied.length ? `Applied ${applied.length} ${technique} move${applied.length === 1 ? "" : "s"}.` : `${technique} cannot move this board right now.`;
   closeHintDetails();
@@ -2040,7 +3188,7 @@ function applyImport() {
   state.importStatus = "";
   state.runMessage = "Imported puzzle.";
   resetPuzzleStats();
-  startTrackedPuzzle("import");
+  startTrackedPuzzle("import", { preserveCurrent: true });
   productAnalytics.capture("screenshot_review_confirmed", {
     input_method: state.importMode,
     filled_cells: candidate.values.filter(Boolean).length,
@@ -2086,7 +3234,13 @@ function restorePreviousPuzzle() {
   state.puzzleMoveCount = previous.puzzleMoveCount;
   state.hintCount = previous.hintCount;
   state.hintRequested = previous.hintRequested;
+  state.solveAssistanceLevel = previous.solveAssistanceLevel || "none";
   state.puzzleSource = previous.puzzleSource;
+  state.campaignPuzzleCanonicalId = previous.campaignPuzzleCanonicalId;
+  state.solveRunId = previous.solveRunId;
+  void queueSolveTranscriptTask(async () => {
+    solveTranscriptRuntime.currentRunId = previous.solveRunId;
+  });
   state.puzzlePracticeTechnique = previous.puzzlePracticeTechnique;
   state.puzzlePracticeMode = previous.puzzlePracticeMode;
   state.completionRecorded = previous.completionRecorded;
@@ -2108,7 +3262,10 @@ function snapshotCurrentPuzzle() {
     puzzleMoveCount: state.puzzleMoveCount,
     hintCount: state.hintCount,
     hintRequested: state.hintRequested,
+    solveAssistanceLevel: state.solveAssistanceLevel,
     puzzleSource: state.puzzleSource,
+    campaignPuzzleCanonicalId: state.campaignPuzzleCanonicalId,
+    solveRunId: state.solveRunId,
     puzzlePracticeTechnique: state.puzzlePracticeTechnique,
     puzzlePracticeMode: state.puzzlePracticeMode,
     completionRecorded: state.completionRecorded,
@@ -2124,6 +3281,11 @@ function clearLocalData() {
     window.localStorage.removeItem(PLAYED_PUZZLES_KEY);
     window.localStorage.removeItem(PLAYER_STATS_KEY);
     window.localStorage.removeItem(ACCOUNT_TECHNIQUE_PROGRESS_KEY);
+    void queueSolveTranscriptTask(async (manager) => {
+      await manager.clearAll();
+      solveTranscriptRuntime.currentRunId = null;
+      solveTranscriptRuntime.summary = await manager.summary();
+    });
     productAnalytics.reset();
     clearInstallPromotionStatus();
     playedCanonicalIds.clear();
@@ -2153,17 +3315,20 @@ function puzzleAnalyticsContext() {
   };
 }
 
-function startTrackedPuzzle(source) {
+function startTrackedPuzzle(source, { preserveCurrent = false } = {}) {
   state.puzzleSource = source;
+  if (source !== "campaign-placement") state.campaignPuzzleCanonicalId = null;
   state.puzzlePracticeTechnique = source === "practice" ? state.practiceTechnique : null;
   state.puzzlePracticeMode = source === "practice" ? state.practiceMode : null;
   puzzleJourney.start(puzzleAnalyticsContext());
+  void startSolveTranscriptForCurrentPuzzle({ preserveCurrent });
 }
 
 function resetPuzzleStats() {
   state.puzzleMoveCount = 0;
   state.hintCount = 0;
   state.hintRequested = false;
+  state.solveAssistanceLevel = "none";
   state.completionRecorded = false;
   state.completionSummary = null;
   state.wasSolved = isSolved(state.puzzle.values);
@@ -2351,7 +3516,10 @@ function createInitialState() {
     puzzleMoveCount: 0,
     hintCount: 0,
     hintRequested: false,
+    solveAssistanceLevel: "none",
     puzzleSource: "generated",
+    campaignPuzzleCanonicalId: null,
+    solveRunId: null,
     puzzlePracticeTechnique: null,
     puzzlePracticeMode: null,
     completionRecorded: false,
@@ -2409,7 +3577,12 @@ function createInitialState() {
       puzzleMoveCount: Math.max(0, Number(saved.puzzleMoveCount) || 0),
       hintCount: Math.max(0, Number(saved.hintCount) || 0),
       hintRequested: Boolean(saved.hintRequested),
-      puzzleSource: ["generated", "import", "practice"].includes(saved.puzzleSource) ? saved.puzzleSource : "generated",
+      solveAssistanceLevel: ["none", "tool", "search-focus", "structural-location", "exact-move"].includes(saved.solveAssistanceLevel)
+        ? saved.solveAssistanceLevel
+        : "none",
+      puzzleSource: ["generated", "import", "practice", "campaign-placement"].includes(saved.puzzleSource) ? saved.puzzleSource : "generated",
+      campaignPuzzleCanonicalId: typeof saved.campaignPuzzleCanonicalId === "string" ? saved.campaignPuzzleCanonicalId : null,
+      solveRunId: typeof saved.solveRunId === "string" ? saved.solveRunId : null,
       puzzlePracticeTechnique: COMMITTED_COACHING_TECHNIQUES.includes(saved.puzzlePracticeTechnique) ? saved.puzzlePracticeTechnique : null,
       puzzlePracticeMode: PRACTICE_MODES.some(({ id }) => id === saved.puzzlePracticeMode) ? saved.puzzlePracticeMode : null,
       completionRecorded: Boolean(saved.completionRecorded),
@@ -2445,7 +3618,10 @@ function saveState() {
       puzzleMoveCount: state.puzzleMoveCount,
       hintCount: state.hintCount,
       hintRequested: state.hintRequested,
+      solveAssistanceLevel: state.solveAssistanceLevel,
       puzzleSource: state.puzzleSource,
+      campaignPuzzleCanonicalId: state.campaignPuzzleCanonicalId,
+      solveRunId: state.solveRunId,
       puzzlePracticeTechnique: state.puzzlePracticeTechnique,
       puzzlePracticeMode: state.puzzlePracticeMode,
       practiceTechnique: state.practiceTechnique,
@@ -2477,6 +3653,7 @@ function createAccountSnapshot() {
       puzzleMoveCount: state.puzzleMoveCount,
       hintCount: state.hintCount,
       hintRequested: state.hintRequested,
+      solveAssistanceLevel: state.solveAssistanceLevel,
       puzzleSource: state.puzzleSource,
       puzzlePracticeTechnique: state.puzzlePracticeTechnique,
       puzzlePracticeMode: state.puzzlePracticeMode,
@@ -2549,11 +3726,14 @@ function applyAccountSnapshot(snapshot) {
     state.puzzleMoveCount = Math.max(0, Number(active.puzzleMoveCount) || 0);
     state.hintCount = Math.max(0, Number(active.hintCount) || 0);
     state.hintRequested = Boolean(active.hintRequested);
+    state.solveAssistanceLevel = "none";
     state.puzzleSource = ["generated", "import", "practice"].includes(active.puzzleSource) ? active.puzzleSource : "generated";
+    state.solveRunId = null;
     state.puzzlePracticeTechnique = active.puzzlePracticeTechnique || null;
     state.puzzlePracticeMode = active.puzzlePracticeMode || null;
     state.completionRecorded = Boolean(active.completionRecorded);
     state.wasSolved = isSolved(puzzle.values);
+    void startSolveTranscriptForCurrentPuzzle({ preserveCurrent: true });
   }
   const preferences = snapshot?.preferences || {};
   for (const key of ["showMistakes", "showTimer", "highlightPeers", "highlightMatches", "lineCountsVisible"]) {
@@ -2628,12 +3808,20 @@ function serializePuzzle(puzzle) {
     notes: puzzle.notes.map((noteSet) => [...noteSet]),
     eliminated: puzzle.eliminated.map((candidateSet) => [...candidateSet]),
     solution: puzzle.solution,
+    canonicalId: puzzle.canonicalId || null,
+    sourceId: puzzle.sourceId || null,
+    certifiedTechniques: Array.isArray(puzzle.certifiedTechniques) ? puzzle.certifiedTechniques : [],
     history: (puzzle.history || []).slice(-MAX_PERSISTED_HISTORY).map((snapshot) => ({
       values: snapshot.values,
       givens: snapshot.givens,
       notes: snapshot.notes.map((noteSet) => [...noteSet]),
       eliminated: snapshot.eliminated.map((candidateSet) => [...candidateSet]),
-      solution: snapshot.solution || null
+      solution: snapshot.solution || null,
+      canonicalId: snapshot.canonicalId || puzzle.canonicalId || null,
+      sourceId: snapshot.sourceId || puzzle.sourceId || null,
+      certifiedTechniques: Array.isArray(snapshot.certifiedTechniques)
+        ? snapshot.certifiedTechniques
+        : puzzle.certifiedTechniques || []
     }))
   };
 }
@@ -2646,12 +3834,22 @@ function deserializePuzzle(saved) {
     notes: Array.isArray(saved.notes) && saved.notes.length === 81 ? saved.notes.map((notes) => new Set((notes || []).map(Number).filter(Boolean))) : Array.from({ length: 81 }, () => new Set()),
     eliminated: Array.isArray(saved.eliminated) && saved.eliminated.length === 81 ? saved.eliminated.map((digits) => new Set((digits || []).map(Number).filter(Boolean))) : Array.from({ length: 81 }, () => new Set()),
     solution: Array.isArray(saved.solution) && saved.solution.length === 81 ? saved.solution.map((value) => Number(value) || 0) : null,
+    canonicalId: typeof saved.canonicalId === "string" ? saved.canonicalId : null,
+    sourceId: typeof saved.sourceId === "string" ? saved.sourceId : null,
+    certifiedTechniques: Array.isArray(saved.certifiedTechniques)
+      ? saved.certifiedTechniques.filter((technique) => COMMITTED_COACHING_TECHNIQUES.includes(technique))
+      : [],
     history: Array.isArray(saved.history) ? saved.history.slice(-MAX_HISTORY).map((snapshot) => ({
       values: Array.isArray(snapshot.values) ? snapshot.values.map((value) => Number(value) || 0) : Array(81).fill(0),
       givens: Array.isArray(snapshot.givens) ? snapshot.givens.map(Boolean) : Array(81).fill(false),
       notes: Array.isArray(snapshot.notes) ? snapshot.notes.map((notes) => new Set((notes || []).map(Number).filter(Boolean))) : Array.from({ length: 81 }, () => new Set()),
       eliminated: Array.isArray(snapshot.eliminated) ? snapshot.eliminated.map((digits) => new Set((digits || []).map(Number).filter(Boolean))) : Array.from({ length: 81 }, () => new Set()),
       solution: Array.isArray(snapshot.solution) ? snapshot.solution.map((value) => Number(value) || 0) : null,
+      canonicalId: typeof snapshot.canonicalId === "string" ? snapshot.canonicalId : null,
+      sourceId: typeof snapshot.sourceId === "string" ? snapshot.sourceId : null,
+      certifiedTechniques: Array.isArray(snapshot.certifiedTechniques)
+        ? snapshot.certifiedTechniques.filter((technique) => COMMITTED_COACHING_TECHNIQUES.includes(technique))
+        : [],
       history: []
     })) : []
   };
@@ -2826,7 +4024,15 @@ function createFreshPuzzle(difficulty) {
   const generated = generatePuzzle({ difficulty, playedCanonicalIds });
   playedCanonicalIds.add(generated.canonicalId);
   savePlayedCanonicalIds();
-  return createPuzzle(generated.grid, generated.solution);
+  return createGeneratedPuzzle(generated);
+}
+
+function createGeneratedPuzzle(generated) {
+  const puzzle = createPuzzle(generated.grid, generated.solution);
+  puzzle.canonicalId = generated.canonicalId;
+  puzzle.sourceId = generated.sourceId;
+  puzzle.certifiedTechniques = Object.keys(generated.rating?.techniqueCounts || {});
+  return puzzle;
 }
 
 function loadPlayedCanonicalIds() {

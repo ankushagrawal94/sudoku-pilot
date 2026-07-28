@@ -34,7 +34,10 @@ export function clonePuzzle(puzzle) {
     notes: puzzle.notes.map((noteSet) => new Set(noteSet)),
     eliminated: normalizeCandidateState(puzzle.eliminated),
     history: puzzle.history ? [...puzzle.history] : [],
-    solution: puzzle.solution ? [...puzzle.solution] : null
+    solution: puzzle.solution ? [...puzzle.solution] : null,
+    ...(puzzle.canonicalId ? { canonicalId: puzzle.canonicalId } : {}),
+    ...(puzzle.sourceId ? { sourceId: puzzle.sourceId } : {}),
+    ...(Array.isArray(puzzle.certifiedTechniques) ? { certifiedTechniques: [...puzzle.certifiedTechniques] } : {})
   };
 }
 

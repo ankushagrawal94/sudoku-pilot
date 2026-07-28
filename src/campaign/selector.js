@@ -8,7 +8,7 @@ import {
 } from "./techniqueGraph.js";
 
 export const DEFAULT_SELECTOR_POLICY = Object.freeze({
-  version: 1,
+  version: 2,
   weights: Object.freeze({
     coverageValue: 3,
     masteryNeed: 4,
@@ -36,7 +36,8 @@ const REASON_PROSE = Object.freeze({
   REVIEW_DUE: "A retrieval review is due.",
   TIME_FIT: "The activity fits the learner's preferred session length.",
   LEARNER_SELECTED: "The learner requested this focus.",
-  FALLBACK_NO_CERTIFIED_PUZZLE: "No full puzzle met the one-new-technique budget, so a focused activity was selected."
+  FALLBACK_NO_CERTIFIED_PUZZLE: "No full puzzle met the one-new-technique budget, so a focused activity was selected.",
+  OBSERVED_PROFILE_FIT: "The activity reflects assistance-aware evidence from the learner's starting-point puzzle."
 });
 
 export function selectNextActivity({
@@ -102,7 +103,7 @@ export function selectNextActivity({
         now
       });
       const score = weightedScore(components, policy.weights);
-      const reasonCodes = reasonCodesFor({ activity, skill, components });
+      const reasonCodes = reasonCodesFor({ activity, skill, components, profile });
       const candidate = {
         techniqueId: node.id,
         activity,
@@ -132,7 +133,12 @@ export function selectNextActivity({
   }
 
   const reviewCandidates = candidates.filter((candidate) => skills.get(candidate.techniqueId)?.state === "review-due");
-  const rankedCandidates = reviewCandidates.length ? reviewCandidates : candidates;
+  const placementRecoveryCandidates = candidates.filter((candidate) => skills.get(candidate.techniqueId)?.placementNeedsPractice);
+  const rankedCandidates = reviewCandidates.length
+    ? reviewCandidates
+    : placementRecoveryCandidates.length
+      ? placementRecoveryCandidates
+      : candidates;
   rankedCandidates.sort((left, right) => right.score - left.score || stableCandidateKey(left).localeCompare(stableCandidateKey(right)));
   const highestScore = rankedCandidates[0].score;
   const tied = rankedCandidates.filter((candidate) => Math.abs(candidate.score - highestScore) < 0.000001);
@@ -154,6 +160,10 @@ export function selectNextActivity({
     sourceKind: selected.activity.sourceKind,
     sourceId: selected.activity.sourceId,
     canonicalPuzzleId: selected.activity.canonicalPuzzleId,
+    estimatedMinutes: selected.activity.estimatedMinutes,
+    fixtureIndex: selected.activity.sourceKind === "practice"
+      ? (history.campaignSequence || 0) % 10
+      : null,
     createdAt,
     startedAt: null,
     targetReachedAt: null,
@@ -171,7 +181,14 @@ export function selectNextActivity({
       inputVersions: Object.freeze({ ...versions }),
       researchSourceStudyCommit: researchPrior.sourceStudyCommit || null,
       researchChecksum: researchPrior.checksum || null,
-      researchLimitations: selected.components.coverageValue > 0 ? researchPrior.limitations : null
+      researchLimitations: selected.components.coverageValue > 0 ? researchPrior.limitations : null,
+      profileSnapshot: Object.freeze({
+        goal: profile.goal || null,
+        goalSource: profile.goalSource || "unspecified",
+        preferredMinutes: profile.preferredMinutes || 10,
+        preferredMinutesSource: profile.preferredMinutesSource || "default",
+        inferencePolicyVersion: profile.inferencePolicyVersion || null
+      })
     }),
     certificationSnapshot: Object.freeze({
       activityIndexVersion: activityIndex.version,
@@ -244,13 +261,14 @@ function scoreComponents({ activity, skill, profile, researchPrior, recentTechni
   };
 }
 
-function reasonCodesFor({ activity, skill, components }) {
+function reasonCodesFor({ activity, skill, components, profile }) {
   const reasons = ["PREREQUISITES_READY"];
   if (components.coverageValue > 0) reasons.push("COVERAGE_VALUE");
-  if (skill.recentContradictionCount > 0) reasons.push("RECENT_STRUGGLE");
+  if (skill.recentContradictionCount > 0 || skill.placementNeedsPractice) reasons.push("RECENT_STRUGGLE");
   if (skill.state === "review-due") reasons.push("REVIEW_DUE");
   else if (skill.state !== "unseen") reasons.push("MORE_EVIDENCE_NEEDED");
   if (components.timeFit >= 0.75) reasons.push("TIME_FIT");
+  if (profile.goalSource === "observed") reasons.push("OBSERVED_PROFILE_FIT");
   if (["find-pattern", "near-miss"].includes(activity.activityType) && skill.state === "practicing") {
     reasons.push("FALLBACK_NO_CERTIFIED_PUZZLE");
   }
@@ -288,6 +306,7 @@ function reviewUrgency(reviewDueAt, now) {
 function goalFit(goal, activityType) {
   if (goal === "learn-techniques") return activityType === "lesson" ? 1 : 0.8;
   if (goal === "solve-more-puzzles") return activityType === "full-puzzle" ? 1 : 0.75;
+  if (goal === "build-confidence") return activityType === "lesson" ? 0.9 : 0.85;
   return 0.8;
 }
 
