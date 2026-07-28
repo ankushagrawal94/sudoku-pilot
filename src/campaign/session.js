@@ -1,10 +1,12 @@
 import { buildCampaignActivityIndex, queryCampaignActivities } from "./activityIndex.js";
 import {
+  ASSISTANCE_LEVELS,
   createEvidenceEvent,
   createPuzzleStateFingerprint,
   deepestAssistanceLevel
 } from "./evidence.js";
 import { DEFAULT_MASTERY_POLICY, reduceAllSkills } from "./mastery.js";
+import { CAMPAIGN_OBSERVATION_POLICY_VERSION } from "./observation.js";
 import {
   DEFAULT_SELECTOR_POLICY,
   EMPTY_RESEARCH_PRIOR,
@@ -464,6 +466,41 @@ export function createCampaignSession({
     return loadModel(profileId);
   }
 
+  async function recordObservedTechnique({
+    techniqueId,
+    sourceId,
+    canonicalPuzzleId = null,
+    replayIndex = 0,
+    assistanceLevel = "none",
+    source = "generated"
+  } = {}, profileId = "local") {
+    assertTechnique(techniqueId);
+    if (!sourceId) throw new Error("An ordinary-play observation requires a certified source.");
+    if (!ASSISTANCE_LEVELS.includes(assistanceLevel)) {
+      throw new Error(`Unknown assistance level: ${assistanceLevel}`);
+    }
+    await storage.appendEvidence(makeEvidence({
+      profileId,
+      techniqueId,
+      eventType: "target_recognized",
+      assistanceLevel,
+      canonicalPuzzleId,
+      puzzleStateFingerprint: createPuzzleStateFingerprint({
+        sourceId,
+        replayIndex,
+        techniqueId,
+        certificationVersion: CAMPAIGN_OBSERVATION_POLICY_VERSION
+      }),
+      payload: {
+        recognitionKind: "ordinary-play",
+        source,
+        inferencePolicyVersion: CAMPAIGN_INFERENCE_POLICY_VERSION,
+        observationPolicyVersion: CAMPAIGN_OBSERVATION_POLICY_VERSION
+      }
+    }));
+    return loadModel(profileId);
+  }
+
   async function completePlacementPuzzle(profileId = "local") {
     const model = await loadModel(profileId);
     const activity = model.currentActivity;
@@ -689,6 +726,7 @@ export function createCampaignSession({
     ensureRecommendation,
     startCurrentActivity,
     recordAssistance,
+    recordObservedTechnique,
     recordPlacementTechnique,
     completeCurrentActivity,
     completePlacementPuzzle,
