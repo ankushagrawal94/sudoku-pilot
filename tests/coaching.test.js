@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { buildCoachingMove, COACHING_DEFINITIONS, validateCoachingCatalog } from "../src/coaching.js";
 import { COMMITTED_COACHING_TECHNIQUES, PROVISIONAL_TECHNIQUES } from "../src/puzzles.js";
 import { applyMove, candidateSets, clonePuzzle, findAllMoves } from "../src/solver.js";
-import { buildTechniqueFixtureSuite } from "./fixtures/coaching-fixtures.js";
+import { buildCanonicalCoachingFixtures, buildTechniqueFixtureSuite } from "./fixtures/coaching-fixtures.js";
 
 assert.ok(validateCoachingCatalog());
 assert.deepEqual(Object.keys(COACHING_DEFINITIONS), COMMITTED_COACHING_TECHNIQUES, "coaching catalog must exactly match committed Tier 1 and Tier 2");
@@ -31,6 +31,7 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     assert.ok(coaching.relevantUnits.length, `${technique} must encode relevant units`);
     assert.ok(coaching.evidenceCells.length);
     assert.ok(coaching.exactExplanation);
+    assert.ok(coaching.deeperExplanation);
     assert.equal(coaching.stages.length, 4);
     assert.deepEqual(coaching.stages.map(({ number }) => number), [1, 2, 3, 4]);
     assert.equal(coaching.stages[0].revealedDigits.length, 0);
@@ -44,6 +45,8 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     assert.ok(coaching.visualization.searchCells.length);
     assert.ok(coaching.visualization.roles.includes("evidence"));
     assert.ok(coaching.visualization.roles.includes("elimination"));
+    assert.ok(Array.isArray(coaching.structuralEvidenceCandidates));
+    assert.ok(Array.isArray(coaching.structuralRelationships));
     if (["X-Wing", "Swordfish", "Skyscraper", "2-String Kite", "XY-Wing", "XYZ-Wing", "W-Wing"].includes(technique)) {
       assert.ok(coaching.relationships.length, `${technique} must encode its pattern relationships`);
     }
@@ -66,6 +69,68 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     assertSolutionSafe(fixture.puzzle, move);
   }
 }
+
+const hiddenTripleFixture = buildCanonicalCoachingFixtures()["Hidden Triple"];
+const hiddenTripleCoaching = buildCoachingMove(hiddenTripleFixture.move, hiddenTripleFixture.puzzle);
+assert.equal(
+  hiddenTripleCoaching.stages[0].message,
+  "Look for Hidden Triple. Find three digits whose combined possible positions occupy exactly three cells in one row, column, or block."
+);
+assert.deepEqual(hiddenTripleCoaching.stages[1].revealedDigits, [3], "Hidden Triple should start with a most-constrained digit, not the lowest digit");
+assert.match(hiddenTripleCoaching.stages[1].message, /fewest possible positions/i);
+assert.equal(
+  hiddenTripleCoaching.stages[2].message,
+  "Within column 8, track each chosen digit separately: 2 → rows 2, 4, and 9; 3 → rows 2 and 9; 6 → rows 2 and 4. Across the chosen digits, these possible positions occupy exactly three cells."
+);
+assert.deepEqual(hiddenTripleCoaching.candidatePositions, [
+  { digit: 2, cells: [16, 34, 79] },
+  { digit: 3, cells: [16, 79] },
+  { digit: 6, cells: [16, 34] }
+]);
+assert.equal(hiddenTripleCoaching.structuralEvidenceCandidates.length, 7);
+assert.match(hiddenTripleCoaching.deeperExplanation, /three digits need three different homes/i);
+assert.doesNotMatch(hiddenTripleCoaching.deeperExplanation, /each digit.*every.*cell/i);
+
+const canonicalFixtures = buildCanonicalCoachingFixtures();
+for (const technique of ["Naked Pair", "Naked Triple", "Naked Quadruple"]) {
+  const coaching = buildCoachingMove(canonicalFixtures[technique].move, canonicalFixtures[technique].puzzle);
+  assert.match(coaching.stages[1].message, /short candidate lists/i, `${technique} should teach the cell-first search`);
+  assert.match(coaching.stages[2].message, /do not need to match/i, `${technique} should reject the matching-lists misconception`);
+  assert.match(coaching.stages[2].message, /\{[1-9](?:, [1-9])+\}/, `${technique} should show each chosen cell's candidate set`);
+}
+
+for (const technique of ["X-Wing", "Swordfish"]) {
+  const coaching = buildCoachingMove(canonicalFixtures[technique].move, canonicalFixtures[technique].puzzle);
+  assert.match(coaching.stages[1].message, /count its possible positions/i, `${technique} should teach the line-counting scan`);
+  assert.match(coaching.stages[2].message, /→/, `${technique} should map each base line to its crossing positions`);
+  assert.match(coaching.deeperExplanation, /one allowed copy in every crossing line/i, `${technique} should explain why cover-line eliminations are valid`);
+}
+
+for (const technique of ["Skyscraper", "2-String Kite"]) {
+  const fixture = canonicalFixtures[technique];
+  const coaching = buildCoachingMove(fixture.move, fixture.puzzle);
+  assert.match(coaching.stages[1].message, /exactly two possible cells/i, `${technique} should start from two-place links`);
+  assert.ok(coaching.structuralRelationships.length, `${technique} should show its links before revealing the elimination`);
+  const actionCells = new Set([...fixture.move.eliminations, ...fixture.move.fills].map(({ index }) => index));
+  assert.ok(coaching.structuralRelationships.every(({ from, to }) => !actionCells.has(from.index) && !actionCells.has(to.index)), `${technique} structural links must not reveal action cells`);
+  assert.match(coaching.deeperExplanation, /at least one/i, `${technique} should state the forced-end conclusion`);
+}
+
+for (const technique of ["XY-Wing", "XYZ-Wing", "W-Wing"]) {
+  const fixture = canonicalFixtures[technique];
+  const coaching = buildCoachingMove(fixture.move, fixture.puzzle);
+  assert.match(coaching.stages[2].message, /\{[1-9](?:, [1-9])+\}/, `${technique} should name the candidate sets in the pattern`);
+  assert.match(coaching.deeperExplanation, /forc|guarantee/i, `${technique} should explain the implication that forces its shared candidate`);
+  assert.ok(coaching.structuralRelationships.length, `${technique} should show its pattern connections before revealing the elimination`);
+  const actionCells = new Set([...fixture.move.eliminations, ...fixture.move.fills].map(({ index }) => index));
+  assert.ok(coaching.structuralRelationships.every(({ from, to }) => !actionCells.has(from.index) && !actionCells.has(to.index)), `${technique} structural connections must not reveal action cells`);
+}
+
+const wWingCoaching = buildCoachingMove(canonicalFixtures["W-Wing"].move, canonicalFixtures["W-Wing"].puzzle);
+const wWingLinkEvidence = wWingCoaching.evidenceCandidates.filter(({ role }) => role === "strong-link");
+assert.equal(wWingLinkEvidence.length, 2, "W-Wing should highlight only the two connecting strong-link candidates");
+assert.equal(new Set(wWingLinkEvidence.map(({ digit }) => digit)).size, 1, "W-Wing connecting evidence should focus on one linking digit");
+assert.equal(wWingCoaching.evidenceCandidates.filter(({ role }) => role === "matching").length, 4, "W-Wing should retain both candidates in both matching cells");
 
 console.log("coaching fixture and contract tests passed");
 

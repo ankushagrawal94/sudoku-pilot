@@ -653,9 +653,12 @@ function findXYZWings(puzzle, candidates) {
       moves.push(moveBase(
         "XYZ-Wing",
         `${digits.join("")} xyz-wing`,
-        `The center cell at ${readableCellName(pivot)} contains ${formatDigitList(digits)}. If it is ${z}, the center supplies ${z}; if it takes either other digit, one outer cell must be ${z}. Remove ${z} from ${formatCellList(eliminations.map(({ index }) => index))}. Each listed cell shares a row, column, or block with the center and both outer cells.`,
+        `The center cell at ${readableCellName(pivot)} has candidates ${formatDigitList(digits)}. If it is ${z}, the center supplies ${z}; if it takes either other digit, one outer cell must be ${z}. Remove ${z} from ${formatCellList(eliminations.map(({ index }) => index))}. Each listed cell shares a row, column, or block with the center and both outer cells.`,
         [pivot, wingA, wingB, ...eliminations.map((elim) => elim.index)],
-        [pivot, wingA, wingB].flatMap((index) => [...candidates[index]].map((digit) => ({ index, digit, role: "wing" }))),
+        [
+          ...[...candidates[pivot]].map((digit) => ({ index: pivot, digit, role: "pivot" })),
+          ...[wingA, wingB].flatMap((index) => [...candidates[index]].map((digit) => ({ index, digit, role: "wing" })))
+        ],
         eliminations
       ));
     }
@@ -684,9 +687,12 @@ function findWWings(puzzle, candidates) {
         moves.push(moveBase(
           "W-Wing",
           `${x}${y} w-wing`,
-          `${sentenceCellName(a)} and ${readableCellName(b)} both contain ${x} and ${y}. In ${getUnitLabel(connecting.unit.type, connecting.unit.index)}, ${linkDigit} has exactly two possible cells, with one connected to each matching cell. One matching cell must therefore be ${otherDigit}. Remove ${otherDigit} from ${formatCellList(eliminations.map(({ index }) => index))}. Each listed cell shares a row, column, or block with both matching cells.`,
+          `${sentenceCellName(a)} and ${readableCellName(b)} both have candidates ${x} and ${y}. In ${getUnitLabel(connecting.unit.type, connecting.unit.index)}, ${linkDigit} has exactly two possible cells, with one connected to each matching cell. One matching cell must therefore be ${otherDigit}. Remove ${otherDigit} from ${formatCellList(eliminations.map(({ index }) => index))}. Each listed cell shares a row, column, or block with both matching cells.`,
           [a, b, ...connecting.cells, ...eliminations.map((elim) => elim.index)],
-          [a, b, ...connecting.cells].flatMap((index) => [...candidates[index]].map((digit) => ({ index, digit, role: "link" }))),
+          [
+            ...[a, b].flatMap((index) => [...candidates[index]].map((digit) => ({ index, digit, role: "matching" }))),
+            ...connecting.cells.map((index) => ({ index, digit: linkDigit, role: "strong-link" }))
+          ],
           eliminations
         ));
       }

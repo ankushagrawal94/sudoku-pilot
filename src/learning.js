@@ -84,10 +84,10 @@ const LESSON_DETAILS = {
     ["Starting from a block; Claiming starts from a row or column.", "Removing candidates from the chosen row or column instead of the rest of the block."],
     ["candidate"]
   ),
-  "Naked Pair": nakedGroupLesson("two", 2, "Pair", "Two cells must contain the same two digits in some order, so those digits cannot appear in another cell in the same row, column, or block.", "If either chosen cell has a third candidate, the two cells do not form a Naked Pair."),
-  "Hidden Pair": hiddenGroupLesson("two", 2, "Pair", "The two chosen digits have only two possible cells between them. Those cells must contain the two digits, so their other candidates can be removed.", "If either chosen digit can go in a third cell in the same row, column, or block, the highlighted cells are not a Hidden Pair."),
+  "Naked Pair": nakedGroupLesson("two", 2, "Pair", "Two cells have only two possible digits between them. Those digits must fill the two cells in some order, so they cannot appear elsewhere in the same row, column, or block.", "If the combined candidate lists contain a third digit, the two cells do not form a Naked Pair."),
+  "Hidden Pair": hiddenGroupLesson("two", 2, "Pair", "The combined possible positions for two chosen digits occupy exactly two cells. The digits need two different homes, so both cells are reserved for them and their other candidates can be removed.", "If either chosen digit can go in a third cell in the same row, column, or block, their combined positions are not confined to two cells."),
   "Naked Triple": nakedGroupLesson("three", 3, "Triple", "Three cells must contain the same three digits in some order, so those digits cannot appear in another cell in the same row, column, or block.", "Three cells with four different candidates between them are not a Naked Triple."),
-  "Hidden Triple": hiddenGroupLesson("three", 3, "Triple", "The three chosen digits have only three possible cells between them. Those cells must contain the three digits, so their other candidates can be removed.", "If any chosen digit can go in a fourth cell in the same row, column, or block, the highlighted cells are not a Hidden Triple."),
+  "Hidden Triple": hiddenGroupLesson("three", 3, "Triple", "The combined possible positions for three chosen digits occupy exactly three cells. The digits need three different homes, so all three cells are reserved for them and their other candidates can be removed.", "If any chosen digit can go in a fourth cell in the same row, column, or block, their combined positions are not confined to three cells."),
   "Naked Quadruple": nakedGroupLesson("four", 4, "Quadruple", "Four cells must contain the same four digits in some order, so those digits cannot appear in another cell in the same row, column, or block.", "Four cells with five different candidates between them are not a Naked Quadruple."),
   "X-Wing": fishLesson("two", 2, "X-Wing", "Each chosen row must place the digit in one of the same two columns. Those columns will receive the digit from the chosen rows, so it can be removed from their other cells.", "If either chosen row has a third possible cell, or the two rows use different columns, the rectangle is not an X-Wing."),
   "Swordfish": fishLesson("three", 3, "Swordfish", "The three chosen rows must place the digit somewhere in the same three columns. Those columns will receive all three copies from the chosen rows, so the digit can be removed elsewhere in them.", "If the possible cells spread across four columns, the pattern is not a Swordfish."),
@@ -232,15 +232,15 @@ function nakedGroupLesson(numberWord, size, title, plain, nearMiss) {
 
 function hiddenGroupLesson(numberWord, size, title, plain, nearMiss) {
   return lesson(
-    `In one row, column, or block, find ${numberWord} digits that can go only in the same ${numberWord} cells.`,
-    [`Choose ${numberWord} missing digits in one row, column, or block.`, `Mark every cell where each chosen digit could go.`, `Confirm that all of those marks fit inside the same ${numberWord} cells.`, `Keep the chosen digits in those cells and remove their other candidates.`],
-    [`Each chosen digit appears only in the same group of ${numberWord} cells.`, `The chosen cells contain at least one other candidate that can be removed.`],
+    `Switch from reading cells to tracking digits: find ${numberWord} digits whose combined possible positions occupy exactly ${numberWord} cells in one row, column, or block.`,
+    [`Choose ${numberWord} missing digits in one row, column, or block.`, `For each digit separately, list every cell where it could go.`, `Combine those position lists and confirm that they occupy exactly ${numberWord} cells.`, `Reserve those cells for the chosen digits and remove their other candidates.`],
+    [`Every possible position for each chosen digit is inside the highlighted group.`, `Across all chosen digits, the combined positions occupy exactly ${numberWord} cells.`, `The highlighted cells contain at least one other candidate that can be removed.`],
     plain,
-    `${size} digits restricted to ${size} positions form a bijection, so no outside digit can occupy those positions.`,
+    `${size} digits restricted to ${size} positions need distinct homes, so all ${size} positions are reserved and no outside digit can occupy them.`,
     "Remove impossible candidates",
-    `Candidate notes must show every legal digit. For a Hidden ${title}, follow ${numberWord} chosen digits and mark every cell where each could go.`,
+    `Candidate notes must show every legal digit. Unlike a Naked ${title}, start with digits and map their possible cells instead of starting with cell candidate lists.`,
     nearMiss,
-    ["Looking for matching candidate lists instead of tracking where the chosen digits can go.", "Missing an extra possible cell for one chosen digit elsewhere in the row, column, or block."],
+    [`Assuming every chosen digit must appear in every highlighted cell; each digit's positions may be a smaller part of the group.`, "Looking for matching candidate lists instead of tracking where the chosen digits can go.", "Missing an extra possible cell for one chosen digit elsewhere in the row, column, or block."],
     ["candidate"]
   );
 }

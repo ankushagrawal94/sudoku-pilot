@@ -2068,14 +2068,16 @@ function renderProgressiveHint(move, coachingMove) {
         <p data-testid="hint-stage-message">${stage.message}</p>
         ${exact ? `
           ${renderMoveActions(move)}
-          <details class="why-disclosure">
-            <summary>Why this works</summary>
-            <p>${coachingMove.deeperExplanation}</p>
-            ${renderRelationshipText(coachingMove)}
-          </details>
+          <p class="why-summary" data-testid="hint-why"><strong>Why this works:</strong> ${coachingMove.deeperExplanation}</p>
+          ${coachingMove.relationships.length ? `
+            <details class="why-disclosure">
+              <summary>Show the pattern connections</summary>
+              ${renderRelationshipText(coachingMove)}
+            </details>
+          ` : ""}
         ` : ""}
       </article>
-      ${stageNumber === 3 ? renderHintBoard(move, coachingMove, 3) : ""}
+      ${stageNumber === 3 ? `${renderVisualLegend(coachingMove, 3)}${renderHintBoard(move, coachingMove, 3)}` : ""}
       ${exact ? `
         ${renderVisualLegend(coachingMove)}
         ${renderHintBoard(move, coachingMove, 4)}
@@ -2120,12 +2122,16 @@ function learnerCellName(index) {
 function renderHintBoard(move, coachingMove = buildCoachingMove(move, state.puzzle), stage = 4, puzzle = state.puzzle) {
   const logicalCandidates = candidateSets(puzzle);
   const searchCells = new Set(stage === 3 ? coachingMove?.visualization.searchCells || [] : []);
-  const evidence = stage === 4 ? coachingMove?.evidenceCandidates || move.evidence : [];
+  const evidence = stage === 4
+    ? coachingMove?.evidenceCandidates || move.evidence
+    : stage === 3
+      ? coachingMove?.structuralEvidenceCandidates || []
+      : [];
   const eliminations = stage === 4 ? coachingMove?.eliminations || move.eliminations : [];
   const placements = stage === 4 ? coachingMove?.placements || move.fills : [];
   return `
     <div class="mini-board-wrap" data-visual-stage="${stage}">
-    <div class="mini-board" role="img" aria-label="${stage === 3 ? "Highlighted search region" : `Exact ${move.technique} explanation board`}">
+    <div class="mini-board" role="img" aria-label="${stage === 3 ? "Highlighted search region and candidate positions to compare" : `Exact ${move.technique} explanation board`}">
       ${puzzle.values.map((value, index) => {
         const evidenceItems = evidence.filter((item) => item.index === index);
         const evidenceDigits = evidenceItems.map((item) => item.digit);
@@ -2145,22 +2151,29 @@ function renderHintBoard(move, coachingMove = buildCoachingMove(move, state.puzz
         `;
       }).join("")}
     </div>
-    ${stage === 4 ? renderRelationshipOverlay(coachingMove?.relationships || []) : ""}
+    ${stage === 4
+      ? renderRelationshipOverlay(coachingMove?.relationships || [])
+      : stage === 3
+        ? renderRelationshipOverlay(coachingMove?.structuralRelationships || [])
+        : ""}
     </div>
   `;
 }
 
-function renderVisualLegend(coachingMove) {
+function renderVisualLegend(coachingMove, stage = 4) {
   const roles = new Set(coachingMove.visualization.roles);
+  const structural = stage === 3;
+  const relationships = structural ? coachingMove.structuralRelationships : coachingMove.relationships;
   return `
     <div class="hint-legend" aria-label="Explanation legend">
       ${roles.has("search-region") ? `<span><i class="legend-search"></i> where to look</span>` : ""}
-      <span><i class="legend-evidence"></i> pattern cells</span>
-      ${coachingMove.relationships.some(({ kind }) => kind === "strong") ? `<span><i class="legend-strong"></i> exactly two places</span>` : ""}
-      ${coachingMove.relationships.some(({ kind }) => kind === "weak") ? `<span><i class="legend-weak"></i> cannot both be true</span>` : ""}
-      ${coachingMove.relationships.some(({ kind }) => kind === "visibility") ? `<span><i class="legend-visibility"></i> shares a row, column, or block</span>` : ""}
-      ${coachingMove.eliminations.length ? `<span><i class="legend-elimination"></i> candidate to remove</span>` : ""}
-      ${coachingMove.placements.length ? `<span><i class="legend-placement"></i> digit to place</span>` : ""}
+      ${!structural || coachingMove.structuralEvidenceCandidates.length ? `<span><i class="legend-evidence"></i> ${structural ? "candidates to compare" : "pattern cells"}</span>` : ""}
+      ${relationships.some(({ kind }) => kind === "pattern") ? `<span><i class="legend-pattern"></i> positions in one chosen line</span>` : ""}
+      ${relationships.some(({ kind }) => kind === "strong") ? `<span><i class="legend-strong"></i> exactly two places</span>` : ""}
+      ${relationships.some(({ kind }) => kind === "weak") ? `<span><i class="legend-weak"></i> cannot both be true</span>` : ""}
+      ${relationships.some(({ kind }) => kind === "visibility") ? `<span><i class="legend-visibility"></i> shares a row, column, or block</span>` : ""}
+      ${!structural && coachingMove.eliminations.length ? `<span><i class="legend-elimination"></i> candidate to remove</span>` : ""}
+      ${!structural && coachingMove.placements.length ? `<span><i class="legend-placement"></i> digit to place</span>` : ""}
     </div>
   `;
 }

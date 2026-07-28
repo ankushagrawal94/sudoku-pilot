@@ -5,6 +5,7 @@ import { buildCanonicalCoachingFixtures } from "../fixtures/coaching-fixtures.js
 
 const fixtures = buildCanonicalCoachingFixtures();
 const relationshipTechniques = new Set(["X-Wing", "Swordfish", "Skyscraper", "2-String Kite", "XY-Wing", "XYZ-Wing", "W-Wing"]);
+const structuralEvidenceTechniques = new Set(["Naked Pair", "Hidden Pair", "Naked Triple", "Hidden Triple", "Naked Quadruple", ...relationshipTechniques]);
 
 for (const technique of COMMITTED_COACHING_TECHNIQUES) {
   test(`${technique} honors all four progressive coaching stages`, async ({ page }) => {
@@ -35,6 +36,12 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     await expect(panel.getByTestId("hint-stage-message")).toHaveText(coaching.stages[2].message);
     await expect(panel.locator("[data-visual-stage='3']")).toBeVisible();
     await expect(panel.locator("[data-visual-role='search-region']")).not.toHaveCount(0);
+    if (structuralEvidenceTechniques.has(technique)) {
+      await expect(panel.locator("[data-visual-stage='3'] [data-visual-role='evidence']")).not.toHaveCount(0);
+      await expect(panel.getByText("candidates to compare", { exact: true })).toBeVisible();
+    }
+    if (["X-Wing", "Swordfish"].includes(technique)) await expect(panel.getByText("positions in one chosen line", { exact: true })).toBeVisible();
+    if (coaching.structuralRelationships.length) await expect(panel.locator("[data-visual-stage='3'] [data-relationship]")).not.toHaveCount(0);
     await expect(panel.locator("[data-visual-role='elimination'], [data-visual-role='placement']")).toHaveCount(0);
     await expect(panel.getByRole("button", { name: "Apply", exact: true })).toHaveCount(0);
     expect(await boardSignature(page)).toEqual(before);
@@ -44,13 +51,17 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     await expect(panel.getByTestId("hint-stage-message")).toHaveText(coaching.exactExplanation);
     await expect(panel.locator("[data-visual-stage='4']")).toBeVisible();
     await expect(panel.locator("[data-visual-role='evidence']")).not.toHaveCount(0);
-    const whyDisclosure = panel.locator(".why-disclosure");
-    await expect(whyDisclosure.getByText("Why this works", { exact: true })).toBeVisible();
-    await expect(whyDisclosure.locator("p")).toBeHidden();
-    if (relationshipTechniques.has(technique)) await expect(whyDisclosure.locator(".relationship-text")).toBeHidden();
-    await whyDisclosure.locator("summary").click();
-    await expect(whyDisclosure.locator("p")).toBeVisible();
-    if (relationshipTechniques.has(technique)) await expect(whyDisclosure.locator(".relationship-text")).toBeVisible();
+    await expect(panel.getByTestId("hint-why")).toBeVisible();
+    await expect(panel.getByTestId("hint-why")).toContainText(coaching.deeperExplanation);
+    if (relationshipTechniques.has(technique)) {
+      const whyDisclosure = panel.locator(".why-disclosure");
+      await expect(whyDisclosure.getByText("Show the pattern connections", { exact: true })).toBeVisible();
+      await expect(whyDisclosure.locator(".relationship-text")).toBeHidden();
+      await whyDisclosure.locator("summary").click();
+      await expect(whyDisclosure.locator(".relationship-text")).toBeVisible();
+    } else {
+      await expect(panel.locator(".why-disclosure")).toHaveCount(0);
+    }
     await expect(panel.getByRole("button", { name: "Apply", exact: true })).toBeVisible();
     if (fixture.move.eliminations.length) await expect(panel.locator("[data-visual-role='elimination']")).not.toHaveCount(0);
     if (fixture.move.fills.length) await expect(panel.locator("[data-visual-role='placement']")).not.toHaveCount(0);
@@ -66,6 +77,27 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
     expect(await boardSignature(page)).toEqual(before);
   });
 }
+
+test("Hidden Triple maps each digit to its possible cells before revealing eliminations", async ({ page }) => {
+  const fixture = fixtures["Hidden Triple"];
+  await installFixture(page, fixture);
+  await page.goto("/");
+  await page.getByTestId("hint-button").click();
+  const panel = page.getByTestId("hint-panel");
+
+  await panel.getByRole("button", { name: "Next clue", exact: true }).click();
+  await expect(panel.getByTestId("hint-stage-message")).toContainText("candidate 3");
+
+  await panel.getByRole("button", { name: "Next clue", exact: true }).click();
+  await expect(panel.getByTestId("hint-stage-message")).toHaveText(
+    "Within column 8, track each chosen digit separately: 2 → rows 2, 4, and 9; 3 → rows 2 and 9; 6 → rows 2 and 4. Across the chosen digits, these possible positions occupy exactly three cells."
+  );
+  await expect(panel.locator("[data-visual-stage='3'] [data-visual-role='evidence']")).toHaveCount(7);
+  await expect(panel.locator("[data-visual-stage='3'] [data-visual-role='elimination']")).toHaveCount(0);
+
+  await panel.getByRole("button", { name: "Next clue", exact: true }).click();
+  await expect(panel.getByTestId("hint-why")).toContainText("three digits need three different homes");
+});
 
 test("coaching stage remains understandable after a viewport rotation", async ({ page }) => {
   const fixture = fixtures["Hidden Pair"];

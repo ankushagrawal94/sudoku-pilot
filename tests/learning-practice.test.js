@@ -110,6 +110,15 @@ for (const technique of COMMITTED_COACHING_TECHNIQUES) {
 
 for (const mode of PRACTICE_MODES) assert.doesNotMatch(mode.description, learnerJargon, `${mode.label} description must avoid internal certification language`);
 
+for (const technique of ["Hidden Pair", "Hidden Triple"]) {
+  const lesson = TECHNIQUE_LESSONS[technique];
+  assert.match(lesson.howToRecognize.introduction, /tracking digits/i, `${technique} should teach the perspective shift from cells to digits`);
+  assert.ok(lesson.howToRecognize.steps.some((step) => /for each digit separately/i.test(step)), `${technique} should map each digit's positions separately`);
+  assert.ok(lesson.howToRecognize.conditions.some((condition) => /combined positions occupy exactly/i.test(condition)), `${technique} should state the combined-position rule`);
+  assert.match(lesson.whyItWorks.plain, /different homes/i, `${technique} should explain why the cells are reserved`);
+  assert.ok(lesson.commonMistakes.items.some((item) => /every chosen digit must appear in every highlighted cell/i.test(item)), `${technique} should address the matching-lists misconception`);
+}
+
 const slowestLoad = measurements.reduce((slowest, item) => item.fixtureLoadMs > slowest.fixtureLoadMs ? item : slowest, measurements[0]);
 const slowestHundred = measurements.reduce((slowest, item) => item.hundredStartsMs > slowest.hundredStartsMs ? item : slowest, measurements[0]);
 console.log(`learning and practice contracts passed: ${measurements.length} strategies, 5100/5100 starts`);
