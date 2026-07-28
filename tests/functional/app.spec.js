@@ -1125,6 +1125,9 @@ test("provides installable PWA metadata", async ({ page }) => {
   expect(body.icons.some((icon) => icon.src === "/icons/icon-192.png")).toBeTruthy();
   expect(body.icons.some((icon) => icon.src === "/icons/icon-512.png")).toBeTruthy();
   await expect(page.locator("link[rel='apple-touch-icon']")).toHaveAttribute("href", "/icons/apple-touch-icon.png");
+  await expect.poll(() => page.evaluate(async () => (
+    await navigator.serviceWorker.ready
+  ).updateViaCache)).toBe("none");
 });
 
 test("rejects unsafe and oversized screenshot uploads with a visible error", async ({ page }) => {

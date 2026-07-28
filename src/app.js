@@ -3858,7 +3858,7 @@ function deserializePuzzle(saved) {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
+    navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(() => {
       // Offline support is additive; failed registration should not block solving.
     });
   });
