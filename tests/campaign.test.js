@@ -5,10 +5,12 @@ import {
   buildCampaignActivityIndex,
   CAMPAIGN_ACTIVITY_INDEX_VERSION,
   CAMPAIGN_INFERENCE_POLICY_VERSION,
+  CAMPAIGN_OBSERVATION_POLICY_VERSION,
   CAMPAIGN_TECHNIQUE_GRAPH,
   createEvidenceEvent,
   createCampaignSession,
   createMemoryCampaignStorage,
+  createObservationReplayToken,
   createPuzzleStateFingerprint,
   deepestAssistanceLevel,
   EMPTY_RESEARCH_PRIOR,
@@ -18,6 +20,7 @@ import {
   reduceSkillState,
   selectNextActivity,
   techniqueIdForName,
+  uniquelyAttributeFill,
   validateCampaignActivityIndex,
   validateTechniqueGraph
 } from "../src/campaign/index.js";
@@ -55,6 +58,41 @@ assert.equal(fingerprint, createPuzzleStateFingerprint({
 }));
 assert.deepEqual(ASSISTANCE_LEVELS, ["none", "tool", "search-focus", "structural-location", "exact-move"]);
 assert.equal(deepestAssistanceLevel(["none", "tool", "search-focus"]), "search-focus");
+assert.equal(CAMPAIGN_OBSERVATION_POLICY_VERSION, 1);
+const observationState = {
+  values: Array(81).fill(0),
+  eliminated: Array.from({ length: 81 }, () => new Set())
+};
+const observationToken = createObservationReplayToken(observationState);
+assert.match(observationToken, /^logical-state-v1-[0-9a-f]{8}$/);
+assert.equal(observationToken, createObservationReplayToken(structuredClone(observationState)));
+const changedObservationState = structuredClone(observationState);
+changedObservationState.eliminated[8].add(7);
+assert.notEqual(observationToken, createObservationReplayToken(changedObservationState));
+assert.equal(uniquelyAttributeFill({
+  moves: [
+    { technique: "Naked Single", fills: [{ index: 8, digit: 7 }] },
+    { technique: "Hidden Single", fills: [{ index: 9, digit: 3 }] }
+  ],
+  allowedTechniqueNames: ["Naked Single", "Hidden Single"],
+  index: 8,
+  digit: 7
+}), "Naked Single");
+assert.equal(uniquelyAttributeFill({
+  moves: [
+    { technique: "Naked Single", fills: [{ index: 8, digit: 7 }] },
+    { technique: "Hidden Single", fills: [{ index: 8, digit: 7 }] }
+  ],
+  allowedTechniqueNames: ["Naked Single", "Hidden Single"],
+  index: 8,
+  digit: 7
+}), null, "ambiguous deductions must not be attributed");
+assert.equal(uniquelyAttributeFill({
+  moves: [{ technique: "Naked Single", fills: [{ index: 8, digit: 7 }] }],
+  allowedTechniqueNames: ["Hidden Single"],
+  index: 8,
+  digit: 7
+}), null, "detectors outside the source certification must not be attributed");
 assert.throws(() => event({
   eventType: "target_recognized",
   payload: { candidateMap: [1, 2, 3] }
@@ -643,6 +681,59 @@ assert.ok(selectionMs < 500, `100 metadata-only selections should complete under
   assert.equal(reset.evidence.length, 0);
   await session.deleteData();
   assert.equal((await session.exportData()).profiles.length, 0);
+}
+
+{
+  const storage = createMemoryCampaignStorage();
+  let eventSequence = 0;
+  const session = createCampaignSession({
+    storage,
+    now: () => new Date("2026-07-26T14:00:00Z"),
+    eventId: () => `ordinary-${eventSequence++}`
+  });
+  await session.savePlacement({ skipped: true });
+  await session.recordObservedTechnique({
+    techniqueId: "last-digit",
+    sourceId: "catalog-easy-1",
+    canonicalPuzzleId: "catalog-easy-1",
+    replayIndex: 4,
+    assistanceLevel: "none",
+    source: "generated"
+  });
+  let model = await session.loadModel();
+  let skill = model.skills.find((item) => item.techniqueId === "last-digit");
+  assert.equal(skill.state, "practicing");
+  assert.equal(skill.provisional, false);
+  assert.equal(skill.distinctStateCount, 1);
+  assert.equal(skill.distinctDateCount, 1);
+  assert.equal(skill.unaidedSuccessCount, 1);
+  assert.notEqual(skill.state, "mastered", "one inferred move cannot grant durable mastery");
+
+  await session.recordObservedTechnique({
+    techniqueId: "last-digit",
+    sourceId: "catalog-easy-1",
+    canonicalPuzzleId: "catalog-easy-1",
+    replayIndex: 4,
+    assistanceLevel: "tool",
+    source: "generated"
+  });
+  model = await session.loadModel();
+  skill = model.skills.find((item) => item.techniqueId === "last-digit");
+  assert.equal(skill.successCount, 2);
+  assert.equal(skill.distinctStateCount, 1, "repeated recognition in the same state must not become distinct mastery evidence");
+  assert.notEqual(skill.state, "mastered");
+  const ordinaryEvidence = await storage.listEvidence({ techniqueId: "last-digit" });
+  assert.equal(ordinaryEvidence.filter((item) => item.payload?.recognitionKind === "ordinary-play").length, 2);
+  assert.ok(ordinaryEvidence.every((item) => item.activityId === null));
+  assert.ok(ordinaryEvidence.every((item) => item.payload.observationPolicyVersion === CAMPAIGN_OBSERVATION_POLICY_VERSION));
+  assert.doesNotMatch(JSON.stringify(ordinaryEvidence), /"grid"|"solution"|"candidate"|"notes"|"exactMove"/i);
+
+  model = await session.ensureRecommendation();
+  assert.notEqual(
+    `${model.currentActivity.focusTechniqueId}:${model.currentActivity.activityType}`,
+    "last-digit:lesson",
+    "ordinary-play recognition must prevent reteaching the observed technique as unseen"
+  );
 }
 
 {

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { techniqueIdForName } from "../../src/campaign/index.js";
 import { COMMITTED_COACHING_TECHNIQUES } from "../../src/puzzles.js";
 import { findAllMoves } from "../../src/solver.js";
 
@@ -134,6 +135,32 @@ test("normal play records a resumable local transcript and pre-fills technique p
     const runs = await readSolveTranscriptDatabase(page);
     return runs.some((run) => run.source === "generated" && run.events.some((event) => event[7] >= 0));
   }).toBe(true);
+  const observedTechniqueId = techniqueIdForName(move.technique);
+  await expect.poll(async () => {
+    const snapshot = await readCampaignDatabase(page);
+    return snapshot.evidence_events.filter((event) => (
+      event.techniqueId === observedTechniqueId &&
+      event.eventType === "target_recognized" &&
+      event.payload?.recognitionKind === "ordinary-play"
+    )).length;
+  }).toBe(1);
+  const observedSnapshot = await readCampaignDatabase(page);
+  const ordinaryObservation = observedSnapshot.evidence_events.find((event) => (
+    event.techniqueId === observedTechniqueId &&
+    event.payload?.recognitionKind === "ordinary-play"
+  ));
+  expect(ordinaryObservation).toMatchObject({
+    activityId: null,
+    assistanceLevel: "none",
+    canonicalPuzzleId: savedPuzzle.canonicalId,
+    payload: {
+      source: "generated",
+      inferencePolicyVersion: 1,
+      observationPolicyVersion: 1
+    }
+  });
+  expect(ordinaryObservation.puzzleStateFingerprint).toMatch(/^state-v1-[0-9a-f]{8}$/);
+  expect(JSON.stringify(ordinaryObservation)).not.toMatch(/"grid"|"solution"|"candidate"|"notes"|"exactMove"/i);
   const beforeReload = await readSolveTranscriptDatabase(page);
   const activeRun = beforeReload.find((run) => !run.completedAt && run.source === "generated");
   expect(activeRun).toBeTruthy();
@@ -146,10 +173,15 @@ test("normal play records a resumable local transcript and pre-fills technique p
   const afterReload = await readSolveTranscriptDatabase(page);
   expect(afterReload.filter((run) => run.runId === activeRun.runId)).toHaveLength(1);
   expect(JSON.parse(await page.evaluate(() => localStorage.getItem("sudoku-pilot-state-v1"))).solveRunId).toBe(activeRun.runId);
+  const afterReloadCampaign = await readCampaignDatabase(page);
+  expect(afterReloadCampaign.evidence_events.filter((event) => (
+    event.techniqueId === observedTechniqueId &&
+    event.payload?.recognitionKind === "ordinary-play"
+  ))).toHaveLength(1);
 
   await page.goto(CAMPAIGN_URL);
   await openOptionalPlacement(page);
-  await expect(page.locator('input[value="learning"]:checked')).not.toHaveCount(0);
+  await expect(page.locator(`[data-campaign-placement-technique="${observedTechniqueId}"] input[value="learning"]`)).toBeChecked();
   await expect(page.getByText(/current technique estimates are pre-filled/i)).toBeVisible();
 });
 

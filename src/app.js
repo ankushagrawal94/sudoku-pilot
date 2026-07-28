@@ -12,9 +12,11 @@ import { createPracticeState, PRACTICE_MODES } from "./practice.js";
 import {
   CAMPAIGN_TECHNIQUE_GRAPH,
   createCampaignSession,
+  createObservationReplayToken,
   openCampaignStorage,
   techniqueIdForName,
-  techniqueNameForId
+  techniqueNameForId,
+  uniquelyAttributeFill
 } from "./campaign/index.js";
 import {
   clearInstallPromotionStatus,
@@ -1410,6 +1412,33 @@ function queueCampaignPlacementTechnique(techniqueName) {
     });
 }
 
+function queueCampaignObservedTechnique(techniqueName, puzzleBefore) {
+  const techniqueId = techniqueIdForName(techniqueName);
+  if (!techniqueId || !campaignRuntime.session) return;
+  if (campaignRuntime.model?.currentActivity?.diagnosticPlacement) {
+    queueCampaignPlacementTechnique(techniqueName);
+    return;
+  }
+  if (
+    state.puzzleSource !== "generated" ||
+    !state.puzzle.certifiedTechniques?.includes(techniqueName)
+  ) return;
+  const sourceId = state.puzzle.sourceId || state.puzzle.canonicalId;
+  if (!sourceId) return;
+  campaignRuntime.pendingEvidence = campaignRuntime.pendingEvidence
+    .catch(() => {})
+    .then(async () => {
+      campaignRuntime.model = await campaignRuntime.session.recordObservedTechnique({
+        techniqueId,
+        sourceId,
+        canonicalPuzzleId: state.puzzle.canonicalId || null,
+        replayIndex: createObservationReplayToken(puzzleBefore),
+        assistanceLevel: state.solveAssistanceLevel,
+        source: state.puzzleSource
+      });
+    });
+}
+
 function assistanceForStage(stage) {
   return ({
     2: "search-focus",
@@ -2733,7 +2762,7 @@ function enterDigit(digit) {
       assistanceLevel: state.solveAssistanceLevel
     });
     if (observedTechnique) {
-      queueCampaignPlacementTechnique(observedTechnique);
+      queueCampaignObservedTechnique(observedTechnique, transcriptBefore);
       if (state.puzzleSource !== "practice") {
         incrementTechniqueProgress(observedTechnique, {
           opportunities: 1,
@@ -2758,10 +2787,12 @@ function uniquelyRecognizedTechnique(index, digit) {
         ? state.puzzle.certifiedTechniques
         : COMMITTED_COACHING_TECHNIQUES);
   if (!allowedTechniques.length) return null;
-  const techniques = new Set(findAllMoves(state.puzzle, allowedTechniques)
-    .filter((move) => (move.fills || []).some((fill) => fill.index === index && fill.digit === digit))
-    .map((move) => move.technique));
-  return techniques.size === 1 ? [...techniques][0] : null;
+  return uniquelyAttributeFill({
+    moves: findAllMoves(state.puzzle, allowedTechniques),
+    allowedTechniqueNames: allowedTechniques,
+    index,
+    digit
+  });
 }
 
 function selectCell(index) {
