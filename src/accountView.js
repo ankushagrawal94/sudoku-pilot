@@ -152,7 +152,7 @@ function renderAuth(model) {
         </label>
       `}
       ${create ? `
-        <label class="account-consent"><input type="checkbox" required /> I accept the <a href="/privacy/" target="_blank">Privacy Policy</a> and usage terms.</label>
+        <label class="account-consent"><input type="checkbox" required /> I accept the <a href="/privacy" target="_blank">Privacy Policy</a> and usage terms.</label>
       ` : ""}
       ${model.error ? `<p class="account-error" role="alert">${escapeHtml(model.error)}</p>` : ""}
       ${model.notice ? `<p class="account-notice" role="status">${escapeHtml(model.notice)}</p>` : ""}

@@ -60,7 +60,7 @@ function renderPage(page) {
   const [imageWidth, imageHeight, imageDisplayWidth] = page.image ? imageDimensions[page.image] : [];
   const related = page.related.map((path) => {
     const match = pages.find((candidate) => candidate.path === path);
-    return `<li><a href="/${match.path}/">${match.title}</a></li>`;
+    return `<li><a href="/${match.path}">${match.title}</a></li>`;
   }).join("");
   const schema = JSON.stringify({
     "@context": "https://schema.org",
@@ -97,11 +97,11 @@ ${page.image ? `    <meta property="og:image" content="${siteUrl}${page.image}" 
     <header class="site-header">
       <a class="wordmark" href="/">sudoku pilot</a>
       <nav aria-label="Main navigation">
-        <a href="/sudoku-coach/">Coach</a>
-        <a href="/practice-sudoku-techniques/">Practice</a>
-        <a href="/sudoku-without-guessing/">Logic guarantee</a>
-        <a href="/sudoku-screenshot-import/">Screenshot import</a>
-        <a href="/about/">About</a>
+        <a href="/sudoku-coach">Coach</a>
+        <a href="/practice-sudoku-techniques">Practice</a>
+        <a href="/sudoku-without-guessing">Logic guarantee</a>
+        <a href="/sudoku-screenshot-import">Screenshot import</a>
+        <a href="/about">About</a>
       </nav>
       <a class="app-link" href="/">Open the app</a>
     </header>
@@ -130,9 +130,9 @@ ${page.image ? `        <figure style="--article-image-width: ${imageDisplayWidt
     </main>
     <footer>
       <span>Sudoku Pilot</span>
-      <a href="/about/">About</a>
-      <a href="/contact/">Contact</a>
-      <a href="/privacy/">Privacy</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+      <a href="/privacy">Privacy</a>
     </footer>
   </body>
 </html>`;
@@ -161,7 +161,7 @@ function renderAboutPage() {
           <div class="guide-grid">
             ${group.paths.map((path) => {
               const article = pages.find((page) => page.path === path);
-              return `<a class="guide-card" href="/${article.path}/">
+              return `<a class="guide-card" href="/${article.path}">
                 <span>${article.eyebrow}</span>
                 <h3>${article.title}</h3>
                 <p>${article.intro}</p>
@@ -189,11 +189,11 @@ function renderAboutPage() {
     <header class="site-header">
       <a class="wordmark" href="/">sudoku pilot</a>
       <nav aria-label="Main navigation">
-        <a href="/about/" aria-current="page">About</a>
-        <a href="/sudoku-coach/">Coach</a>
-        <a href="/practice-sudoku-techniques/">Practice</a>
-        <a href="/sudoku-without-guessing/">Logic guarantee</a>
-        <a href="/sudoku-screenshot-import/">Screenshot import</a>
+        <a href="/about" aria-current="page">About</a>
+        <a href="/sudoku-coach">Coach</a>
+        <a href="/practice-sudoku-techniques">Practice</a>
+        <a href="/sudoku-without-guessing">Logic guarantee</a>
+        <a href="/sudoku-screenshot-import">Screenshot import</a>
       </nav>
       <a class="app-link" href="/">Open the app</a>
     </header>
@@ -206,9 +206,9 @@ ${cards}
     </main>
     <footer>
       <span>Sudoku Pilot</span>
-      <a href="/about/" aria-current="page">About</a>
-      <a href="/contact/">Contact</a>
-      <a href="/privacy/">Privacy</a>
+      <a href="/about" aria-current="page">About</a>
+      <a href="/contact">Contact</a>
+      <a href="/privacy">Privacy</a>
     </footer>
   </body>
 </html>`;
@@ -236,10 +236,10 @@ function renderContactPage() {
     <header class="site-header">
       <a class="wordmark" href="/">sudoku pilot</a>
       <nav aria-label="Main navigation">
-        <a href="/sudoku-coach/">Coach</a>
-        <a href="/practice-sudoku-techniques/">Practice</a>
-        <a href="/offline-sudoku-app/">Offline app</a>
-        <a href="/about/">About</a>
+        <a href="/sudoku-coach">Coach</a>
+        <a href="/practice-sudoku-techniques">Practice</a>
+        <a href="/offline-sudoku-app">Offline app</a>
+        <a href="/about">About</a>
       </nav>
       <a class="app-link" href="/">Open the app</a>
     </header>
@@ -258,9 +258,9 @@ function renderContactPage() {
     </main>
     <footer>
       <span>Sudoku Pilot</span>
-      <a href="/about/">About</a>
-      <a href="/contact/" aria-current="page">Contact</a>
-      <a href="/privacy/">Privacy</a>
+      <a href="/about">About</a>
+      <a href="/contact" aria-current="page">Contact</a>
+      <a href="/privacy">Privacy</a>
     </footer>
   </body>
 </html>`;
@@ -288,10 +288,10 @@ function renderPrivacyPage() {
     <header class="site-header">
       <a class="wordmark" href="/">sudoku pilot</a>
       <nav aria-label="Main navigation">
-        <a href="/sudoku-coach/">Coach</a>
-        <a href="/practice-sudoku-techniques/">Practice</a>
-        <a href="/about/">About</a>
-        <a href="/privacy/" aria-current="page">Privacy</a>
+        <a href="/sudoku-coach">Coach</a>
+        <a href="/practice-sudoku-techniques">Practice</a>
+        <a href="/about">About</a>
+        <a href="/privacy" aria-current="page">Privacy</a>
       </nav>
       <a class="app-link" href="/">Open the app</a>
     </header>
@@ -334,9 +334,9 @@ function renderPrivacyPage() {
     </main>
     <footer>
       <span>Sudoku Pilot</span>
-      <a href="/about/">About</a>
-      <a href="/contact/">Contact</a>
-      <a href="/privacy/" aria-current="page">Privacy</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+      <a href="/privacy" aria-current="page">Privacy</a>
     </footer>
   </body>
 </html>`;

@@ -98,7 +98,7 @@ test("save offline links desktop browsers to the setup guide", async ({ page }) 
   await page.goto("/");
 
   await page.getByRole("button", { name: "Save offline", exact: true }).click();
-  await expect(page).toHaveURL(/\/offline-sudoku-app\/$/);
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/offline-sudoku-app");
 });
 
 test("renders starting digits black and player-entered digits blue", async ({ page }) => {
@@ -1081,8 +1081,8 @@ test("about page explains the app and exposes feedback", async ({ page }) => {
 
   await expect(page.getByTestId("about-panel")).toContainText("practice-first Sudoku trainer");
   await expect(page.getByRole("link", { name: "Email feedback", exact: true })).toHaveAttribute("href", /mailto:/);
-  await expect(page.getByTestId("about-panel").getByRole("link", { name: "Privacy", exact: true })).toHaveAttribute("href", "/privacy/");
-  await expect(page.getByTestId("about-panel").getByRole("link", { name: "Source code", exact: true })).toHaveAttribute("href", "/privacy/#source-code");
+  await expect(page.getByTestId("about-panel").getByRole("link", { name: "Privacy", exact: true })).toHaveAttribute("href", "/privacy");
+  await expect(page.getByTestId("about-panel").getByRole("link", { name: "Source code", exact: true })).toHaveAttribute("href", "/privacy#source-code");
   await expect(page.getByTestId("about-panel").getByRole("link", { name: "License", exact: true })).toHaveAttribute("href", "/licenses/PolyForm-Noncommercial-1.0.0.txt");
 });
 

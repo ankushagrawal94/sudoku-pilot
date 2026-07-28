@@ -250,7 +250,7 @@ function render() {
       <header class="app-header">
         <div class="brand-row">
           <h1>sudoku pilot</h1>
-          <a class="icon-button header-about-link" href="/about/">About</a>
+          <a class="icon-button header-about-link" href="/about">About</a>
         </div>
         <nav class="primary-nav" aria-label="Sudoku Pilot sections">
           ${[["play", "Play"], ["learn", "Learn"], ["practice", "Practice"], ["import", "Import"]].map(([view, label]) => `<button class="${state.view === view ? "active" : ""}" data-view="${view}" aria-current="${state.view === view ? "page" : "false"}">${label}</button>`).join("")}
@@ -379,7 +379,7 @@ function renderInstallPrompt() {
         ` : `
           ${renderIosInstallVisuals()}
           <div class="install-actions">
-            <a href="/offline-sudoku-app/">Full offline guide</a>
+            <a href="/offline-sudoku-app">Full offline guide</a>
             <button class="primary" data-action="dismiss-install-prompt">Got it</button>
           </div>
         `}
@@ -445,7 +445,7 @@ function saveOffline() {
     openInstallPrompt();
     return;
   }
-  window.location.assign("/offline-sudoku-app/");
+  window.location.assign("/offline-sudoku-app");
 }
 
 function dismissInstallPrompt() {
@@ -1873,16 +1873,16 @@ function renderInfoPanel() {
       <div class="offline-install-box">
         <img src="/icons/icon-192.png" alt="" />
         <div><strong>Play offline</strong><p>Add Sudoku Pilot to your Home Screen for full-screen play without a connection.</p></div>
-        ${installAvailable ? `<button data-action="open-install-prompt">How to install</button>` : `<a class="button-link" href="/offline-sudoku-app/">Setup guide</a>`}
+        ${installAvailable ? `<button data-action="open-install-prompt">How to install</button>` : `<a class="button-link" href="/offline-sudoku-app">Setup guide</a>`}
       </div>
       <div class="content-links" aria-label="Learn about Sudoku Pilot">
-        <a class="button-link" href="/sudoku-coach/">How the coach works</a>
-        <a class="button-link" href="/practice-sudoku-techniques/">Technique practice</a>
-        <a class="button-link" href="/sudoku-without-guessing/">Our puzzle guarantee</a>
-        <a class="button-link" href="/why-we-built-this/">Why we built this</a>
-        <a class="button-link" href="/offline-sudoku-app/">Offline setup guide</a>
-        <a class="button-link" href="/contact/">Contact</a>
-        <a class="button-link" href="/privacy/">Privacy</a>
+        <a class="button-link" href="/sudoku-coach">How the coach works</a>
+        <a class="button-link" href="/practice-sudoku-techniques">Technique practice</a>
+        <a class="button-link" href="/sudoku-without-guessing">Our puzzle guarantee</a>
+        <a class="button-link" href="/why-we-built-this">Why we built this</a>
+        <a class="button-link" href="/offline-sudoku-app">Offline setup guide</a>
+        <a class="button-link" href="/contact">Contact</a>
+        <a class="button-link" href="/privacy">Privacy</a>
       </div>
     </section>
   `;
@@ -1916,19 +1916,19 @@ function renderAboutPanel() {
         <article>
           <h3>Certified logical path</h3>
           <p>Every generated puzzle has one solution and a complete trace using the techniques available in the coach.</p>
-          <a href="/sudoku-without-guessing/">Read the puzzle guarantee</a>
+          <a href="/sudoku-without-guessing">Read the puzzle guarantee</a>
         </article>
       </div>
       <div class="feedback-box">
         <h3>Feedback</h3>
         <p>Send a bug report, confusing hint, or feature idea from the current puzzle state.</p>
         <a class="button-link primary" href="${feedbackHref()}">Email feedback</a>
-        <a class="button-link" href="/privacy/">Privacy</a>
+        <a class="button-link" href="/privacy">Privacy</a>
       </div>
       <div class="feedback-box">
         <h3>Source available</h3>
         <p>Sudoku Pilot is provided without warranty under the PolyForm Noncommercial License 1.0.0. Commercial use and use of the Sudoku Pilot brand are not licensed.</p>
-        <a class="button-link" href="/privacy/#source-code">Source code</a>
+        <a class="button-link" href="/privacy#source-code">Source code</a>
         <a class="button-link" href="/licenses/PolyForm-Noncommercial-1.0.0.txt">License</a>
         <a class="button-link" href="/third-party-notices.txt">Third-party notices</a>
       </div>
