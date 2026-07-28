@@ -1067,10 +1067,12 @@ test("hidden pair follows the standard four-stage disclosure contract", async ({
   await page.getByRole("button", { name: "Next clue", exact: true }).click();
   await expect(page.getByTestId("hint-panel")).toHaveAttribute("data-hint-stage", "3");
   await expect(page.locator("[data-visual-stage='3']")).toBeVisible();
+  await expect(page.getByTestId("hint-stage-message")).toContainText(/track each chosen digit separately/i);
+  await expect(page.locator("[data-visual-stage='3'] [data-visual-role='evidence']")).not.toHaveCount(0);
   await page.getByRole("button", { name: "Next clue", exact: true }).click();
   await expect(page.getByTestId("hint-panel")).toHaveAttribute("data-hint-stage", "4");
   await expect(page.locator("[data-visual-role='evidence']")).not.toHaveCount(0);
-  await expect(page.getByText("Why this works", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("hint-why")).toContainText(/two digits need two different homes/i);
 });
 
 test("about page explains the app and exposes feedback", async ({ page }) => {

@@ -854,6 +854,15 @@ button:hover,
   padding-top: 10px;
 }
 
+.why-summary {
+  background: #f2f7ff;
+  border-left: 3px solid #6b8db7;
+  border-radius: 0 8px 8px 0;
+  color: #334155;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+}
+
 .why-disclosure summary {
   color: var(--accent-strong);
   cursor: pointer;
@@ -1011,6 +1020,11 @@ button:hover,
   background: #effcf3;
   border: 2px solid #18743c;
   border-radius: 50%;
+}
+
+.hint-legend .legend-pattern {
+  border-top: 2px dotted #255f9e;
+  height: 6px;
 }
 
 .hint-legend .legend-strong {

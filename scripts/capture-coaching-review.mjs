@@ -91,7 +91,10 @@ async function installFixture(page, fixture) {
     window.localStorage.setItem("sudoku-pilot-state-v1", JSON.stringify({
       puzzle: storedPuzzle,
       difficulty: "extreme",
-      allowedTechniques: [technique]
+      techniqueDefaultsVersion: 2,
+      allowedTechniques: [technique],
+      selected: null,
+      numberMode: "value"
     }));
   }, { storedPuzzle: puzzle, technique: fixture.technique });
 }
