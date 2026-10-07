@@ -1,7 +1,7 @@
 import "./styles.css";
-import { inject } from "@vercel/analytics";
 import { createPuzzleJourney } from "./analytics.js";
 import { createBrowserProductAnalytics } from "./browserAnalytics.js";
+import { initializeVercelAnalytics } from "./vercelAnalytics.js";
 import { createAccountController, getAccountDeviceId } from "./accountSync.js";
 import { bindAccountViewEvents, renderAccountDialog, renderAccountPanel } from "./accountView.js";
 import { DIFFICULTY_ORDER } from "./difficulty.js";
@@ -55,7 +55,7 @@ import {
 
 const app = document.querySelector("#app");
 const productAnalytics = createBrowserProductAnalytics();
-inject();
+initializeVercelAnalytics();
 productAnalytics.init();
 const STORAGE_KEY = "sudoku-pilot-state-v1";
 const LEGACY_STORAGE_KEY = "sudoku-method-state-v1";

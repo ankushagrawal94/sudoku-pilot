@@ -2,6 +2,80 @@ function postHogUiHost(apiHost) {
   return apiHost.includes("eu.i.posthog.com") ? "https://eu.posthog.com" : "https://us.posthog.com";
 }
 
+const BLOCKED_QUERY_PROPERTIES = new Set([
+  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+  "gad_source", "mc_cid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid",
+  "fbclid", "msclkid", "twclid", "li_fat_id", "igshid", "ttclid", "rdt_cid",
+  "epik", "qclid", "sccid", "irclid", "_kx", "ph_keyword"
+]);
+
+function safePageUrl(value) {
+  if (typeof value !== "string" || !value) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
+    return `${url.protocol}//${url.hostname}${url.pathname}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function safeHostname(value) {
+  if (value === "$direct") return value;
+  if (typeof value !== "string" || !value) return undefined;
+  try {
+    const url = new URL(value.includes("://") ? value : `https://${value}`);
+    return url.hostname || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function sanitizeAnalyticsEvent(event) {
+  if (!event?.properties) return event;
+  const properties = sanitizeUrlProperties(event.properties);
+  return { ...event, properties };
+}
+
+function sanitizeUrlProperties(source) {
+  const properties = { ...source };
+  const currentUrl = safePageUrl(properties.$current_url);
+  const initialUrl = safePageUrl(properties.$initial_current_url);
+  const sessionEntryUrl = safePageUrl(properties.$session_entry_url);
+
+  if (currentUrl) properties.$current_url = currentUrl;
+  else delete properties.$current_url;
+  if (initialUrl) properties.$initial_current_url = initialUrl;
+  else delete properties.$initial_current_url;
+  if (sessionEntryUrl) properties.$session_entry_url = sessionEntryUrl;
+  else delete properties.$session_entry_url;
+
+  delete properties.$referrer;
+  delete properties.$initial_referrer;
+  delete properties.$session_entry_referrer;
+  delete properties.$raw_user_agent;
+  for (const name of BLOCKED_QUERY_PROPERTIES) {
+    delete properties[name];
+    delete properties[`$initial_${name}`];
+    delete properties[`$session_entry_${name}`];
+  }
+
+  for (const name of ["$referring_domain", "$initial_referring_domain", "$session_entry_referring_domain"]) {
+    const hostname = safeHostname(properties[name]);
+    if (hostname) properties[name] = hostname;
+    else delete properties[name];
+  }
+
+  if (properties.$set && typeof properties.$set === "object") {
+    properties.$set = sanitizeUrlProperties(properties.$set);
+  }
+  if (properties.$set_once && typeof properties.$set_once === "object") {
+    properties.$set_once = sanitizeUrlProperties(properties.$set_once);
+  }
+
+  return properties;
+}
+
 export function createProductAnalytics({ client, key, host }) {
   let enabled = false;
 
@@ -12,28 +86,27 @@ export function createProductAnalytics({ client, key, host }) {
         client.init(key, {
           api_host: host,
           ui_host: postHogUiHost(host),
-          autocapture: true,
+          autocapture: false,
           capture_pageview: true,
           capture_pageleave: true,
+          before_send: sanitizeAnalyticsEvent,
+          disable_compression: true,
           persistence: "localStorage",
-          person_profiles: "identified_only",
-          disable_session_recording: false,
+          person_profiles: "never",
+          disable_session_recording: true,
           disable_external_dependency_loading: true,
-          advanced_disable_flags: false,
-          advanced_disable_feature_flags: false,
-          capture_heatmaps: true,
-          enable_heatmaps: true,
-          capture_performance: true,
-          capture_dead_clicks: true,
-          capture_exceptions: true,
-          disable_surveys: false,
-          enable_recording_console_log: true,
-          mask_all_text: false,
-          mask_all_element_attributes: false,
-          session_recording: {
-            blockSelector: ".analytics-image-block",
-            maskAllInputs: false
-          },
+          advanced_disable_flags: true,
+          advanced_disable_feature_flags: true,
+          capture_heatmaps: false,
+          enable_heatmaps: false,
+          capture_performance: false,
+          capture_dead_clicks: false,
+          capture_exceptions: false,
+          disable_surveys: true,
+          enable_recording_console_log: false,
+          mask_all_text: true,
+          mask_all_element_attributes: true,
+          mask_personal_data_properties: true,
           loaded: () => {}
         });
         enabled = true;
@@ -70,12 +143,14 @@ export function createPuzzleJourney(capture) {
   let startCaptured = false;
   let firstMoveCaptured = false;
   let meaningfulPlayCaptured = false;
+  let completionCaptured = false;
 
   function reset(nextContext, existingMoves = 0, hasExistingProgress = existingMoves > 0) {
     context = { ...nextContext };
     startCaptured = hasExistingProgress;
     firstMoveCaptured = existingMoves > 0;
     meaningfulPlayCaptured = existingMoves >= 5;
+    completionCaptured = false;
   }
 
   function ensureStarted() {
@@ -116,6 +191,8 @@ export function createPuzzleJourney(capture) {
     },
 
     complete(properties = {}) {
+      if (completionCaptured) return;
+      completionCaptured = true;
       ensureStarted();
       capture("puzzle_completed", { ...context, ...properties });
     }

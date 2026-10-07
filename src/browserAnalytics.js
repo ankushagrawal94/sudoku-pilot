@@ -1,9 +1,12 @@
 import { createProductAnalytics } from "./analytics.js";
 
 export function createBrowserProductAnalytics(options = {}) {
-  const env = import.meta.env || {};
+  const env = options.env ?? import.meta.env ?? {};
   const testClient = options.client ?? globalThis.window?.__SUDOKU_ANALYTICS_CLIENT__;
-  const key = options.key ?? env.VITE_POSTHOG_KEY ?? (testClient ? "browser-test-key" : "");
+  const hostname = options.hostname ?? globalThis.window?.location?.hostname ?? "";
+  const productionSite = hostname === "sudokupilot.com" || hostname === "www.sudokupilot.com";
+  const configuredKey = options.key ?? env.VITE_POSTHOG_KEY ?? (testClient ? "browser-test-key" : "");
+  const key = options.key !== undefined || testClient || productionSite ? configuredKey : "";
   const host = options.host ?? env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com";
   const loadClient = options.loadClient ?? (() => import("posthog-js/dist/module.full.no-external.js"));
   const pending = [];
