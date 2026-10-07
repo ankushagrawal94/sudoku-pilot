@@ -30,7 +30,8 @@ export function isSafeAnalyticsReferrer(value) {
   if (!value) return true;
   try {
     const url = new URL(value);
-    return (url.protocol === "https:" || url.protocol === "http:")
+    return url.protocol === "https:"
+      && !url.port
       && !url.username
       && !url.password
       && !url.search

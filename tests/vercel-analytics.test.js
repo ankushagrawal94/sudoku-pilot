@@ -9,6 +9,8 @@ import {
 
 assert.equal(isSafeAnalyticsReferrer(""), true);
 assert.equal(isSafeAnalyticsReferrer("https://newsletter.example/"), true);
+assert.equal(isSafeAnalyticsReferrer("http://newsletter.example/"), false);
+assert.equal(isSafeAnalyticsReferrer("https://newsletter.example:8443/"), false);
 assert.equal(isSafeAnalyticsReferrer("https://newsletter.example/private"), false);
 assert.equal(isSafeAnalyticsReferrer("https://newsletter.example/?token=private"), false);
 
