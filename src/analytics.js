@@ -54,7 +54,11 @@ function sanitizeUrlProperties(source) {
   delete properties.$initial_referrer;
   delete properties.$session_entry_referrer;
   delete properties.$raw_user_agent;
-  for (const name of BLOCKED_QUERY_PROPERTIES) delete properties[name];
+  for (const name of BLOCKED_QUERY_PROPERTIES) {
+    delete properties[name];
+    delete properties[`$initial_${name}`];
+    delete properties[`$session_entry_${name}`];
+  }
 
   for (const name of ["$referring_domain", "$initial_referring_domain", "$session_entry_referring_domain"]) {
     const hostname = safeHostname(properties[name]);
@@ -86,6 +90,7 @@ export function createProductAnalytics({ client, key, host }) {
           capture_pageview: true,
           capture_pageleave: true,
           before_send: sanitizeAnalyticsEvent,
+          disable_compression: true,
           persistence: "localStorage",
           person_profiles: "never",
           disable_session_recording: true,
@@ -94,7 +99,7 @@ export function createProductAnalytics({ client, key, host }) {
           advanced_disable_feature_flags: true,
           capture_heatmaps: false,
           enable_heatmaps: false,
-          capture_performance: true,
+          capture_performance: false,
           capture_dead_clicks: false,
           capture_exceptions: false,
           disable_surveys: true,
