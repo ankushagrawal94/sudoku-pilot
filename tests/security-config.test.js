@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 
-const [vercelConfig, appSource, accountClientSource, accountSyncSource, accountDeleteRoute, accountDeletionServer, browserAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient, sudokuOcrRoute] = await Promise.all([
+const [vercelConfig, appSource, accountClientSource, accountSyncSource, accountDeleteRoute, accountDeletionServer, browserAnalyticsSource, vercelAnalyticsSource, envExample, gitignore, readme, sudokuOcrClient, sudokuOcrRoute] = await Promise.all([
   readFile(new URL("../vercel.json", import.meta.url), "utf8"),
   readFile(new URL("../src/app.js", import.meta.url), "utf8"),
   readFile(new URL("../src/accountClient.js", import.meta.url), "utf8"),
@@ -9,6 +9,7 @@ const [vercelConfig, appSource, accountClientSource, accountSyncSource, accountD
   readFile(new URL("../api/account-delete.js", import.meta.url), "utf8"),
   readFile(new URL("../server/account-deletion.js", import.meta.url), "utf8"),
   readFile(new URL("../src/browserAnalytics.js", import.meta.url), "utf8"),
+  readFile(new URL("../src/vercelAnalytics.js", import.meta.url), "utf8"),
   readFile(new URL("../.env.example", import.meta.url), "utf8"),
   readFile(new URL("../.gitignore", import.meta.url), "utf8"),
   readFile(new URL("../README.md", import.meta.url), "utf8"),
@@ -30,7 +31,7 @@ assert.match(headers["content-security-policy"] || "", /https:\/\/ep-wandering-d
 assert.match(headers["content-security-policy"] || "", /frame-ancestors 'none'/);
 assert.equal(headers["x-frame-options"], "DENY");
 assert.equal(headers["x-content-type-options"], "nosniff");
-assert.equal(headers["referrer-policy"], "strict-origin-when-cross-origin");
+assert.equal(headers["referrer-policy"], "strict-origin");
 assert.match(headers["permissions-policy"] || "", /camera=\(\)/);
 assert.match(headers["permissions-policy"] || "", /microphone=\(\)/);
 assert.equal(vercel.functions?.["api/sudoku-ocr.js"]?.maxDuration, 30, "OCR must have an explicit function duration above its provider timeout.");
@@ -84,9 +85,10 @@ assert.doesNotMatch(accountDeleteRoute, /error:\s*error(?:\?\.message|\.message)
 assert.doesNotMatch(accountSyncSource, /capture\([^\n]*(email:|user_id:|userId:|token:)/i, "Account analytics must not include identifiers or tokens.");
 assert.match(accountSyncSource, /account_export_completed/);
 assert.match(accountSyncSource, /account_deleted/);
-assert.match(browserAnalyticsSource, /posthog-js\/dist\/module\.full\.no-external\.js/, "The bundled full SDK must include replay, surveys, and other optional product modules.");
-assert.doesNotMatch(appSource, /board-frame analytics-block/, "Session replay should include puzzle interactions.");
-assert.match(appSource, /import-panel analytics-image-block/, "Session replay must continue excluding the imported image itself.");
+assert.match(browserAnalyticsSource, /posthog-js\/dist\/module\.full\.no-external\.js/, "The bundled SDK must avoid loading runtime dependencies.");
+assert.match(appSource, /initializeVercelAnalytics\(\)/, "Vercel Analytics must pass through the privacy-gated initializer.");
+assert.match(vercelAnalyticsSource, /beforeSend/, "Vercel events must be sanitized before delivery.");
+assert.match(vercelAnalyticsSource, /__va_attribution/, "Stored Vercel identity attribution must be cleared before initialization.");
 assert.doesNotMatch(packageConfig.scripts.test, /sudoku-ocr-live/, "The quota-consuming live OCR check must not run in the default test suite.");
 assert.doesNotMatch(sudokuOcrClient, /VITE_RAPIDAPI_KEY/, "The RapidAPI key must remain server-only.");
 assert.match(sudokuOcrClient, /event: "sudoku_ocr_provider_call"/, "Every provider call must emit a countable usage event.");
