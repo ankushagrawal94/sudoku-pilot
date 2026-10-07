@@ -2,6 +2,13 @@ function postHogUiHost(apiHost) {
   return apiHost.includes("eu.i.posthog.com") ? "https://eu.posthog.com" : "https://us.posthog.com";
 }
 
+const BLOCKED_QUERY_PROPERTIES = new Set([
+  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+  "gad_source", "mc_cid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid",
+  "fbclid", "msclkid", "twclid", "li_fat_id", "igshid", "ttclid", "rdt_cid",
+  "epik", "qclid", "sccid", "irclid", "_kx", "ph_keyword"
+]);
+
 function safePageUrl(value) {
   if (typeof value !== "string" || !value) return undefined;
   try {
@@ -47,6 +54,7 @@ function sanitizeUrlProperties(source) {
   delete properties.$initial_referrer;
   delete properties.$session_entry_referrer;
   delete properties.$raw_user_agent;
+  for (const name of BLOCKED_QUERY_PROPERTIES) delete properties[name];
 
   for (const name of ["$referring_domain", "$initial_referring_domain", "$session_entry_referring_domain"]) {
     const hostname = safeHostname(properties[name]);
@@ -82,8 +90,8 @@ export function createProductAnalytics({ client, key, host }) {
           person_profiles: "never",
           disable_session_recording: true,
           disable_external_dependency_loading: true,
-          advanced_disable_flags: false,
-          advanced_disable_feature_flags: false,
+          advanced_disable_flags: true,
+          advanced_disable_feature_flags: true,
           capture_heatmaps: false,
           enable_heatmaps: false,
           capture_performance: true,

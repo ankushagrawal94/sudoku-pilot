@@ -46,8 +46,8 @@ import { createBrowserProductAnalytics } from "../src/browserAnalytics.js";
     person_profiles: "never",
     disable_session_recording: true,
     disable_external_dependency_loading: true,
-    advanced_disable_flags: false,
-    advanced_disable_feature_flags: false,
+    advanced_disable_flags: true,
+    advanced_disable_feature_flags: true,
     capture_heatmaps: false,
     enable_heatmaps: false,
     capture_performance: true,
@@ -87,9 +87,13 @@ import { createBrowserProductAnalytics } from "../src/browserAnalytics.js";
       $referring_domain: "private.example:443",
       $session_entry_referring_domain: "https://campaign.example/private/path",
       $raw_user_agent: "identifying-agent-string",
+      utm_source: "private-source",
+      gclid: "private-click-id",
+      ph_keyword: "private search",
       $set_once: {
         $initial_current_url: "https://sudokupilot.com/?invite=private",
-        $initial_referrer: "https://private.example/invite/secret"
+        $initial_referrer: "https://private.example/invite/secret",
+        utm_campaign: "private-campaign"
       },
       difficulty: "hard"
     }
