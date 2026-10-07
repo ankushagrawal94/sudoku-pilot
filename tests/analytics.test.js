@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createProductAnalytics, createPuzzleJourney } from "../src/analytics.js";
+import { createProductAnalytics, createPuzzleJourney, sanitizeAnalyticsEvent } from "../src/analytics.js";
 import { createBrowserProductAnalytics } from "../src/browserAnalytics.js";
 
 {
@@ -38,28 +38,26 @@ import { createBrowserProductAnalytics } from "../src/browserAnalytics.js";
   assert.deepEqual(calls[0], ["init", "test-key", {
     api_host: "https://us.i.posthog.com",
     ui_host: "https://us.posthog.com",
-    autocapture: true,
+    autocapture: false,
     capture_pageview: true,
     capture_pageleave: true,
+    before_send: sanitizeAnalyticsEvent,
     persistence: "localStorage",
-    person_profiles: "identified_only",
-    disable_session_recording: false,
+    person_profiles: "never",
+    disable_session_recording: true,
     disable_external_dependency_loading: true,
     advanced_disable_flags: false,
     advanced_disable_feature_flags: false,
-    capture_heatmaps: true,
-    enable_heatmaps: true,
+    capture_heatmaps: false,
+    enable_heatmaps: false,
     capture_performance: true,
-    capture_dead_clicks: true,
-    capture_exceptions: true,
-    disable_surveys: false,
-    enable_recording_console_log: true,
-    mask_all_text: false,
-    mask_all_element_attributes: false,
-    session_recording: {
-      blockSelector: ".analytics-image-block",
-      maskAllInputs: false
-    },
+    capture_dead_clicks: false,
+    capture_exceptions: false,
+    disable_surveys: true,
+    enable_recording_console_log: false,
+    mask_all_text: true,
+    mask_all_element_attributes: true,
+    mask_personal_data_properties: true,
     loaded: calls[0]?.[2]?.loaded
   }]);
 
@@ -72,6 +70,58 @@ import { createBrowserProductAnalytics } from "../src/browserAnalytics.js";
     ["capture", "puzzle_started", { difficulty: "hard" }]
   ]);
   assert.deepEqual(calls.at(-1), ["reset"]);
+}
+
+{
+  const event = sanitizeAnalyticsEvent({
+    event: "$pageview",
+    properties: {
+      $current_url: "https://sudokupilot.com/?view=play#private-state",
+      $initial_current_url: "https://sudokupilot.com/privacy?token=secret",
+      $pathname: "/",
+      $host: "sudokupilot.com",
+      $referrer: "https://private.example/document/123?email=person@example.com",
+      $initial_referrer: "https://private.example/another-secret",
+      $session_entry_url: "https://sudokupilot.com/?campaign=private#state",
+      $session_entry_referrer: "https://private.example/document/123",
+      $referring_domain: "private.example:443",
+      $session_entry_referring_domain: "https://campaign.example/private/path",
+      $raw_user_agent: "identifying-agent-string",
+      $set_once: {
+        $initial_current_url: "https://sudokupilot.com/?invite=private",
+        $initial_referrer: "https://private.example/invite/secret"
+      },
+      difficulty: "hard"
+    }
+  });
+
+  assert.deepEqual(event, {
+    event: "$pageview",
+    properties: {
+      $current_url: "https://sudokupilot.com/",
+      $initial_current_url: "https://sudokupilot.com/privacy",
+      $pathname: "/",
+      $host: "sudokupilot.com",
+      $referring_domain: "private.example",
+      $session_entry_url: "https://sudokupilot.com/",
+      $session_entry_referring_domain: "campaign.example",
+      $set_once: {
+        $initial_current_url: "https://sudokupilot.com/"
+      },
+      difficulty: "hard"
+    }
+  });
+  assert.equal(sanitizeAnalyticsEvent({ event: "x", properties: { $current_url: "not a URL" } }).properties.$current_url, undefined);
+  assert.equal(sanitizeAnalyticsEvent(null), null);
+}
+
+{
+  const analytics = createBrowserProductAnalytics({
+    hostname: "localhost",
+    env: { VITE_POSTHOG_KEY: "production-key" },
+    loadClient: () => { throw new Error("local analytics client must not load"); }
+  });
+  assert.equal(analytics.init(), false, "local development must not use a build-time production key");
 }
 
 {
@@ -170,6 +220,7 @@ import { createBrowserProductAnalytics } from "../src/browserAnalytics.js";
   journey.recordMove(6);
   journey.recordHint({ technique: "Naked Single", stage: 1 });
   journey.complete({ active_seconds: 120, hints_used: 1, moves: 6 });
+  journey.complete({ active_seconds: 121, hints_used: 1, moves: 6 });
 
   assert.deepEqual(events, [
     ["puzzle_started", { difficulty: "hard", source: "generated" }],
